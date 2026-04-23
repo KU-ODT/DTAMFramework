@@ -1,0 +1,2412 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>KADA AAM Traffic Sim</title>
+    <script>
+      (function () {
+        try {
+          var params = new URLSearchParams(window.location.search);
+          var panel = String(params.get("panel") || "").toLowerCase();
+          if (!panel) {
+            return;
+          }
+          var root = document.documentElement;
+          root.classList.add("panel-popout");
+          if (panel === "noise") {
+            root.classList.add("panel-popout-noise");
+          } else if (panel === "transmission") {
+            root.classList.add("panel-popout-transmission");
+          }
+        } catch (err) {
+          return;
+        }
+      })();
+    </script>
+    <link rel="stylesheet" href="vendor/maplibre-gl.css" />
+    <link rel="stylesheet" href="styles.css?v=20260212g" />
+  </head>
+  <body>
+    <div id="app">
+      <div id="map"></div>
+      <div id="start-screen" class="start-screen" aria-hidden="false">
+        <div class="start-screen-brand">
+          <div class="start-screen-title">KADA AAM Traffic Sim</div>
+          <div class="start-screen-version">v0.9.5</div>
+        </div>
+        <div class="start-screen-lang" role="group" aria-label="Language">
+          <button type="button" class="start-screen-lang-btn" data-lang="en">Eng</button>
+          <button type="button" class="start-screen-lang-btn" data-lang="ko">Kor</button>
+        </div>
+        <button
+          id="start-screen-trigger"
+          type="button"
+          class="start-screen-prompt"
+          aria-label="Start"
+        >
+          Click to start
+        </button>
+        <div
+          id="start-screen-notes"
+          class="start-screen-notes"
+        >
+          <div class="start-screen-notes-title">Release Notes</div>
+          <div id="start-screen-notes-body" class="start-screen-notes-body">
+            Loading release notes...
+          </div>
+        </div>
+        <div class="start-screen-footnote">KADA 2025. All rights reserved.</div>
+      </div>
+      <div
+        id="loading-screen"
+        class="loading-screen"
+        aria-live="polite"
+        aria-busy="true"
+      >
+        <div class="loading-card">
+          <div class="loading-spinner" aria-hidden="true"></div>
+          <div class="loading-title">Map is loading</div>
+          <div class="loading-subtitle">Preparing tiles and routes...</div>
+        </div>
+      </div>
+      <div
+        id="tutorial-overlay"
+        class="tutorial-overlay is-hidden"
+        aria-hidden="true"
+        inert
+      >
+        <div class="tutorial-callouts" aria-hidden="true">
+          <div
+            class="tutorial-callout"
+            data-target="#left-controls [data-action='settings']"
+            data-align="right"
+          >
+            Simulation Rules
+          </div>
+          <div
+            class="tutorial-callout"
+            data-target="#left-controls [data-action='autopilot']"
+            data-align="right"
+          >
+            Autopilot
+          </div>
+          <div
+            class="tutorial-callout"
+            data-target="#left-controls [data-action='corridor']"
+            data-align="right"
+          >
+            Route Custom
+          </div>
+          <div
+            class="tutorial-callout"
+            data-target="#left-controls [data-action='scenario']"
+            data-align="right"
+          >
+            Scenario
+          </div>
+          <div
+            class="tutorial-callout"
+            data-target="#playback-toggle"
+            data-align="top"
+          >
+            Playback
+          </div>
+          <div
+            class="tutorial-callout"
+            data-target="#sound-toggle"
+            data-align="top"
+          >
+            Sound
+          </div>
+          <div
+            class="tutorial-callout"
+            data-target="#dashboard-toggle"
+            data-align="left"
+          >
+            Traffic Status
+          </div>
+          <div
+            class="tutorial-callout"
+            data-target="#sim-time"
+            data-align="bottom"
+          >
+            Simulation Time
+          </div>
+          <div
+            class="tutorial-callout"
+            data-target="#theme-toggle"
+            data-align="left"
+          >
+            Map theme
+          </div>
+          <div
+            class="tutorial-callout"
+            data-target=".theme-3d-btn"
+            data-align="left"
+          >
+            3D
+          </div>
+          <div
+            class="tutorial-callout"
+            data-target="#theme-base"
+            data-align="left"
+          >
+            Layer
+          </div>
+          <div
+            class="tutorial-callout"
+            data-target="[data-action='layer-weather']"
+            data-align="left"
+          >
+            Weather
+          </div>
+        </div>
+        <div
+          id="tutorial-guide-panel"
+          class="tutorial-panel tutorial-panel-compact"
+          role="dialog"
+          aria-label="Quick Guide"
+        >
+          <div class="tutorial-header">
+            <div class="tutorial-title">Quick Guide</div>
+            <div class="tutorial-actions">
+              <button id="tutorial-open" type="button" class="tutorial-close tutorial-open">
+                Tutorial
+              </button>
+              <button id="tutorial-close" type="button" class="tutorial-close">
+                Close
+              </button>
+            </div>
+          </div>
+          <div class="tutorial-list">
+            <div class="tutorial-item">
+              <div class="tutorial-label">Right-click Aircraft</div>
+              <div class="tutorial-desc">Speed, hold, emergency, force move.</div>
+            </div>
+            <div class="tutorial-item">
+              <div class="tutorial-label">Mouse wheel</div>
+              <div class="tutorial-desc">Zoom in / out.</div>
+            </div>
+            <div class="tutorial-item">
+              <div class="tutorial-label">Right-click + drag</div>
+              <div class="tutorial-desc">Rotate / tilt the map (3D).</div>
+            </div>
+          </div>
+        </div>
+        <div
+          id="tutorial-step-panel"
+          class="tutorial-step-panel is-hidden"
+          role="dialog"
+          aria-label="Tutorial"
+        >
+          <div id="tutorial-step-arrow" class="tutorial-step-arrow" aria-hidden="true"></div>
+          <div id="tutorial-step-title" class="tutorial-step-title">Step 1/8</div>
+          <div id="tutorial-step-label" class="tutorial-step-label">Simulation Rules</div>
+          <div id="tutorial-step-desc" class="tutorial-step-desc"></div>
+          <div class="tutorial-step-actions">
+            <button
+              id="tutorial-step-confirm"
+              type="button"
+              class="tutorial-close tutorial-step-confirm"
+            >
+              Confirm
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="sim-time-group">
+        <div id="sim-time" class="sim-time">06:30:00</div>
+        <button
+          type="button"
+          class="sim-time-settings-btn"
+          aria-label="Settings"
+          title="Settings"
+        ></button>
+      </div>
+      <div
+        id="sim-settings-panel"
+        class="panel-window panel-window-sim-settings"
+        aria-hidden="true"
+      >
+        <div class="panel-header">
+          <span class="panel-title">Settings</span>
+          <button
+            type="button"
+            class="panel-close"
+            data-action="close-sim-settings"
+          >
+            X
+          </button>
+        </div>
+        <div class="panel-body settings-body sim-settings-body">
+          <div class="settings-section settings-log-section">
+            <div class="settings-title">Log Export</div>
+            <div class="settings-hint">
+              Download the current log session as a zip file. The archive includes
+              events and track logs plus a README guide.
+            </div>
+            <button
+              type="button"
+              class="panel-action-btn settings-log-btn"
+              data-action="sim-settings-download-logs"
+            >
+              Download Logs (ZIP)
+            </button>
+          </div>
+        </div>
+      </div>
+      <div id="weather-legend" class="weather-legend" aria-hidden="true">
+        <div class="weather-legend-title">Wind (m/s)</div>
+        <div class="weather-legend-bar">
+          <div class="weather-legend-gradient"></div>
+          <div class="weather-legend-ticks">
+            <span>0</span>
+            <span>5</span>
+            <span>10</span>
+            <span>15</span>
+          </div>
+        </div>
+      </div>
+      <div id="sim-stats" class="sim-stats">
+        <div class="sim-stats-title">
+          Total flights <span id="sim-total-count">0</span>
+        </div>
+        <div class="sim-stats-row">
+          <span class="sim-stats-label">In flight</span>
+          <span id="sim-active-count" class="sim-stats-value">0</span>
+        </div>
+        <div class="sim-stats-row">
+          <span class="sim-stats-label">Completed</span>
+          <span id="sim-done-count" class="sim-stats-value">0</span>
+        </div>
+      </div>
+      <div
+        id="status-log"
+        class="status-log"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <div class="status-log-list"></div>
+      </div>
+
+      <div id="left-controls" class="panel panel-left">
+        <button
+          type="button"
+          class="ui-btn ui-btn-icon"
+          data-action="settings"
+          title="Simulation rules"
+        >
+          <img src="resources/simulation_sign.png" alt="Simulation" />
+        </button>
+        <button
+          type="button"
+          class="ui-btn ui-btn-icon ui-btn-icon-sm"
+          data-action="autopilot"
+          title="Autopilot"
+        >
+          <img src="resources/Autopilot.png" alt="Autopilot" />
+        </button>
+        <button
+          type="button"
+          class="ui-btn ui-btn-icon ui-btn-icon-sm"
+          data-action="corridor"
+          title="Corridor"
+        >
+          <img src="resources/path_sign.png" alt="Corridor" />
+        </button>
+        <button
+          type="button"
+          class="ui-btn ui-btn-icon ui-btn-icon-sm"
+          data-action="scenario"
+          title="Scenario"
+        >
+          <img src="resources/scenario.png" alt="Scenario" />
+        </button>
+      </div>
+
+      <div id="bottom-controls" class="panel panel-bottom-left">
+        <button
+          id="playback-toggle"
+          type="button"
+          class="ui-btn ui-btn-icon"
+          data-action="playback"
+          title="Playback"
+        >
+          <img src="resources/plan_sign.png" alt="Playback" />
+        </button>
+        <button
+          id="sound-toggle"
+          type="button"
+          class="ui-btn ui-btn-icon"
+          data-action="sound"
+          title="Sound"
+          aria-pressed="false"
+        >
+          <svg class="sound-toggle-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 9v6h4l5 4V5L7 9H3z" fill="currentColor"></path>
+            <path
+              class="sound-waves"
+              d="M14 9.5a4 4 0 010 5"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            ></path>
+            <path
+              class="sound-waves"
+              d="M16.5 7a7 7 0 010 10"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            ></path>
+            <line
+              class="sound-muted-line"
+              x1="4"
+              y1="4"
+              x2="20"
+              y2="20"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            ></line>
+          </svg>
+        </button>
+        <div id="playback-panel" class="playback-panel" aria-hidden="true">
+          <button
+            type="button"
+            class="playback-btn playback-btn-play"
+            title="Play"
+          ></button>
+          <div class="playback-speed-group">
+            <button
+              type="button"
+              class="playback-btn playback-btn-fast"
+              title="Speed"
+              aria-haspopup="true"
+              aria-expanded="false"
+              aria-controls="playback-speed-menu"
+            ></button>
+            <div
+              id="playback-speed-menu"
+              class="playback-speed-menu"
+              role="menu"
+              aria-hidden="true"
+            >
+              <button type="button" class="playback-speed-option" data-speed="1" role="menuitem">
+                x1
+              </button>
+              <button type="button" class="playback-speed-option" data-speed="2" role="menuitem">
+                x2
+              </button>
+              <button type="button" class="playback-speed-option" data-speed="5" role="menuitem">
+                x5
+              </button>
+              <button type="button" class="playback-speed-option" data-speed="10" role="menuitem">
+                x10
+              </button>
+              <button type="button" class="playback-speed-option" data-speed="20" role="menuitem">
+                x20
+              </button>
+              <button type="button" class="playback-speed-option" data-speed="30" role="menuitem">
+                x30
+              </button>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="playback-btn playback-btn-pause"
+            title="Pause"
+          ></button>
+          <button
+            type="button"
+            class="playback-btn playback-btn-stop"
+            title="Stop"
+          ></button>
+          <button
+            type="button"
+            class="playback-btn playback-btn-reset"
+            title="Reset"
+          ></button>
+        </div>
+      </div>
+
+      <button
+        id="dashboard-toggle"
+        class="dashboard-toggle"
+        type="button"
+        aria-expanded="false"
+        title="Show table"
+      >
+        &lt;
+      </button>
+
+      <div id="dashboard-panel" class="dashboard-panel" aria-hidden="true">
+        <div class="dashboard-header">
+          <span class="dashboard-title">Traffic Status</span>
+        </div>
+        <div class="dashboard-tabs" role="tablist">
+          <button
+            type="button"
+            class="dashboard-tab is-active"
+            data-tab="management"
+            role="tab"
+            aria-selected="true"
+          >
+            Traffic Management
+          </button>
+          <button
+            type="button"
+            class="dashboard-tab"
+            data-tab="human-intervention"
+            role="tab"
+            aria-selected="false"
+          >
+            Human Intervention
+          </button>
+          <button
+            type="button"
+            class="dashboard-tab"
+            data-tab="history"
+            role="tab"
+            aria-selected="false"
+          >
+            Operation History
+          </button>
+          <button
+            type="button"
+            class="dashboard-tab"
+            data-tab="failed"
+            role="tab"
+            aria-selected="false"
+          >
+            Operation Failures
+          </button>
+          <button
+            type="button"
+            class="dashboard-tab"
+            data-tab="inflight"
+            role="tab"
+            aria-selected="false"
+          >
+            In flight
+          </button>
+          <button
+            type="button"
+            class="dashboard-tab"
+            data-tab="takeoff"
+            role="tab"
+            aria-selected="false"
+          >
+            Takeoff / Landing
+          </button>
+        </div>
+        <div class="dashboard-panels">
+          <section
+            class="dashboard-tab-panel is-active"
+            data-tab-panel="management"
+            role="tabpanel"
+            aria-hidden="false"
+          >
+            <div class="dashboard-summary">
+              <div class="dashboard-summary-item level-3">
+                <span class="summary-label">LV3</span>
+                <span class="summary-count" data-risk-count="3">0</span>
+              </div>
+              <div class="dashboard-summary-item level-2">
+                <span class="summary-label">LV2</span>
+                <span class="summary-count" data-risk-count="2">0</span>
+              </div>
+              <div class="dashboard-summary-item level-1">
+                <span class="summary-label">LV1</span>
+                <span class="summary-count" data-risk-count="1">0</span>
+              </div>
+              <div class="dashboard-summary-item level-0">
+                <span class="summary-label">LV0</span>
+                <span class="summary-count" data-risk-count="0">0</span>
+              </div>
+            </div>
+            <div class="dashboard-split">
+              <div class="dashboard-table-wrap dashboard-table-wrap-compact">
+                <table
+                  data-dashboard-table="management"
+                  class="data-table data-table-dashboard"
+                >
+                  <thead>
+                    <tr>
+                      <th>Num</th>
+                      <th>Name</th>
+                      <th>Risk</th>
+                      <th>Reason</th>
+                      <th>Speed</th>
+                      <th>Battery</th>
+                      <th>HDG</th>
+                      <th>Position</th>
+                      <th>Mode</th>
+                      <th>Altitude</th>
+                      <th>From</th>
+                      <th>Destination</th>
+                      <th>Route</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dashboard-table-body-management"></tbody>
+                </table>
+              </div>
+              <div class="dashboard-placeholder">
+                <div class="risk-trend">
+                  <div class="risk-trend-header">
+                    <div class="risk-trend-title">Risk Trend</div>
+                    <div class="risk-trend-levels">
+                      <button
+                        type="button"
+                        class="risk-level-toggle is-active"
+                        data-risk-level="1"
+                      >
+                        LV1
+                      </button>
+                      <button
+                        type="button"
+                        class="risk-level-toggle is-active"
+                        data-risk-level="2"
+                      >
+                        LV2
+                      </button>
+                      <button
+                        type="button"
+                        class="risk-level-toggle is-active"
+                        data-risk-level="3"
+                      >
+                        LV3
+                      </button>
+                    </div>
+                    <div class="risk-trend-actions">
+                      <button
+                        type="button"
+                        class="risk-action-btn"
+                        data-action="risk-export-png"
+                      >
+                        Save PNG
+                      </button>
+                      <button
+                        type="button"
+                        class="risk-action-btn"
+                        data-action="risk-export-csv"
+                      >
+                        Save CSV
+                      </button>
+                    </div>
+                  </div>
+                  <div class="risk-trend-canvas-wrap">
+                    <canvas id="risk-trend-canvas"></canvas>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section
+            class="dashboard-tab-panel"
+            data-tab-panel="human-intervention"
+            role="tabpanel"
+            aria-hidden="true"
+          >
+            <div class="human-panel">
+              <div class="human-section">
+                <div class="human-section-header">
+                  <span class="human-section-title">Work Load</span>
+                  <div class="human-section-actions">
+                    <button
+                      type="button"
+                      class="risk-action-btn"
+                      data-action="human-workload-csv"
+                    >
+                      Save CSV
+                    </button>
+                  </div>
+                </div>
+                <div class="human-note" id="human-workload-note">
+                  Workload = weighted interventions (Speed=1, Airspace=2, Emergency=3).
+                </div>
+                <div class="human-chart-wrap">
+                  <canvas id="human-workload-canvas"></canvas>
+                </div>
+              </div>
+              <div class="human-section">
+                <div class="human-section-header">
+                  <span class="human-section-title">Speed / Hold Intervention</span>
+                  <div class="human-section-actions">
+                    <button
+                      type="button"
+                      class="risk-action-btn"
+                      data-action="human-speed-csv"
+                    >
+                      Save CSV
+                    </button>
+                  </div>
+                </div>
+                <div class="dashboard-table-wrap human-table-wrap">
+                  <table class="data-table data-table-dashboard">
+                    <thead>
+                      <tr>
+                        <th>Sim (s)</th>
+                        <th>Time</th>
+                        <th>Flight</th>
+                        <th>Flight ID</th>
+                        <th>Action</th>
+                        <th>Speed (m/s)</th>
+                      </tr>
+                    </thead>
+                    <tbody id="human-speed-body"></tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="human-section">
+                <div class="human-section-header">
+                  <span class="human-section-title">Airspace Intervention</span>
+                  <div class="human-section-actions">
+                    <button
+                      type="button"
+                      class="risk-action-btn"
+                      data-action="human-airspace-csv"
+                    >
+                      Save CSV
+                    </button>
+                  </div>
+                </div>
+                <div class="dashboard-table-wrap human-table-wrap">
+                  <table class="data-table data-table-dashboard">
+                    <thead>
+                      <tr>
+                        <th>Sim (s)</th>
+                        <th>Time</th>
+                        <th>Action</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Type</th>
+                      </tr>
+                    </thead>
+                    <tbody id="human-airspace-body"></tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="human-section">
+                <div class="human-section-header">
+                  <span class="human-section-title">Emergency Intervention</span>
+                  <div class="human-section-actions">
+                    <button
+                      type="button"
+                      class="risk-action-btn"
+                      data-action="human-emergency-csv"
+                    >
+                      Save CSV
+                    </button>
+                  </div>
+                </div>
+                <div class="dashboard-table-wrap human-table-wrap">
+                  <table class="data-table data-table-dashboard">
+                    <thead>
+                      <tr>
+                        <th>Sim (s)</th>
+                        <th>Time</th>
+                        <th>Flight</th>
+                        <th>Flight ID</th>
+                        <th>Target</th>
+                        <th>Lon</th>
+                        <th>Lat</th>
+                        <th>Alt (m)</th>
+                      </tr>
+                    </thead>
+                    <tbody id="human-emergency-body"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section
+            class="dashboard-tab-panel"
+            data-tab-panel="history"
+            role="tabpanel"
+            aria-hidden="true"
+          >
+            <div class="dashboard-table-wrap">
+              <table
+                data-dashboard-table="history"
+                class="data-table data-table-dashboard"
+              >
+                <thead>
+                  <tr>
+                    <th>Num</th>
+                    <th>STD</th>
+                    <th>STA</th>
+                    <th>ETA</th>
+                    <th>ATA</th>
+                    <th>Delay</th>
+                    <th>TTI</th>
+                    <th>Name</th>
+                    <th>Risk</th>
+                    <th>Reason</th>
+                    <th>Speed</th>
+                    <th>Battery</th>
+                    <th>HDG</th>
+                    <th>Position</th>
+                    <th>Mode</th>
+                    <th>Altitude</th>
+                    <th>From</th>
+                    <th>Destination</th>
+                    <th>Route</th>
+                  </tr>
+                </thead>
+                <tbody id="dashboard-table-body-history"></tbody>
+              </table>
+            </div>
+          </section>
+          <section
+            class="dashboard-tab-panel"
+            data-tab-panel="failed"
+            role="tabpanel"
+            aria-hidden="true"
+          >
+            <div class="dashboard-table-wrap">
+              <table
+                data-dashboard-table="failed"
+                class="data-table data-table-dashboard"
+              >
+                <thead>
+                  <tr>
+                    <th>Num</th>
+                    <th>Sim (s)</th>
+                    <th>Name</th>
+                    <th>Flight ID</th>
+                    <th>From</th>
+                    <th>Destination</th>
+                    <th>Position</th>
+                    <th>Battery</th>
+                    <th>Reason</th>
+                  </tr>
+                </thead>
+                <tbody id="dashboard-table-body-failed"></tbody>
+              </table>
+            </div>
+          </section>
+          <section
+            class="dashboard-tab-panel"
+            data-tab-panel="inflight"
+            role="tabpanel"
+            aria-hidden="true"
+          >
+            <div class="dashboard-table-wrap">
+              <table
+                data-dashboard-table="inflight"
+                class="data-table data-table-dashboard"
+              >
+                <thead>
+                  <tr>
+                    <th>Num</th>
+                    <th>Name</th>
+                    <th>Risk</th>
+                    <th>Reason</th>
+                    <th>Speed</th>
+                    <th>Battery</th>
+                    <th>HDG</th>
+                    <th>Position</th>
+                    <th>Mode</th>
+                    <th>Altitude</th>
+                    <th>From</th>
+                    <th>Destination</th>
+                    <th>Route</th>
+                  </tr>
+                </thead>
+                <tbody id="dashboard-table-body-inflight"></tbody>
+              </table>
+            </div>
+          </section>
+          <section
+            class="dashboard-tab-panel"
+            data-tab-panel="takeoff"
+            role="tabpanel"
+            aria-hidden="true"
+          >
+            <div class="dashboard-table-wrap">
+              <table
+                data-dashboard-table="takeoff"
+                class="data-table data-table-dashboard"
+              >
+                <thead>
+                  <tr>
+                    <th>Num</th>
+                    <th>Name</th>
+                    <th>Risk</th>
+                    <th>Reason</th>
+                    <th>Speed</th>
+                    <th>Battery</th>
+                    <th>HDG</th>
+                    <th>Position</th>
+                    <th>Mode</th>
+                    <th>Altitude</th>
+                    <th>From</th>
+                    <th>Destination</th>
+                    <th>Route</th>
+                  </tr>
+                </thead>
+                <tbody id="dashboard-table-body-takeoff"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div
+        id="settings-panel"
+        class="panel-window panel-window-settings"
+        aria-hidden="true"
+      >
+        <div class="panel-header">
+          <span class="panel-title">Simulation Rule</span>
+          <button
+            type="button"
+            class="panel-close"
+            data-action="close-settings"
+          >
+            X
+          </button>
+        </div>
+        <div class="panel-body settings-body">
+          <div class="settings-section">
+            <div class="settings-title">Daily Traffic</div>
+            <div class="settings-traffic">
+              <label class="settings-radio">
+                <input type="radio" name="daily-traffic" value="Low" />
+                <span class="settings-radio-text">
+                  <span class="settings-radio-main">Low</span>
+                  <span class="settings-radio-sub"></span>
+                  <span
+                    class="settings-radio-count"
+                    data-traffic-count="Low"
+                  ></span>
+                </span>
+              </label>
+              <label class="settings-radio">
+                <input type="radio" name="daily-traffic" value="Middle" />
+                <span class="settings-radio-text">
+                  <span class="settings-radio-main">Middle</span>
+                  <span class="settings-radio-sub"></span>
+                  <span
+                    class="settings-radio-count"
+                    data-traffic-count="Middle"
+                  ></span>
+                </span>
+              </label>
+              <label class="settings-radio">
+                <input type="radio" name="daily-traffic" value="High" />
+                <span class="settings-radio-text">
+                  <span class="settings-radio-main">High</span>
+                  <span class="settings-radio-sub"></span>
+                  <span
+                    class="settings-radio-count"
+                    data-traffic-count="High"
+                  ></span>
+                </span>
+              </label>
+            </div>
+            <div class="settings-traffic-folder">
+              <div class="settings-subtitle">Flight Plan Folder</div>
+              <div class="settings-row settings-row-highdensity-folder">
+                <input
+                  id="highdensity-folder-name"
+                  class="settings-input settings-file-input"
+                  type="text"
+                  value="No folder selected"
+                  readonly
+                />
+                <button
+                  type="button"
+                  class="panel-action-btn panel-action-btn-compact"
+                  data-action="load-highdensity-folder"
+                  disabled
+                >
+                  Load
+                </button>
+                <button
+                  type="button"
+                  class="panel-action-btn panel-action-btn-compact"
+                  data-action="reset-highdensity-folder"
+                  disabled
+                >
+                  Reset
+                </button>
+                <span
+                  id="highdensity-folder-indicator"
+                  class="settings-folder-indicator"
+                  aria-label="Folder load status"
+                ></span>
+              </div>
+              <div class="settings-folder-note">Scheduled for future update</div>
+              <input
+                id="highdensity-folder-picker"
+                type="file"
+                webkitdirectory
+                directory
+                multiple
+                hidden
+              />
+            </div>
+            <div class="settings-block">
+              <div
+                class="settings-subtitle"
+                data-tooltip="Simulation operating time window. Total operation time is calculated from start to end."
+              >
+                Operation Time
+              </div>
+              <div class="settings-row">
+                <input
+                  id="operation-start"
+                  class="settings-input settings-time-input"
+                  type="time"
+                />
+                <span class="settings-sep">~</span>
+                <input
+                  id="operation-end"
+                  class="settings-input settings-time-input"
+                  type="time"
+                />
+              </div>
+              <div id="operation-time-summary" class="settings-hint"></div>
+            </div>
+            <div class="settings-block">
+              <div
+                class="settings-subtitle"
+                data-tooltip="Target number of flights. Expected flights per hour/30 minutes/10 minutes are calculated."
+              >
+                Operation Goal
+              </div>
+              <div class="settings-row">
+                <input
+                  id="operation-goal"
+                  class="settings-input settings-goal-input"
+                  type="number"
+                />
+                <span class="settings-unit">flights</span>
+              </div>
+              <div id="operation-goal-summary" class="settings-hint"></div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-title">Simulation Rule</div>
+            <div class="settings-block">
+              <div class="settings-subtitle">Flight profile</div>
+              <div class="rule-grid">
+                <div class="rule-row">
+                  <div
+                    class="rule-label"
+                    data-tooltip="Default cruise speed."
+                  >
+                    Flight speed
+                  </div>
+                  <div class="rule-field">
+                    <input
+                      id="rule-speed"
+                      class="settings-input rule-input"
+                      type="number"
+                      step="0.1"
+                    />
+                    <div class="rule-unit-toggle">
+                      <button
+                        type="button"
+                        class="rule-unit-btn is-active"
+                        data-speed-unit="knot"
+                      >
+                        knot
+                      </button>
+                      <button
+                        type="button"
+                        class="rule-unit-btn"
+                        data-speed-unit="mps"
+                      >
+                        m/s
+                      </button>
+                      <button
+                        type="button"
+                        class="rule-unit-btn"
+                        data-speed-unit="kmh"
+                      >
+                        km/h
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="rule-row">
+                  <div class="rule-label">Acceleration</div>
+                  <div class="rule-field">
+                    <input
+                      id="rule-accel"
+                      class="settings-input rule-input"
+                      type="number"
+                      step="0.1"
+                    />
+                    <span class="settings-unit">m/s^2</span>
+                  </div>
+                </div>
+
+                <div class="rule-row">
+                  <div class="rule-label">Climb rate</div>
+                  <div class="rule-field">
+                    <input
+                      id="rule-climb-rate"
+                      class="settings-input rule-input"
+                      type="number"
+                      step="10"
+                    />
+                    <span class="settings-unit">fpm</span>
+                    <span id="rule-climb-rate-ms" class="settings-hint"></span>
+                  </div>
+                </div>
+
+                <div class="rule-row">
+                  <div class="rule-label">Transition alt</div>
+                  <div class="rule-field">
+                    <input
+                      id="rule-transition-alt"
+                      class="settings-input rule-input"
+                      type="number"
+                    />
+                    <span class="settings-unit">ft</span>
+                    <span id="rule-transition-alt-m" class="settings-hint"></span>
+                  </div>
+                </div>
+
+                <div class="rule-row">
+                  <div class="rule-label">Transition speed</div>
+                  <div class="rule-field">
+                    <input
+                      id="rule-transition-speed"
+                      class="settings-input rule-input"
+                      type="number"
+                    />
+                    <span class="settings-unit">knot</span>
+                    <span id="rule-transition-speed-mps" class="settings-hint"></span>
+                  </div>
+                </div>
+                <div class="rule-row">
+                  <div class="rule-label">Battery endurance</div>
+                  <div class="rule-field">
+                    <input
+                      id="rule-battery"
+                      class="settings-input rule-input"
+                      type="number"
+                      step="1"
+                    />
+                    <span class="settings-unit">min</span>
+                  </div>
+                </div>
+
+                <div class="rule-row">
+                  <div class="rule-label">Minimum safe speed</div>
+                  <div class="rule-field">
+                    <input
+                      id="rule-min-speed"
+                      class="settings-input rule-input"
+                      type="number"
+                      step="0.1"
+                    />
+                    <span class="settings-unit">m/s</span>
+                  </div>
+                </div>
+
+
+                <div class="rule-row">
+                  <div
+                    class="rule-label"
+                    data-tooltip="Reference angular speed during turns."
+                  >
+                    Turn rate
+                  </div>
+                  <div class="rule-field">
+                    <input
+                      id="rule-turn-rate"
+                      class="settings-input rule-input"
+                      type="number"
+                      step="0.1"
+                    />
+                    <span class="settings-unit">deg/s</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-block">
+              <div class="settings-subtitle">Timing</div>
+              <div class="rule-grid">
+                <div class="rule-row">
+                  <div
+                    class="rule-label"
+                    data-tooltip="Holding mode duration (minutes)."
+                  >
+                    Holding time
+                  </div>
+                  <div class="rule-field">
+                    <input
+                      id="rule-holding"
+                      class="settings-input rule-input"
+                      type="number"
+                    />
+                    <span class="settings-unit">min</span>
+                  </div>
+                </div>
+
+                <div class="rule-row">
+                  <div
+                    class="rule-label"
+                    data-tooltip="Takeoff phase duration (minutes)."
+                  >
+                    Takeoff time
+                  </div>
+                  <div class="rule-field">
+                    <input
+                      id="rule-takeoff"
+                      class="settings-input rule-input"
+                      type="number"
+                    />
+                    <span class="settings-unit">min</span>
+                  </div>
+                </div>
+
+                <div class="rule-row">
+                  <div
+                    class="rule-label"
+                    data-tooltip="Landing phase duration (minutes)."
+                  >
+                    Landing time
+                  </div>
+                  <div class="rule-field">
+                    <input
+                      id="rule-landing"
+                      class="settings-input rule-input"
+                      type="number"
+                    />
+                    <span class="settings-unit">min</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-block">
+              <div class="settings-subtitle">Separation</div>
+              <div class="rule-grid">
+                <div class="rule-row">
+                  <div
+                    class="rule-label"
+                    data-tooltip="Minimum longitudinal separation distance (meters)."
+                  >
+                    Longitudinal sep.
+                  </div>
+                  <div class="rule-field">
+                    <input
+                      id="rule-separation"
+                      class="settings-input rule-input"
+                      type="number"
+                    />
+                    <span class="settings-unit">m</span>
+                    <span id="rule-separation-ft" class="settings-hint"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-block">
+              <div class="settings-subtitle">Risk</div>
+              <div class="rule-grid">
+                <div class="rule-row">
+                  <div
+                    class="rule-label"
+                    data-tooltip="Forward lookahead time for risk prediction. Example: if 20s, it checks the path 20 seconds ahead."
+                  >
+                    Prediction horizon
+                  </div>
+                  <div class="rule-field">
+                    <input
+                      id="rule-risk-horizon"
+                      class="settings-input rule-input"
+                      type="number"
+                      step="1"
+                    />
+                    <span class="settings-unit">s</span>
+                  </div>
+                </div>
+
+                <div class="rule-row">
+                  <div
+                    class="rule-label"
+                    data-tooltip="Lateral distance threshold for route proximity. Example: 50m means within 50m of the route is considered close."
+                  >
+                    Lateral threshold
+                  </div>
+                  <div class="rule-field">
+                    <input
+                      id="rule-risk-lateral"
+                      class="settings-input rule-input"
+                      type="number"
+                      step="1"
+                    />
+                    <span class="settings-unit">m</span>
+                  </div>
+                </div>
+
+                <div class="rule-row">
+                  <div
+                    class="rule-label"
+                    data-tooltip="Heading cosine threshold for relative direction. Example: 1.0 = same direction, 0 = perpendicular, -1.0 = opposite. Setting 0.5 counts only roughly within 60°."
+                  >
+                    Direction filter
+                  </div>
+                  <div class="rule-field">
+                    <input
+                      id="rule-risk-direction"
+                      class="settings-input rule-input"
+                      type="number"
+                      step="0.05"
+                    />
+                    <span class="settings-unit">cos</span>
+                  </div>
+                </div>
+
+                <div class="rule-row">
+                  <div
+                    class="rule-label"
+                    data-tooltip="Risk recalculation interval. Example: 1s updates the risk every second."
+                  >
+                    Update interval
+                  </div>
+                  <div class="rule-field">
+                    <input
+                      id="rule-risk-interval"
+                      class="settings-input rule-input"
+                      type="number"
+                      step="0.1"
+                    />
+                    <span class="settings-unit">s</span>
+                  </div>
+                </div>
+
+                <div class="rule-row">
+                  <div
+                    class="rule-label"
+                    data-tooltip="Proximity distance thresholds by risk level. Example: LV3 150m, LV2 300m, LV1 450m; closer means higher level."
+                  >
+                    Proximity levels
+                  </div>
+                  <div class="rule-field rule-field-stack">
+                    <div class="rule-sub-row">
+                      <span class="rule-sub-label">LV3</span>
+                      <input
+                        id="rule-risk-prox-lv3"
+                        class="settings-input rule-input"
+                        type="number"
+                        step="1"
+                      />
+                      <span class="settings-unit">m</span>
+                    </div>
+                    <div class="rule-sub-row">
+                      <span class="rule-sub-label">LV2</span>
+                      <input
+                        id="rule-risk-prox-lv2"
+                        class="settings-input rule-input"
+                        type="number"
+                        step="1"
+                      />
+                      <span class="settings-unit">m</span>
+                    </div>
+                    <div class="rule-sub-row">
+                      <span class="rule-sub-label">LV1</span>
+                      <input
+                        id="rule-risk-prox-lv1"
+                        class="settings-input rule-input"
+                        type="number"
+                        step="1"
+                      />
+                      <span class="settings-unit">m</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="rule-row">
+                  <div
+                    class="rule-label"
+                    data-tooltip="Battery thresholds by risk level. Example: LV3 <10%, LV2 <25%, LV1 <30%."
+                  >
+                    Battery levels
+                  </div>
+                  <div class="rule-field rule-field-stack">
+                    <div class="rule-sub-row">
+                      <span class="rule-sub-label">LV3</span>
+                      <input
+                        id="rule-risk-batt-lv3"
+                        class="settings-input rule-input"
+                        type="number"
+                        step="1"
+                      />
+                      <span class="settings-unit">%</span>
+                    </div>
+                    <div class="rule-sub-row">
+                      <span class="rule-sub-label">LV2</span>
+                      <input
+                        id="rule-risk-batt-lv2"
+                        class="settings-input rule-input"
+                        type="number"
+                        step="1"
+                      />
+                      <span class="settings-unit">%</span>
+                    </div>
+                    <div class="rule-sub-row">
+                      <span class="rule-sub-label">LV1</span>
+                      <input
+                        id="rule-risk-batt-lv1"
+                        class="settings-input rule-input"
+                        type="number"
+                        step="1"
+                      />
+                      <span class="settings-unit">%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="settings-block">
+              <div class="settings-subtitle">RNP</div>
+              <div class="rule-grid">
+                <div class="rule-row">
+                  <div
+                    class="rule-label"
+                    data-tooltip="RNP 0.03 lateral limit = 54m. Set to 0 to disable."
+                  >
+                    RNP lateral limit
+                  </div>
+                  <div class="rule-field">
+                    <input
+                      id="rule-rnp-max-lat"
+                      class="settings-input rule-input"
+                      type="number"
+                      step="1"
+                    />
+                    <span class="settings-unit">m</span>
+                  </div>
+                </div>
+
+                <div class="rule-row">
+                  <div
+                    class="rule-label"
+                    data-tooltip="Vertical deviation limit. Set to 0 to ignore vertical deviation."
+                  >
+                    RNP vertical limit
+                  </div>
+                  <div class="rule-field">
+                    <input
+                      id="rule-rnp-max-ver"
+                      class="settings-input rule-input"
+                      type="number"
+                      step="1"
+                    />
+                    <span class="settings-unit">m</span>
+                  </div>
+                </div>
+
+                <div class="rule-row">
+                  <div
+                    class="rule-label"
+                    data-tooltip="Normalized deviation thresholds r(t)."
+                  >
+                    RNP r(t) levels
+                  </div>
+                  <div class="rule-field rule-field-stack">
+                    <div class="rule-sub-row">
+                      <span class="rule-sub-label">LV1</span>
+                      <input
+                        id="rule-rnp-r-lv1"
+                        class="settings-input rule-input"
+                        type="number"
+                        step="0.01"
+                      />
+                    </div>
+                    <div class="rule-sub-row">
+                      <span class="rule-sub-label">LV2</span>
+                      <input
+                        id="rule-rnp-r-lv2"
+                        class="settings-input rule-input"
+                        type="number"
+                        step="0.01"
+                      />
+                    </div>
+                    <div class="rule-sub-row">
+                      <span class="rule-sub-label">LV3</span>
+                      <input
+                        id="rule-rnp-r-lv3"
+                        class="settings-input rule-input"
+                        type="number"
+                        step="0.01"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div class="rule-row">
+                  <div
+                    class="rule-label"
+                    data-tooltip="Time-to-violation thresholds. LV3 is below LV2."
+                  >
+                    RNP TTV thresholds
+                  </div>
+                  <div class="rule-field rule-field-stack">
+                    <div class="rule-sub-row">
+                      <span class="rule-sub-label">LV1</span>
+                      <input
+                        id="rule-rnp-ttv-lv1"
+                        class="settings-input rule-input"
+                        type="number"
+                        step="0.1"
+                      />
+                      <span class="settings-unit">s</span>
+                    </div>
+                    <div class="rule-sub-row">
+                      <span class="rule-sub-label">LV2</span>
+                      <input
+                        id="rule-rnp-ttv-lv2"
+                        class="settings-input rule-input"
+                        type="number"
+                        step="0.1"
+                      />
+                      <span class="settings-unit">s</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          <div class="settings-block">
+            <div class="settings-subtitle">Wind influence</div>
+            <div class="rule-grid">
+              <div class="rule-row">
+                <div
+                  class="rule-label"
+                  data-tooltip="Whether to apply wind influence. 1=enabled, 0=disabled."
+                >
+                  Wind enabled
+                </div>
+                <div class="rule-field">
+                  <input
+                    id="rule-wind-enabled"
+                    class="settings-input rule-input"
+                    type="number"
+                    step="1"
+                    min="0"
+                    max="1"
+                  />
+                  <span class="settings-unit">0/1</span>
+                </div>
+              </div>
+
+              <div class="rule-row">
+                <div
+                  class="rule-label"
+                  data-tooltip="Wind time scale. 1=real time, 2=doubled so the wind pattern changes faster."
+                >
+                  Wind time scale
+                </div>
+                <div class="rule-field">
+                  <input
+                    id="rule-wind-time-speed"
+                    class="settings-input rule-input"
+                    type="number"
+                    step="0.1"
+                  />
+                  <span class="settings-unit">x</span>
+                </div>
+              </div>
+
+              <div class="rule-row">
+                <div
+                  class="rule-label"
+                  data-tooltip="Smoothness of wind changes (filter time). Larger values make changes smoother."
+                >
+                  Wind smoothing
+                </div>
+                <div class="rule-field">
+                  <input
+                    id="rule-wind-smooth"
+                    class="settings-input rule-input"
+                    type="number"
+                    step="0.1"
+                  />
+                  <span class="settings-unit">s</span>
+                </div>
+              </div>
+
+              <div class="rule-row">
+                <div
+                  class="rule-label"
+                  data-tooltip="Ratio of crosswind applied to lateral drift."
+                >
+                  Crosswind gain
+                </div>
+                <div class="rule-field">
+                  <input
+                    id="rule-wind-cross-gain"
+                    class="settings-input rule-input"
+                    type="number"
+                    step="0.05"
+                  />
+                  <span class="settings-unit">x</span>
+                </div>
+              </div>
+
+              <div class="rule-row">
+                <div
+                  class="rule-label"
+                  data-tooltip="Time constant for lateral drift returning to the original path."
+                >
+                  Crosswind return
+                </div>
+                <div class="rule-field">
+                  <input
+                    id="rule-wind-cross-return"
+                    class="settings-input rule-input"
+                    type="number"
+                    step="0.5"
+                  />
+                  <span class="settings-unit">s</span>
+                </div>
+              </div>
+
+              <div class="rule-row">
+                <div
+                  class="rule-label"
+                  data-tooltip="Maximum allowed lateral drift distance."
+                >
+                  Crosswind max drift
+                </div>
+                <div class="rule-field">
+                  <input
+                    id="rule-wind-cross-max"
+                    class="settings-input rule-input"
+                    type="number"
+                    step="10"
+                  />
+                  <span class="settings-unit">m</span>
+                </div>
+              </div>
+
+              <div class="rule-row">
+                <div
+                  class="rule-label"
+                  data-tooltip="Ratio of head/tailwind applied to speed."
+                >
+                  Head/tail gain
+                </div>
+                <div class="rule-field">
+                  <input
+                    id="rule-wind-along-gain"
+                    class="settings-input rule-input"
+                    type="number"
+                    step="0.05"
+                  />
+                  <span class="settings-unit">x</span>
+                </div>
+              </div>
+
+              <div class="rule-row">
+                <div
+                  class="rule-label"
+                  data-tooltip="Maximum speed delta added by head/tailwind."
+                >
+                  Head/tail max delta
+                </div>
+                <div class="rule-field">
+                  <input
+                    id="rule-wind-along-max"
+                    class="settings-input rule-input"
+                    type="number"
+                    step="0.1"
+                  />
+                  <span class="settings-unit">m/s</span>
+                </div>
+              </div>
+
+              <div class="rule-row">
+                <div
+                  class="rule-label"
+                  data-tooltip="Maximum crab angle to correct crosswind."
+                >
+                  Crab max
+                </div>
+                <div class="rule-field">
+                  <input
+                    id="rule-wind-crab-max"
+                    class="settings-input rule-input"
+                    type="number"
+                    step="0.5"
+                  />
+                  <span class="settings-unit">deg</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          </div>
+
+          <div class="settings-actions">
+            <button
+              type="button"
+              class="panel-action-btn"
+              data-action="settings-apply"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              class="panel-action-btn"
+              data-action="settings-reset"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div
+        id="autopilot-panel"
+        class="panel-window panel-window-autopilot"
+        aria-hidden="true"
+      >
+        <div class="panel-header">
+          <span class="panel-title">Autopilot</span>
+          <button
+            type="button"
+            class="panel-close"
+            data-action="close-autopilot"
+          >
+            X
+          </button>
+        </div>
+        <div class="panel-body settings-body">
+          <div class="settings-section">
+            <div class="settings-title">Collision Avoidance</div>
+            <div class="settings-block">
+              <div class="settings-subtitle">Risk slowdown</div>
+              <div class="rule-grid">
+                <div class="rule-row">
+                  <div class="rule-label">LV1 reduction</div>
+                  <div class="rule-field">
+                    <input
+                      id="autopilot-lv1"
+                      class="settings-input rule-input"
+                      type="number"
+                      min="0"
+                      max="300"
+                      step="1"
+                    />
+                    <span class="settings-unit">knot</span>
+                  </div>
+                </div>
+                <div class="rule-row">
+                  <div class="rule-label">LV2 reduction</div>
+                  <div class="rule-field">
+                    <input
+                      id="autopilot-lv2"
+                      class="settings-input rule-input"
+                      type="number"
+                      min="0"
+                      max="300"
+                      step="1"
+                    />
+                    <span class="settings-unit">knot</span>
+                  </div>
+                </div>
+                <div class="rule-row">
+                  <div class="rule-label">LV3 reduction</div>
+                  <div class="rule-field">
+                    <input
+                      id="autopilot-lv3"
+                      class="settings-input rule-input"
+                      type="number"
+                      min="0"
+                      max="300"
+                      step="1"
+                    />
+                    <span class="settings-unit">knot</span>
+                  </div>
+                </div>
+                <div class="rule-row">
+                  <div class="rule-label">지속 시간</div>
+                  <div class="rule-field rule-field-stack">
+                    <div class="rule-sub-row">
+                      <input
+                        id="autopilot-duration"
+                        class="settings-input rule-input"
+                        type="number"
+                        min="0"
+                        step="1"
+                      />
+                      <span class="settings-unit">s</span>
+                    </div>
+                    <div class="settings-hint">0: 위험도 해소까지</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="settings-actions">
+            <button
+              type="button"
+              class="panel-action-btn"
+              data-action="autopilot-on"
+            >
+              On
+            </button>
+            <button
+              type="button"
+              class="panel-action-btn"
+              data-action="autopilot-off"
+            >
+              Off
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div
+        id="corridor-panel"
+        class="panel-window panel-window-corridor"
+        aria-hidden="true"
+      >
+        <div class="panel-header">
+          <span class="panel-title">Route Custom</span>
+          <button
+            type="button"
+            class="panel-close"
+            data-action="close-corridor"
+          >
+            X
+          </button>
+        </div>
+        <div class="panel-body corridor-body">
+          <div class="settings-section">
+            <div class="settings-title-row">
+              <div class="settings-title">Data Files</div>
+              <button
+                type="button"
+                class="panel-icon-btn"
+                data-action="reset-datafiles"
+                title="Reset default files"
+                aria-label="Reset default files"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M20 12a8 8 0 1 1-2.2-5.6"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M20 4v6h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div class="settings-block">
+              <div class="settings-subtitle">Vertiport</div>
+              <div class="settings-row">
+                <input
+                  id="vertiport-file-name"
+                  class="settings-input settings-file-input"
+                  type="text"
+                  readonly
+                />
+                <button
+                  type="button"
+                  class="panel-action-btn panel-action-btn-compact"
+                  data-action="open-vertiport"
+                >
+                  Open as
+                </button>
+                <button
+                  type="button"
+                  class="panel-action-btn panel-action-btn-compact"
+                  data-action="apply-vertiport"
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+            <div class="settings-block">
+              <div class="settings-subtitle">Corridor</div>
+              <div class="settings-row">
+                <input
+                  id="corridor-file-name"
+                  class="settings-input settings-file-input"
+                  type="text"
+                  readonly
+                />
+                <button
+                  type="button"
+                  class="panel-action-btn panel-action-btn-compact"
+                  data-action="open-corridor"
+                >
+                  Open as
+                </button>
+                <button
+                  type="button"
+                  class="panel-action-btn panel-action-btn-compact"
+                  data-action="apply-corridor"
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+            <div class="settings-block">
+              <div class="settings-subtitle">Base station</div>
+              <div class="settings-row">
+                <input
+                  id="basestation-file-name"
+                  class="settings-input settings-file-input"
+                  type="text"
+                  readonly
+                />
+                <button
+                  type="button"
+                  class="panel-action-btn panel-action-btn-compact"
+                  data-action="open-basestation"
+                >
+                  Open as
+                </button>
+                <button
+                  type="button"
+                  class="panel-action-btn panel-action-btn-compact"
+                  data-action="apply-basestation"
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-title">Edit Modes</div>
+            <div class="settings-row">
+              <button
+                type="button"
+                class="panel-action-btn mode-btn"
+                data-action="edit-airspace"
+              >
+                Airspace Edit
+              </button>
+              <button
+                type="button"
+                class="panel-action-btn mode-btn"
+                data-action="edit-vertiport"
+              >
+                Vertiport Edit
+              </button>
+              <button
+                type="button"
+                class="panel-action-btn mode-btn"
+                data-action="edit-basestation"
+              >
+                Base Station
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="noise-panel" class="noise-panel" aria-hidden="true">
+        <div class="noise-header">
+          <div class="noise-title">Noise</div>
+          <div class="noise-header-actions">
+            <div id="noise-meta" class="noise-meta">L0 60 / d0 300m</div>
+            <button
+              type="button"
+              id="noise-close"
+              class="noise-close"
+              aria-label="Close noise"
+            >
+              X
+            </button>
+          </div>
+        </div>
+        <div class="noise-controls">
+          <label class="noise-label" for="noise-min-db">Min dB</label>
+          <input
+            id="noise-min-db"
+            class="noise-range"
+            type="range"
+            min="30"
+            max="70"
+            step="1"
+            value="40"
+          />
+          <span id="noise-min-db-value" class="noise-value">40 dB</span>
+        </div>
+        <div class="noise-canvas-wrap">
+          <div class="noise-map-wrap">
+            <div id="noise-map" class="noise-map"></div>
+            <canvas id="noise-canvas"></canvas>
+          </div>
+          <div class="noise-legend-bar"></div>
+          <div class="noise-legend-labels">
+            <span id="noise-legend-min">40 dB</span>
+            <span id="noise-legend-max">80 dB</span>
+          </div>
+          <div class="noise-actions" role="group" aria-label="Noise view controls">
+            <button
+              type="button"
+              class="noise-mode-btn"
+              data-action="noise-mode-average"
+              aria-pressed="false"
+            >
+              Average
+            </button>
+            <button
+              type="button"
+              id="noise-expand"
+              class="noise-expand"
+              aria-label="Open noise in external tab"
+              aria-pressed="false"
+            >
+              External tab
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="congestion-panel" class="congestion-panel" aria-hidden="true">
+        <div class="congestion-header">
+          <div class="congestion-title">Section Congestion</div>
+          <button
+            type="button"
+            id="congestion-close"
+            class="congestion-close"
+            aria-label="Close congestion"
+          >
+            X
+          </button>
+        </div>
+        <div class="congestion-controls">
+          <div class="congestion-label">집계 시간</div>
+          <div
+            class="congestion-window-group"
+            role="group"
+            aria-label="Congestion aggregation window"
+          >
+            <button
+              type="button"
+              class="congestion-window-btn"
+              data-congestion-window="1"
+              aria-pressed="true"
+            >
+              1분
+            </button>
+            <button
+              type="button"
+              class="congestion-window-btn"
+              data-congestion-window="5"
+              aria-pressed="false"
+            >
+              5분
+            </button>
+            <button
+              type="button"
+              class="congestion-window-btn"
+              data-congestion-window="10"
+              aria-pressed="false"
+            >
+              10분
+            </button>
+            <button
+              type="button"
+              class="congestion-window-btn"
+              data-congestion-window="30"
+              aria-pressed="false"
+            >
+              30분
+            </button>
+          </div>
+          <div class="congestion-label">지표</div>
+          <div
+            class="congestion-window-group"
+            role="group"
+            aria-label="Congestion metric"
+          >
+            <button
+              type="button"
+              class="congestion-window-btn"
+              data-congestion-metric="cii"
+              aria-pressed="true"
+            >
+              강도
+            </button>
+            <button
+              type="button"
+              class="congestion-window-btn"
+              data-congestion-metric="cdi"
+              aria-pressed="false"
+            >
+              지속
+            </button>
+            <button
+              type="button"
+              class="congestion-window-btn"
+              data-congestion-metric="cei"
+              aria-pressed="false"
+            >
+              범위
+            </button>
+          </div>
+          <div class="congestion-meta">자유속도: 버티포트 50kt / 기타 100kt</div>
+          <div class="congestion-legend" aria-hidden="true">
+            <div id="congestion-legend-title" class="congestion-legend-title">
+              혼잡 강도 (%)
+            </div>
+            <div class="congestion-legend-bar">
+              <span class="congestion-legend-swatch" style="background:#60a5fa"></span>
+              <span class="congestion-legend-swatch" style="background:#34d399"></span>
+              <span class="congestion-legend-swatch" style="background:#fbbf24"></span>
+              <span class="congestion-legend-swatch" style="background:#fb923c"></span>
+              <span class="congestion-legend-swatch" style="background:#ef4444"></span>
+              <span class="congestion-legend-swatch" style="background:#b91c1c"></span>
+            </div>
+            <div class="congestion-legend-labels">
+              <span>1-10</span>
+              <span>11-20</span>
+              <span>21-40</span>
+              <span>41-60</span>
+              <span>61-80</span>
+              <span>81-100</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div
+        id="transmission-panel"
+        class="transmission-panel"
+        aria-hidden="true"
+      >
+        <div class="transmission-header">
+          <!-- JY - UI label: Transmission renamed to Radio Propagation. -->
+          <div class="transmission-title">Radio Propagation</div>
+          <div class="transmission-header-actions">
+            <div id="transmission-meta" class="transmission-meta">DEM: OFF</div>
+            <button
+              type="button"
+              id="transmission-close"
+              class="transmission-close"
+              aria-label="Close transmission"
+            >
+              X
+            </button>
+          </div>
+        </div>
+        <div class="transmission-controls">
+          <label class="transmission-label" for="transmission-height">Height</label>
+          <input
+            id="transmission-height"
+            class="transmission-range"
+            type="range"
+            min="1.5"
+            max="300"
+            step="0.5"
+            value="50"
+          />
+          <span id="transmission-height-value" class="transmission-value">50 m</span>
+        </div>
+        <div class="transmission-canvas-wrap">
+          <div class="transmission-map-wrap">
+            <div id="transmission-map" class="transmission-map"></div>
+            <canvas id="transmission-canvas"></canvas>
+          </div>
+          <div class="transmission-legend-bar"></div>
+          <div class="transmission-legend-labels">
+            <span id="transmission-legend-min">-110 dBm</span>
+            <span id="transmission-legend-max">-50 dBm</span>
+          </div>
+          <div class="transmission-actions" role="group" aria-label="Radio propagation view controls">
+            <button
+              type="button"
+              id="transmission-expand"
+              class="transmission-expand"
+              aria-label="Open radio propagation in external tab"
+              aria-pressed="false"
+            >
+              External tab
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div
+        id="scenario-panel"
+        class="panel-window panel-window-scenario"
+        aria-hidden="true"
+      >
+        <div class="panel-header">
+          <span class="panel-title">Scenario</span>
+          <button
+            type="button"
+            class="panel-close"
+            data-action="close-scenario"
+          >
+            X
+          </button>
+        </div>
+        <div class="panel-body scenario-body">
+          <div class="scenario-section">
+            <div class="scenario-title">Wind grade</div>
+            <div class="scenario-grid">
+              <button
+                type="button"
+                class="scenario-btn scenario-preset-btn is-active"
+                data-wind-preset="good"
+              >
+                Good
+              </button>
+              <button
+                type="button"
+                class="scenario-btn scenario-preset-btn"
+                data-wind-preset="fair"
+              >
+                Fair
+              </button>
+              <button
+                type="button"
+                class="scenario-btn scenario-preset-btn"
+                data-wind-preset="bad"
+              >
+                Bad
+              </button>
+              <button
+                type="button"
+                class="scenario-btn scenario-preset-btn"
+                data-wind-preset="serious"
+              >
+                Serious
+              </button>
+            </div>
+            <div class="scenario-hint">Grade changes blend in smoothly.</div>
+          </div>
+          <div class="scenario-section">
+            <div class="scenario-title">Local wind</div>
+            <div class="scenario-row">
+              <button
+                type="button"
+                id="scenario-wind-apply"
+                class="scenario-btn scenario-toggle-btn"
+              >
+                Apply mode: OFF
+              </button>
+              <button
+                type="button"
+                id="scenario-wind-reset"
+                class="scenario-btn scenario-btn-ghost"
+              >
+                Reset local
+              </button>
+            </div>
+            <div class="scenario-row scenario-row-inline">
+              <label class="scenario-label" for="scenario-wind-radius">Radius</label>
+              <input
+                id="scenario-wind-radius"
+                class="scenario-range"
+                type="range"
+                min="400"
+                max="4000"
+                step="100"
+                value="1200"
+              />
+              <span id="scenario-wind-radius-value" class="scenario-value">1.2 km</span>
+            </div>
+            <div class="scenario-hint">
+              Enable Apply mode, click the map, then pick Good/Fair/Bad/Serious.
+            </div>
+            <div id="scenario-wind-status" class="scenario-status">
+              Local zones fade out after reset.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="theme-controls" class="panel panel-right theme-panel">
+        <div class="theme-row">
+          <button
+            type="button"
+            id="theme-toggle"
+            class="theme-toggle-btn"
+            aria-expanded="false"
+            aria-controls="theme-list"
+            title="Map theme"
+          >
+            <img src="resources/map_setting_sign.png" alt="Theme" />
+          </button>
+          <div id="theme-list" class="theme-list">
+            <button
+              type="button"
+              class="theme-card"
+              data-theme="light"
+              title="White"
+              aria-label="White"
+            >
+              <span class="thumb">
+                <img src="resources/white_ex_map.png" alt="" />
+              </span>
+              <span class="label">White</span>
+            </button>
+            <button
+              type="button"
+              class="theme-card is-active"
+              data-theme="dark"
+              title="Dark"
+              aria-label="Dark"
+            >
+              <span class="thumb">
+                <img src="resources/dark_ex_map.png" alt="" />
+              </span>
+              <span class="label">Dark</span>
+            </button>
+            <button
+              type="button"
+              class="theme-card"
+              data-theme="real"
+              title="Real"
+              aria-label="Real"
+            >
+              <span class="thumb">
+                <img src="resources/real_ex_map.png" alt="" />
+              </span>
+              <span class="label">Real</span>
+            </button>
+          </div>
+        </div>
+        <div class="base-row base-row-3d">
+          <button
+            type="button"
+            class="theme-toggle-btn theme-3d-btn"
+            data-action="layer-3d"
+            title="3D"
+            aria-label="3D"
+          >
+            <span class="theme-3d-label">3D</span>
+          </button>
+        </div>
+        <div class="base-row base-row-layer">
+          <button
+            type="button"
+            id="theme-base"
+            class="theme-toggle-btn theme-base-btn"
+            title="Layer"
+            aria-label="Layer"
+            aria-expanded="false"
+            aria-controls="base-list"
+          >
+            <img src="resources/map_layer.png" alt="Layer" />
+          </button>
+          <div id="base-list" class="base-list" aria-hidden="true">
+            <button
+              type="button"
+              class="theme-card base-card"
+              data-action="layer-noise"
+              title="Noise"
+              aria-label="Noise"
+            >
+              <span class="base-card-label">Noise</span>
+            </button>
+            <button
+              type="button"
+              class="theme-card base-card"
+              data-action="layer-transmission"
+              title="Communication"
+              aria-label="Communication"
+            >
+              <span class="base-card-label">Communication</span>
+            </button>
+            <button
+              type="button"
+              class="theme-card base-card"
+              data-action="layer-density"
+              title="Section Count"
+              aria-label="Section Count"
+            >
+              <span class="base-card-label">Section Count</span>
+            </button>
+            <button
+              type="button"
+              class="theme-card base-card"
+              data-action="layer-segment-congestion"
+              title="Segment Congestion"
+              aria-label="Segment Congestion"
+            >
+              <span class="base-card-label">Section Cong.</span>
+            </button>
+            <button
+              type="button"
+              class="theme-card base-card"
+              data-action="layer-impact-field"
+              title="Impact Field"
+              aria-label="Impact Field"
+            >
+              <span class="base-card-label">Impact Field</span>
+            </button>
+            <button
+              type="button"
+              class="theme-card base-card"
+              data-action="layer-density-field"
+              title="Density Field"
+              aria-label="Density Field"
+            >
+              <span class="base-card-label">Density Field</span>
+            </button>
+            <button
+              type="button"
+              class="theme-card base-card"
+              data-action="layer-congestion-field"
+              title="Congestion Field"
+              aria-label="Congestion Field"
+            >
+              <span class="base-card-label">Cong. Field</span>
+            </button>
+          </div>
+        </div>
+        <div class="base-row">
+          <button
+            type="button"
+            class="theme-card base-card"
+            data-action="layer-weather"
+            title="Weather"
+            aria-label="Weather"
+          >
+            <img class="base-card-icon" src="resources/weather.png" alt="" />
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="vendor/maplibre-gl.js"></script>
+    <script src="app.js?v=20260212e"></script>
+    <script src="app.routes.js?v=20260210e"></script>
+    <script src="app.traffic.js?v=20260226b"></script>
+    <script src="app.density.js?v=20260212f"></script>
+    <script src="app.congestion.js?v=20260212p"></script>
+    <script src="field_congestion_config.js?v=20260227a"></script>
+    <script src="app.field_layers.js?v=20260303i"></script>
+    <script src="app.noise.js?v=20260212g"></script>
+    <script src="app.transmission.js?v=20260212g"></script>
+    <script src="app.weather.js"></script>
+    <script src="app.entry.js?v=20260203c"></script>
+  </body>
+</html>
+
+
+
+

@@ -1,0 +1,21 @@
+[ko]
+배포버전
+DTAM Operations Console v0.1.0 Preview
+
+업데이트 내용
+- 항공 디지털 트윈 프레임워크 운용 콘솔 초기 화면 구성
+- 8개 주요 워크스페이스 도크 제공
+- 한/영 설명 전환 기능 추가
+- 전체화면 실행 스크립트 지원
+- 패치노트 패널 및 정적 txt 기반 업데이트 표기
+
+[en]
+Release Version
+DTAM Operations Console v0.1.0 Preview
+
+Updates
+- Initial operations console screen for the aviation digital twin framework
+- Eight primary workspace dock items
+- English/Korean description toggle
+- Fullscreen launch script support
+- Patch note panel backed by a static txt file

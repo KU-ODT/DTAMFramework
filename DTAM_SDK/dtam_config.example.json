@@ -1,0 +1,12 @@
+{
+  "my": {
+    "name": "my_module",
+    "ip": "0.0.0.0",
+    "port": 17000
+  },
+  "peer": {
+    "name": "peer_module",
+    "ip": "127.0.0.1",
+    "port": 17000
+  }
+}

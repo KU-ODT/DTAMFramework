@@ -1,0 +1,152 @@
+:root {
+  --bg: #0f1218;
+  --panel: #171c26;
+  --panel-alt: #1e2430;
+  --border: #2a3140;
+  --fg: #d8dde8;
+  --muted: #8791a5;
+  --accent: #4ea1ff;
+  --accent-2: #38d39f;
+  --danger: #e05a6a;
+  --warn: #ffb84d;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  color: var(--fg);
+  background: var(--bg);
+  min-height: 100vh;
+}
+.topbar {
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+.topbar h1 { margin: 0; font-size: 18px; letter-spacing: 0.5px; }
+.topbar .subtitle { color: var(--muted); font-size: 12px; }
+main {
+  padding: 16px 24px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr 1fr;
+}
+/* 1: 송신기, 2: 비행계획, 3: DTAM 수신, 4: 시계, 5: 비행체 현황 */
+main .card:nth-child(1),
+main .card:nth-child(4),
+main .card:nth-child(5) { grid-column: span 2; }
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+.card h2 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: flex-end;          /* 캡션이 있는 label 과 단독 버튼의 바닥선을 맞춤 */
+  margin-bottom: 8px;
+}
+.row > * { flex-shrink: 0; }
+label {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+input, select, button {
+  height: 32px;                   /* 입력/버튼 높이 통일 */
+  box-sizing: border-box;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  border-radius: 4px;
+  font-size: 13px;
+}
+input, select {
+  padding: 0 8px;
+  min-width: 120px;
+}
+input[type="file"] {
+  min-width: 260px;
+  padding: 4px 6px;
+}
+button {
+  padding: 0 14px;
+  font-size: 12px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+button.primary { background: var(--accent); color: #0a0d12; border-color: var(--accent); }
+button.primary:hover:not(:disabled) { background: #6db5ff; color: #0a0d12; }
+button.danger { color: var(--danger); }
+button.danger:hover:not(:disabled) { border-color: var(--danger); }
+
+.status-line {
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 12px;
+  color: var(--muted);
+  padding-top: 4px;
+}
+.plan-list { list-style: none; padding: 0; margin: 6px 0 0 0; }
+.plan-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  font-family: "JetBrains Mono", monospace;
+}
+.plan-list li .remove {
+  height: 22px;
+  padding: 0 8px;
+  font-size: 11px;
+  color: var(--danger);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.plan-list li.empty,
+.fleet .empty { color: var(--muted); font-style: italic; font-family: inherit; }
+
+table.fleet {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-family: "JetBrains Mono", Consolas, monospace;
+}
+table.fleet th, table.fleet td {
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+table.fleet th {
+  background: var(--panel-alt);
+  color: var(--muted);
+  font-weight: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 10px;
+}
+table.fleet td.empty { text-align: center; padding: 14px; }
+.state-waiting { color: var(--muted); }
+.state-active  { color: var(--accent-2); }
+.state-completed { color: var(--accent); }
+.state-error   { color: var(--danger); }

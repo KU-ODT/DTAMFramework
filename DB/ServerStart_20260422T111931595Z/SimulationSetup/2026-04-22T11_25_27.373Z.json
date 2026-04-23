@@ -1,0 +1,24 @@
+{
+  "timestamp": "2026-04-22T11:25:27.373Z",
+  "playbackSpeed": 4,
+  "playState": "play",
+  "mainVehicleController": "Joystick",
+  "weatherEffect": {
+    "precipitation": {
+      "type": "rainy",
+      "intensity": 0.5
+    },
+    "fog": {
+      "intensity": 0
+    }
+  },
+  "wind": {
+    "grade": "serious",
+    "gust": {
+      "lat": 37.58572,
+      "lon": 126.97039,
+      "alt": 120,
+      "radius": 1200
+    }
+  }
+}

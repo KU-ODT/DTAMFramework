@@ -1,0 +1,25 @@
+0.9.2 Release Notes
+
+1) Tutorial
+- Added a guided Tutorial mode next to Close in the Quick Guide.
+- Each step now explains the UI after the related panel is opened.
+- Highlight + arrow guidance was improved to better show where to click.
+- Playback steps no longer cover the playback controls.
+- The Scenario step now guides you to the weather visualization button on the right.
+
+---
+
+0.9.1 Release Notes
+
+1) Language support
+- Added Korean and English versions.
+
+2) Aircraft
+- Added Force Move to a waypoint.
+
+3) Autopilot mode
+- Added automatic collision avoidance. (On/Off from the top-left button)
+
+4) Fixes
+- Fixed a takeoff link-jump issue that could occur after reopen/open.
+

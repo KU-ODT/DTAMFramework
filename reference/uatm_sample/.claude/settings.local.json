@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m uam_flight_simulator uam_flight_simulator/example_mission.json --summary --wind good -o uam_flight_simulator/output)",
+      "Bash(awk -F',' 'NR==1 || !seen[$3]++ {print NR\": \"$0}' FP1201_UAM0001_trajectory.csv)",
+      "Bash(python -m uam_flight_simulator uam_flight_simulator/example_mission.json --wind off --quiet --summary --format csv -o uam_flight_simulator/output_nowind)",
+      "Bash(python -c ':*)"
+    ]
+  }
+}

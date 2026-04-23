@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>{{ title }}</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="/static/css/style.css?v={{ asset_v }}" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">◆</span>
+      <span class="title">DTAM Data Emulator</span>
+    </div>
+    <nav class="tabs">
+      <button class="tab active" data-tab="info">정보관리</button>
+      <button class="tab" data-tab="comm">통신관리</button>
+      <button class="tab" data-tab="seq">데이터 흐름</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ========== 정보관리 ========== -->
+    <section id="tab-info" class="tab-panel active">
+      <div class="section-title">정보관리</div>
+      <div class="split">
+        <div class="pane">
+          <div class="pane-title">발신 데이터 목록</div>
+          <table class="grid">
+            <thead>
+              <tr>
+                <th style="width:70px">Message</th>
+                <th style="width:150px">Message Name</th>
+                <th style="width:170px">Name (EN)</th>
+                <th style="width:60px">Proto</th>
+                <th>상태</th>
+                <th style="width:70px">발신</th>
+                <th style="width:70px">보기</th>
+              </tr>
+            </thead>
+            <tbody id="tx-tbody"></tbody>
+          </table>
+        </div>
+        <div class="pane">
+          <div class="pane-title">수신 데이터 목록</div>
+          <table class="grid">
+            <thead>
+              <tr>
+                <th style="width:70px">Message</th>
+                <th style="width:150px">Message Name</th>
+                <th style="width:170px">Name (EN)</th>
+                <th>상태</th>
+                <th style="width:70px">보기</th>
+              </tr>
+            </thead>
+            <tbody id="rx-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 통신관리 ========== -->
+    <section id="tab-comm" class="tab-panel">
+      <div class="section-title">통신관리</div>
+
+      <!-- 내 수신부 -->
+      <div class="card">
+        <div class="card-title">내 모듈 수신부 (Self Receiver)</div>
+        <div class="row">
+          <label>Bind IP</label>
+          <input id="self-ip" value="127.0.0.1" style="width:140px" />
+          <label>Bind Port</label>
+          <input id="self-port" type="number" value="17000" style="width:110px" />
+          <button id="self-apply" class="btn">적용</button>
+          <button id="self-start" class="btn-primary">시작</button>
+          <button id="self-stop" class="btn-danger">중지</button>
+          <span id="self-status" class="status-idle" style="margin-left:auto"></span>
+        </div>
+        <div class="row" style="padding-top:0">
+          <span class="hint">127.0.0.1 = 내부 루프백. 외부로 열려면 0.0.0.0 또는 실제 NIC IP.</span>
+        </div>
+      </div>
+
+      <!-- 송신 대상 추가 -->
+      <div class="card">
+        <div class="card-title">송신 대상 추가 (연결 확인 없이 바로 송신)</div>
+        <div class="row">
+          <label>이름</label>
+          <input id="tgt-name" placeholder="예: CTRL, INF ..." style="width:140px" />
+          <label>IP</label>
+          <input id="tgt-ip" value="127.0.0.1" style="width:140px" />
+          <label>UDP Port</label>
+          <input id="tgt-port" type="number" value="17010" style="width:100px" />
+          <label>TCP Port</label>
+          <input id="tgt-tcp-port" type="number" value="17011" style="width:100px" />
+          <label>Protocol</label>
+          <select id="tgt-protocol" style="width:80px">
+            <option value="udp" selected>UDP</option>
+            <option value="tcp">TCP</option>
+          </select>
+          <button id="tgt-add" class="btn-primary">추가</button>
+          <span class="hint">여러 대상 등록 가능. 메시지마다 기본 대상은 첫 번째.</span>
+        </div>
+      </div>
+
+      <!-- 대상 목록 -->
+      <div class="card">
+        <div class="card-title">송신 대상 목록</div>
+        <table class="grid">
+          <thead>
+            <tr>
+              <th style="width:140px">이름</th>
+              <th style="width:180px">IP</th>
+              <th style="width:100px">UDP Port</th>
+              <th style="width:100px">TCP Port</th>
+              <th style="width:70px">Proto</th>
+              <th style="width:160px">송신 통계</th>
+              <th style="width:200px">연결 확인 (선택)</th>
+              <th style="width:180px">제어</th>
+            </tr>
+          </thead>
+          <tbody id="tgt-tbody">
+            <tr><td colspan="8" class="empty">등록된 송신 대상 없음</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <!-- ========== 데이터 흐름 ========== -->
+    <section id="tab-seq" class="tab-panel">
+      <div class="section-title">데이터 흐름 (Sequence Diagram)</div>
+      <div class="seq-tools" role="group" aria-label="Sequence diagram language">
+        <button class="seq-lang-btn active" data-seq-lang="ko">한국어</button>
+        <button class="seq-lang-btn" data-seq-lang="en">English</button>
+      </div>
+      <div class="seq-diagram" id="seq-diagram"></div>
+    </section>
+  </main>
+
+  <!-- 모달: 데이터 보기 -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-body">
+      <div class="modal-head">
+        <span id="modal-title">데이터</span>
+        <button id="modal-close" class="x">×</button>
+      </div>
+      <div class="modal-content">
+        <div id="mpanel-sent" class="mpanel active">
+          <div class="hint" id="modal-sent-hint">generator 가 ICD 에 맞춰 생성하여 송신한 실제 데이터.</div>
+          <div class="row">
+            <label>횟수</label><span id="modal-sent-count">0</span>
+            <label>최종 송신</label><span id="modal-sent-time">-</span>
+            <label>크기</label><span id="modal-sent-len">0</span> B
+          </div>
+          <textarea id="modal-sent" rows="14" readonly spellcheck="false"></textarea>
+          <div id="modal-image-box" class="hidden" style="margin-top:8px;text-align:center;">
+            <img id="modal-image" style="max-width:100%;max-height:360px;border:1px solid #ccd3e0;border-radius:4px;" />
+          </div>
+        </div>
+        <textarea id="modal-template" class="hidden"></textarea>
+        <button id="modal-save" class="hidden"></button>
+        <div id="mpanel-rx" class="mpanel">
+          <div class="row">
+            <label>횟수</label><span id="modal-rx-count">0</span>
+            <label>최종 수신</label><span id="modal-rx-time">-</span>
+          </div>
+          <textarea id="modal-rx" rows="12" readonly spellcheck="false"></textarea>
+          <div id="modal-rx-image-box" class="hidden" style="margin-top:8px;text-align:center;">
+            <img id="modal-rx-image" style="max-width:100%;max-height:360px;border:1px solid #ccd3e0;border-radius:4px;" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+  <script src="/static/js/app.js?v={{ asset_v }}"></script>
+</body>
+</html>

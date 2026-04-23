@@ -1,0 +1,201 @@
+{
+  "SettingsVersion": 1.2,
+  "SimMode": "Multirotor",
+  "RpcEnabled": true,
+  "PhysicsEngineName": "ExternalPhysicsEngine",
+  "ClockSpeed": 1,
+  "RecordUIVisible": false,
+  "LogMessagesVisible": false,
+  "ShowLosDebugLines": false,
+  "ViewMode": "SpringArmChase",
+  "CameraDirector": {
+    "FollowDistance": -8,
+    "X": -8,
+    "Y": 0,
+    "Z": -3
+  },
+  "OriginGeopoint": {
+    "Latitude": 37.566500,
+    "Longitude": 126.978000,
+    "Altitude": 51.9
+  },
+  "Vehicles": {
+    "Drone1": {
+      "VehicleType": "SimpleFlight",
+      "AutoCreate": true,
+      "DefaultVehicleState": "Armed",
+      "X": 8086.126,
+      "Y": 5896.765,
+      "Z": -8,
+      "Yaw": 83.000,
+      "Sensors": {
+        "DownwardRange": {
+          "SensorType": 5,
+          "Enabled": true,
+          "X": 0.0,
+          "Y": 0.0,
+          "Z": 0.1,
+          "Yaw": 0,
+          "Pitch": -90,
+          "Roll": 0,
+          "MinDistance": 0.2,
+          "MaxDistance": 80.0
+        }
+      },
+      "Cameras": {
+        "front_center": {
+          "X": 0.4,
+          "Y": 0.0,
+          "Z": -0.1,
+          "Pitch": 0,
+          "Roll": 0,
+          "Yaw": 0,
+          "Label": "Front",
+          "CaptureSettings": [
+            {
+              "ImageType": 0,
+              "Width": 1280,
+              "Height": 720,
+              "FOV_Degrees": 90
+            }
+          ]
+        },
+        "downward": {
+          "X": 0.0,
+          "Y": 0.0,
+          "Z": 0.15,
+          "Pitch": -90,
+          "Roll": 0,
+          "Yaw": 0,
+          "Label": "Downward",
+          "CaptureSettings": [
+            {
+              "ImageType": 0,
+              "Width": 1024,
+              "Height": 1024,
+              "FOV_Degrees": 100
+            }
+          ]
+        }
+      }
+    },
+    "Drone2": {
+      "VehicleType": "SimpleFlight",
+      "AutoCreate": true,
+      "DefaultVehicleState": "Armed",
+      "X": 8045.187,
+      "Y": 5901.811,
+      "Z": -10,
+      "Yaw": 83.000,
+      "Sensors": {
+        "DownwardRange": {
+          "SensorType": 5,
+          "Enabled": true,
+          "X": 0.0,
+          "Y": 0.0,
+          "Z": 0.1,
+          "Yaw": 0,
+          "Pitch": -90,
+          "Roll": 0,
+          "MinDistance": 0.2,
+          "MaxDistance": 80.0
+        }
+      },
+      "Cameras": {
+        "front_center": {
+          "X": 0.4,
+          "Y": 0.0,
+          "Z": -0.1,
+          "Pitch": 0,
+          "Roll": 0,
+          "Yaw": 0,
+          "Label": "Front",
+          "CaptureSettings": [
+            {
+              "ImageType": 0,
+              "Width": 1280,
+              "Height": 720,
+              "FOV_Degrees": 90
+            }
+          ]
+        },
+        "downward": {
+          "X": 0.0,
+          "Y": 0.0,
+          "Z": 0.15,
+          "Pitch": -90,
+          "Roll": 0,
+          "Yaw": 0,
+          "Label": "Downward",
+          "CaptureSettings": [
+            {
+              "ImageType": 0,
+              "Width": 1024,
+              "Height": 1024,
+              "FOV_Degrees": 100
+            }
+          ]
+        }
+      }
+    },
+    "Drone3": {
+      "VehicleType": "SimpleFlight",
+      "AutoCreate": true,
+      "DefaultVehicleState": "Armed",
+      "X": -358.516,
+      "Y": -7704.646,
+      "Z": -20.0,
+      "Yaw": 308,
+      "Sensors": {
+        "DownwardRange": {
+          "SensorType": 5,
+          "Enabled": true,
+          "X": 0.0,
+          "Y": 0.0,
+          "Z": 0.1,
+          "Yaw": 0,
+          "Pitch": -90,
+          "Roll": 0,
+          "MinDistance": 0.2,
+          "MaxDistance": 80.0
+        }
+      },
+      "Cameras": {
+        "front_center": {
+          "X": 0.4,
+          "Y": 0.0,
+          "Z": -0.1,
+          "Pitch": 0,
+          "Roll": 0,
+          "Yaw": 0,
+          "Label": "Front",
+          "CaptureSettings": [
+            {
+              "ImageType": 0,
+              "Width": 1280,
+              "Height": 720,
+              "FOV_Degrees": 90
+            }
+          ]
+        },
+        "downward": {
+          "X": 0.0,
+          "Y": 0.0,
+          "Z": 0.15,
+          "Pitch": -90,
+          "Roll": 0,
+          "Yaw": 0,
+          "Label": "Downward",
+          "CaptureSettings": [
+            {
+              "ImageType": 0,
+              "Width": 1024,
+              "Height": 1024,
+              "FOV_Degrees": 100
+            }
+          ]
+        }
+      }
+    }
+  }
+}

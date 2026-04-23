@@ -1,0 +1,74 @@
+/* Shared design tokens and base element styles for the DTAM frontend. */
+:root {
+  --bg-deep: #061a29;
+  --bg-surface: rgba(9, 33, 53, 0.8);
+  --bg-elevated: rgba(17, 45, 72, 0.92);
+  --line-soft: rgba(208, 231, 255, 0.18);
+  --line-strong: rgba(208, 231, 255, 0.42);
+  --text-main: #eef7ff;
+  --text-muted: #b9d2e8;
+  --text-dim: #88a8c2;
+  --glow: 0 18px 60px rgba(1, 12, 24, 0.5);
+  --radius-xl: 32px;
+  --radius-lg: 24px;
+  --radius-md: 18px;
+  --radius-sm: 14px;
+  --font-display: "Bahnschrift", "Segoe UI Variable Display", "Trebuchet MS", sans-serif;
+  --font-body: "Segoe UI", "Noto Sans KR", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(circle at top left, rgba(132, 191, 255, 0.18), transparent 30%),
+    linear-gradient(160deg, #071826 0%, #0a2740 42%, #05111b 100%);
+  color: var(--text-main);
+  font-family: var(--font-body);
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  color: inherit;
+}
+
+.eyebrow {
+  margin: 0 0 0.45rem;
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.section-heading h3,
+h1,
+h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+p {
+  line-height: 1.6;
+}

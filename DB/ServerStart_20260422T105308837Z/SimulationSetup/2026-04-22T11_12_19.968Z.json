@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-04-22T11:12:19.968Z",
+  "playbackSpeed": 1,
+  "playState": "pause",
+  "mainVehicleController": "Autopilot",
+  "weatherEffect": {
+    "precipitation": {
+      "type": "none",
+      "intensity": 0
+    },
+    "fog": {
+      "intensity": 0
+    }
+  },
+  "wind": {
+    "grade": "normal"
+  }
+}

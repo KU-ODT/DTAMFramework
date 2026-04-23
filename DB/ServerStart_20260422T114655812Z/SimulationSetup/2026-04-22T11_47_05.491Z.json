@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-04-22T11:47:05.491Z",
+  "playbackSpeed": 1,
+  "playState": "pause",
+  "weatherEffect": {
+    "precipitation": {
+      "type": "none",
+      "intensity": 0
+    },
+    "fog": {
+      "intensity": 0
+    }
+  },
+  "wind": {
+    "grade": "normal"
+  }
+}
