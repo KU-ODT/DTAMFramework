@@ -9,3 +9,6 @@ DEFAULT_DB_ROOT = FRAMEWORK_ROOT / "DB"
 DEFAULT_WS_URL = "ws://127.0.0.1:8095/ws/dtam"
 ROLE_NAME = "sim_state"
 SOURCE_NAME = "DTAM_SimulationState"
+
+# 라이브 모니터 웹 UI 자산
+WEB_DIR = Path(__file__).resolve().parent / "web"

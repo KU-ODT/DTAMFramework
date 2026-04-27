@@ -1,6 +1,7 @@
 """DTAM Simulation State FastAPI 앱 팩토리.
 
 세션 서버로서 실제 데이터 통신(UDP/TCP/WS)과 DB 로깅, 시뮬레이션 엔진(시간)을 관리합니다.
+또한 라이브 모니터 웹 UI 를 ``/`` 에 호스팅합니다 (자기 자신의 ``/ws/events`` 와 same-origin).
 """
 from __future__ import annotations
 
@@ -8,13 +9,18 @@ import asyncio
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 from DTAM_CoreServer.app.model.config import ServerConfig
 from DTAM_CoreServer.app.model.message import PHASE_INFO, phase_tag
+from .config import WEB_DIR
 from .service.hub import ServerHub
 from .database.file_db import DtamFileDb
 from .service.engine import SimulationEngine
 from .router import ws_dtam, ws_events, push, state
+from .router import db as db_router
+from .router import sequence as sequence_router
 
 logger = logging.getLogger("sim_state.server")
 
@@ -42,6 +48,7 @@ def create_app(config: ServerConfig, db_root: str) -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
+        allow_origin_regex="http://.*",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -50,6 +57,7 @@ def create_app(config: ServerConfig, db_root: str) -> FastAPI:
     hub = ServerHub(config)
     app.state.hub = hub
     db = DtamFileDb(db_root)
+    app.state.db = db
     engine = SimulationEngine(hub) # 엔진이 직접 허브를 통해 메시지를 보낼 수 있도록 의존성 주입
 
     # 라우터 등록
@@ -57,6 +65,18 @@ def create_app(config: ServerConfig, db_root: str) -> FastAPI:
     app.include_router(ws_events.router)
     app.include_router(push.router)
     app.include_router(state.router)
+    app.include_router(db_router.router)
+    app.include_router(sequence_router.router)
+
+    # 라이브 모니터 웹 UI (same-origin)
+    if (WEB_DIR / "css").is_dir():
+        app.mount("/css", StaticFiles(directory=str(WEB_DIR / "css")), name="css")
+    if (WEB_DIR / "js").is_dir():
+        app.mount("/js", StaticFiles(directory=str(WEB_DIR / "js")), name="js")
+
+    @app.get("/", response_class=HTMLResponse, include_in_schema=False)
+    async def index() -> HTMLResponse:
+        return HTMLResponse(content=(WEB_DIR / "index.html").read_text(encoding="utf-8"))
 
     clients = ws_events.gui_clients
 

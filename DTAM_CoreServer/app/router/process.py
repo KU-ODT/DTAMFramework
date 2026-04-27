@@ -48,7 +48,11 @@ async def _process_heartbeat_loop():
             traceback.print_exc()
         await asyncio.sleep(2.0)
 
-@router.post("/{role}/start")
+@router.post(
+    "/{role}/start",
+    summary="모듈 실행",
+    description="지정된 역할(mission, vehicle, visual)의 프로세스를 새로운 콘솔 창에서 실행합니다."
+)
 async def start_module(role: str):
     try:
         if role not in MODULE_MAP:
@@ -93,7 +97,11 @@ async def start_module(role: str):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/{role}/stop")
+@router.post(
+    "/{role}/stop",
+    summary="모듈 종료",
+    description="실행 중인 모듈 프로세스를 강제 종료합니다."
+)
 async def stop_module(role: str):
     if role not in active_processes:
         return {"ok": True, "message": "Module is not running."}

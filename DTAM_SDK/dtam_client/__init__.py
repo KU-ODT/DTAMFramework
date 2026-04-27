@@ -1,20 +1,20 @@
 """DTAM SDK public API.
 
-Most module developers only need ``DtamClient``:
+권장 (신규):
+    from dtam_client import DtamModule, Role
 
-    from dtam_client import DtamClient
-
-    dtam = DtamClient.module(
-        my_ip="0.0.0.0",
-        my_port=17000,
-        peer_ip="192.168.0.43",
-        peer_port=17000,
-        auto_listen=True,
+    mod = DtamModule.start(
+        role=Role.VEHICLE,
+        server_url="ws://127.0.0.1:8096/ws/dtam",
+        heartbeat=True,
     )
+    mod.on("scheduled_flight", on_3001)
+    mod.send("vehicle_status", payload)
 
+레거시 (UDP/TCP — 마이그레이션 후 제거 예정):
+    from dtam_client import DtamClient
+    dtam = DtamClient.module(my_ip=..., my_port=..., peer_ip=..., peer_port=...)
     dtam.push_vehicle_status_async({...})
-
-UDP uses ``port``. TCP uses ``port + 1`` by default.
 """
 
 from ._version import VERSION, __version__
@@ -32,8 +32,27 @@ from ._channel import DtamChannel
 from ._client import DtamClient, create_client
 from ._ws_client import DtamWsClient
 
-import os
-print(f"[dtam_client] Loaded from: {os.path.abspath(__file__)}")
+# 신규 통합 layer (catalog/identity/policy/module/rest).
+# 향후 모든 모듈은 이 layer 만 사용하도록 마이그레이션됩니다.
+from .catalog import (
+    CATALOG,
+    MessageSpec,
+    PHASE_INFO,
+    resolve as resolve_message,
+    callback_name,
+    push_name,
+    phase_tag,
+)
+from .identity import (
+    KNOWN_MODULES,
+    ModuleIdentity,
+    Role,
+    identity_of,
+    role_of,
+)
+from .policy import FORWARD_RULES, subscriptions_for
+from .module import DtamModule, ModuleStats
+from .rest import DtamRest, DtamRestError
 
 from .samples import (
     all_sample_payloads,
@@ -72,6 +91,26 @@ from .msg import (
 __all__ = [
     "__version__",
     "VERSION",
+    # 신규 통합 layer
+    "CATALOG",
+    "MessageSpec",
+    "PHASE_INFO",
+    "resolve_message",
+    "callback_name",
+    "push_name",
+    "phase_tag",
+    "Role",
+    "ModuleIdentity",
+    "KNOWN_MODULES",
+    "identity_of",
+    "role_of",
+    "FORWARD_RULES",
+    "subscriptions_for",
+    "DtamModule",
+    "ModuleStats",
+    "DtamRest",
+    "DtamRestError",
+    # 레거시 (UDP/TCP)
     "configure",
     "get_config",
     "load_network_config",

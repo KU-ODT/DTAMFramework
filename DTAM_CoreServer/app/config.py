@@ -6,7 +6,6 @@ from .model.config import (  # noqa: F401 — DSE_main.py 에서 직접 import
     DEFAULT_DB_ROOT,
     DTAM_SDK_ROOT,
     FRAMEWORK_ROOT,
-    WEB_DIR,
     ModuleEndpoint,
     ServerConfig,
     ServerEndpoint,

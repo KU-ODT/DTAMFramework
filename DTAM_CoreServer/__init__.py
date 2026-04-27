@@ -1,9 +1,16 @@
-"""DTAM Server Emulator package.
+"""DTAM Core Server package.
 
-Emulates the central DTAM server that mediates all ICD traffic between
-DTAM_MissionPlanner (mission), DTAMOperationsConsole (monitoring),
-DTAMAirMobility (vehicle), and DTAMVisualization (visual).
+Cloud-bound control plane: ICD docs, sequence diagram serving, and
+module process lifecycle management. Spawns DTAM_SimulationState as
+a child process for actual data-plane traffic handling.
 
-See ``odt_Integration/static/data/sequence_diagram.json`` for the reference
-message flow this emulator implements.
+Module roles handled by the framework:
+  - mission     (DTAM_MissionPlanner)
+  - monitoring  (DTAMOperationsConsole)
+  - vehicle     (DTAMAirMobility)
+  - visual      (DTAMVisualization)
+  - sim_state   (DTAM_SimulationState)
+
+See ``DTAM_CoreServer/app/web/data/sequence_diagram.json`` for the
+reference message flow.
 """

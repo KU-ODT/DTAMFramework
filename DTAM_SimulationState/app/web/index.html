@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>DTAM Simulation State Monitor</title>
+  <link rel="stylesheet" href="/css/main.css?v=2.1.0" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-logo">SS</div>
+      <div class="brand-text">
+        <div class="brand-title">DTAM Simulation State Monitor</div>
+        <div class="brand-sub" id="brand-subtitle">—</div>
+      </div>
+    </div>
+    <div class="topbar-stats">
+      <div class="stat">
+        <div class="stat-label">UDP</div>
+        <div class="stat-value" id="stat-udp">--</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">TCP</div>
+        <div class="stat-value" id="stat-tcp">--</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">DB Session</div>
+        <div class="stat-value" id="stat-session">--</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Uptime</div>
+        <div class="stat-value" id="stat-uptime">--</div>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost" id="btn-open-db">DB 폴더 열기</button>
+      <button class="btn btn-ghost" id="btn-refresh">새로고침</button>
+    </div>
+  </header>
+
+  <!-- Live Sequence Diagram (신규) -->
+  <section class="live-sequence">
+    <div class="section-header">
+      <h2>Live Sequence Diagram</h2>
+      <div class="filters">
+        <span class="legend-item"><span class="legend-dot dot-rx"></span>RX</span>
+        <span class="legend-item"><span class="legend-dot dot-tx"></span>TX</span>
+        <span class="legend-item"><span class="legend-dot dot-fail"></span>FAIL</span>
+        <label class="filter-chip"><input type="checkbox" id="seq-pause" />pause</label>
+        <button class="btn btn-ghost btn-sm" id="btn-clear-seq">Clear</button>
+      </div>
+    </div>
+    <div class="sequence-wrap">
+      <svg id="sequence-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+  </section>
+
+  <main class="layout">
+    <section class="col col-modules">
+      <div class="section-header">
+        <h2>Connected Modules</h2>
+        <span class="tag" id="modules-summary">0 / 4</span>
+      </div>
+      <div class="modules-grid" id="modules-grid"></div>
+    </section>
+
+    <section class="col col-traffic">
+      <div class="section-header">
+        <h2>Live Traffic</h2>
+        <div class="filters">
+          <label class="filter-chip"><input type="checkbox" id="filter-rx" checked />RX</label>
+          <label class="filter-chip"><input type="checkbox" id="filter-tx" checked />TX</label>
+          <label class="filter-chip"><input type="checkbox" id="filter-0002" />0002</label>
+          <label class="filter-chip"><input type="checkbox" id="filter-0003" />0003</label>
+          <label class="filter-chip"><input type="checkbox" id="filter-4001" />4001</label>
+          <button class="btn btn-ghost btn-sm" id="btn-clear-traffic">Clear</button>
+        </div>
+      </div>
+      <div class="traffic-feed" id="traffic-feed"></div>
+
+      <div class="section-header" style="margin-top:18px">
+        <h2>Message Counters</h2>
+      </div>
+      <table class="counter-table">
+        <thead>
+          <tr>
+            <th>MID</th>
+            <th>Name</th>
+            <th>Proto</th>
+            <th>Direction</th>
+            <th>RX</th>
+            <th>TX</th>
+            <th>Hz</th>
+            <th>Last RX</th>
+          </tr>
+        </thead>
+        <tbody id="counter-body"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <aside class="drawer" id="module-drawer" aria-hidden="true">
+    <div class="drawer-header">
+      <div>
+        <div class="drawer-title" id="drawer-title">—</div>
+        <div class="drawer-sub" id="drawer-sub">—</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="drawer-close">닫기</button>
+    </div>
+    <div class="drawer-body" id="drawer-body"></div>
+  </aside>
+
+  <script src="/js/app.js?v=2.1.0"></script>
+</body>
+</html>

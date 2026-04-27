@@ -93,6 +93,12 @@ def _create_push_handler(msg_id: str):
         if role:
             result = hub.push_to_role(role, msg_id, payload_dict)
         else:
+            # [NEW] 0002 하트비트인 경우 레지스트리 우선 갱신
+            if msg_id == "0002":
+                source = payload_dict.get("source") or payload_dict.get("role") or "unknown"
+                hub.registry.heartbeat(payload_dict)
+                # logger.debug(f"Heartbeat received from {source}")
+
             # Broadcast to all target roles based on FORWARD_RULES
             forward_roles = FORWARD_RULES.get(msg_id, [])
             results = {}
@@ -102,12 +108,17 @@ def _create_push_handler(msg_id: str):
                 results[f_role] = res
                 if res.get("ok"):
                     sent_count += 1
-            result = {
-                "ok": sent_count > 0,
-                "sent_count": sent_count,
-                "targets": forward_roles,
-                "details": results
-            }
+            
+            # 0002는 특별 처리하여 항상 ok 응답
+            if msg_id == "0002":
+                result = {"ok": True, "mid": "0002", "forwarded": sent_count}
+            else:
+                result = {
+                    "ok": sent_count > 0,
+                    "sent_count": sent_count,
+                    "targets": forward_roles,
+                    "details": results
+                }
         return JSONResponse(result)
 
     # FastAPI 라우팅을 위해 함수 이름 동적으로 변경

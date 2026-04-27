@@ -19,8 +19,8 @@ ROOT_DIR = Path(__file__).resolve().parents[2]          # DTAM_CoreServer/
 FRAMEWORK_ROOT = ROOT_DIR.parent                         # DTAMFramework/
 DTAM_SDK_ROOT = FRAMEWORK_ROOT / "DTAM_SDK"
 DEFAULT_DB_ROOT = FRAMEWORK_ROOT / "DB"
-WEB_DIR = ROOT_DIR / "app" / "web"
 ICD_DIR = DTAM_SDK_ROOT / "dtam_client" / "icd"
+# (라이브 모니터 web 자산은 DTAM_SimulationState/app/web/ 으로 이전됨)
 
 DEFAULT_CONFIG_FILE = ROOT_DIR / "config.json"
 

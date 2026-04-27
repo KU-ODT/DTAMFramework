@@ -52,7 +52,7 @@ def main():
 
     if not dtam.connected:
         print("[TEST] 연결 실패! 서버가 실행 중인지 확인하세요.")
-        print("       서버 실행: python DTAM_ServerEmulator/DSE_main.py")
+        print("       서버 실행: python DTAM_CoreServer/DSE_main.py")
         dtam.close()
         return
 

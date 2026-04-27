@@ -979,7 +979,7 @@ def create_app() -> FastAPI:
             if not records:
                 return JSONResponse({"error": "No ICD records to save"}, status_code=400)
             send_result = dtam_sender.send_scheduled_flights(records)
-            result["saved_by"] = "DTAM_ServerEmulator"
+            result["saved_by"] = "DTAM_SimulationState"
             result["local_save"] = False
             result["send_result"] = send_result
             status_code = 200 if send_result.get("ok") else 502
