@@ -93,12 +93,8 @@ def validate_message(obj: Any) -> Tuple[bool, List[str], Dict[str, Any]]:
     mode = obj.get("operationMode")
     if mode == "single":
         _validate_single_flight(obj, errors)
-        if "traffic" in obj:
-            errors.append("traffic: single 모드에서 허용되지 않음")
     elif mode == "traffic":
         _validate_traffic(obj, errors)
-        if "singleFlight" in obj:
-            errors.append("singleFlight: traffic 모드에서 허용되지 않음")
     elif mode == "integrated":
         _validate_single_flight(obj, errors)
         _validate_traffic(obj, errors)

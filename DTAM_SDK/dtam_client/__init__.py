@@ -30,6 +30,11 @@ from ._result import PushResult
 from ._listener import DtamListener
 from ._channel import DtamChannel
 from ._client import DtamClient, create_client
+from ._ws_client import DtamWsClient
+
+import os
+print(f"[dtam_client] Loaded from: {os.path.abspath(__file__)}")
+
 from .samples import (
     all_sample_payloads,
     sample_camera_image_bytes,
@@ -75,6 +80,7 @@ __all__ = [
     "Endpoint",
     "PushResult",
     "DtamClient",
+    "DtamWsClient",
     "create_client",
     "DtamChannel",
     "DtamListener",

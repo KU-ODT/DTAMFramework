@@ -13,6 +13,8 @@ from fastapi import HTTPException
 
 from backend.app.core.settings import settings
 from backend.app.schemas.icd import IcdSendResponse
+import urllib.request
+import json
 
 
 SUPPORTED_UDP_MESSAGES = {"1001", "1002", "1003"}
@@ -111,35 +113,77 @@ def _module_status_loop() -> None:
                 pass
 
 
-def send_udp_message(
+def send_icd_command(
     message_id: str,
     payload: dict[str, Any],
     *,
     target_ip: str | None = None,
     target_port: int | None = None,
 ) -> IcdSendResponse:
-    """Validate and send one supported ICD payload over UDP through DTAM_SDK."""
+    """Validate and send one supported ICD payload over HTTP REST to the State Server."""
     normalized_id = str(message_id).strip()
-    if normalized_id not in SUPPORTED_UDP_MESSAGES:
-        raise HTTPException(status_code=404, detail=f"Unsupported UDP ICD message: {message_id}")
-
-    client = _create_client()
+    
+    # State Server HTTP 포트는 8096으로 기본 설정
+    http_port = 8096
+    ip = target_ip or os.environ.get("DTAM_TARGET_IP") or "127.0.0.1"
+    
+    url = f"http://{ip}:{http_port}/api/msg/{normalized_id}"
+    
+    body = json.dumps({"role": "", "payload": payload}).encode('utf-8')
+    req = urllib.request.Request(url, data=body, headers={'Content-Type': 'application/json'})
+    
     try:
-        result = client.send(
-            normalized_id,
-            payload,
-            target_ip=target_ip,
-            udp_port=target_port,
-        )
-    finally:
-        client.close()
+        with urllib.request.urlopen(req, timeout=5.0) as response:
+            res_data = json.loads(response.read().decode('utf-8'))
+            sent = res_data.get("ok", False)
+            if sent:
+                errors = []
+            else:
+                errors = [res_data.get("error")] if "error" in res_data else []
+                if "details" in res_data:
+                    for role, d in res_data["details"].items():
+                        if not d.get("ok") and "errors" in d:
+                            errors.extend([f"[{role}] {e}" for e in d["errors"]])
+                if not errors:
+                    errors = ["Unknown REST validation error"]
+    except Exception as e:
+        sent = False
+        errors = [str(e)]
 
     return IcdSendResponse(
         message_id=normalized_id,
-        protocol="UDP",
-        sent=bool(result),
-        bytes_sent=result.bytes_sent,
-        target=result.target,
-        errors=list(result.errors),
+        protocol="HTTP",
+        sent=sent,
+        bytes_sent=len(body) if sent else 0,
+        target=f"{ip}:{http_port}",
+        errors=errors,
         payload=payload,
     )
+
+def get_registry_snapshot() -> dict[str, Any]:
+    """Fetch module registry snapshot from the State Server (8096)."""
+    http_port = 8096
+    ip = os.environ.get("DTAM_TARGET_IP") or "127.0.0.1"
+    url = f"http://{ip}:{http_port}/api/state"
+    
+    try:
+        with urllib.request.urlopen(url, timeout=3.0) as response:
+            return json.loads(response.read().decode('utf-8'))
+    except Exception:
+        return {"registry": {"modules": []}}
+
+def control_module_process(role: str, action: str) -> dict[str, Any]:
+    """Send start/stop command to the Core Server (8095)."""
+    # Core Server HTTP 포트는 8095
+    http_port = 8095
+    ip = os.environ.get("DTAM_TARGET_IP") or "127.0.0.1"
+    
+    # action: "start" or "stop"
+    url = f"http://{ip}:{http_port}/api/v1/process/{role}/{action}"
+    
+    try:
+        req = urllib.request.Request(url, method="POST")
+        with urllib.request.urlopen(req, timeout=5.0) as response:
+            return json.loads(response.read().decode('utf-8'))
+    except Exception as e:
+        return {"ok": False, "error": str(e)}

@@ -6,6 +6,7 @@ AirSim / mission_runner / telemetry / simulator_service 관련 기능은 모두
 """
 from __future__ import annotations
 
+import asyncio
 import csv
 import datetime
 import json
@@ -805,6 +806,7 @@ def create_app() -> FastAPI:
                       f"{len(route_planner.waypoints)} waypoints")
             except Exception as exc:
                 print(f"[DTAM MP] RoutePlanner error: {exc}")
+
 
         try:
             from .dem import load_dem_provider

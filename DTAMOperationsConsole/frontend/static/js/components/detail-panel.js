@@ -88,100 +88,71 @@ const MODULE_MANAGEMENT_COPY = {
   },
 };
 
-const MODULE_CONNECTIONS = [
-  {
-    name: "DTAM Mission Planner",
-    role: "MISSION",
-    endpoint: "127.0.0.1:17010",
-    tcp: "17011",
-    status: "waiting",
-    rx: "0",
-    tx: "0",
-    heartbeat: "-",
-    tag: "idle",
-    accent: "purple",
-  },
-  {
-    name: "DTAM Air Mobility",
-    role: "VEHICLE",
-    endpoint: "127.0.0.1:17030",
-    tcp: "17031",
-    status: "waiting",
-    rx: "0",
-    tx: "547",
-    heartbeat: "-",
-    tag: "0003",
-    accent: "green",
-  },
-  {
-    name: "DTAM Server",
-    role: "SERVER",
-    endpoint: "127.0.0.1:17020",
-    tcp: "17021",
-    status: "connected",
-    rx: "552",
-    tx: "0",
-    heartbeat: "now",
-    tag: "0002",
-    accent: "cyan",
-  },
-  {
-    name: "DTAM Visualization",
-    role: "VISUAL",
-    endpoint: "127.0.0.1:17040",
-    tcp: "17041",
-    status: "waiting",
-    rx: "0",
-    tx: "547",
-    heartbeat: "-",
-    tag: "0003",
-    accent: "amber",
-  },
-];
+import { getJSON, postJSON } from "../api/client.js";
 
 function moduleCopy(language = "en") {
   return MODULE_MANAGEMENT_COPY[language === "ko" ? "ko" : "en"];
 }
 
+function formatHeartbeat(ts) {
+  if (!ts || ts <= 0) return "-";
+  const sec = Math.max(0, Date.now() / 1000 - ts);
+  if (sec < 1) return "now";
+  if (sec < 60) return `${sec.toFixed(1)}s`;
+  return `${Math.floor(sec / 60)}m`;
+}
+
 function renderModuleCard(module, copy) {
+  const status = module.connected ? "connected" : "waiting";
+  const accent = {
+    mission: "purple",
+    vehicle: "green",
+    monitoring: "cyan",
+    visual: "amber",
+    sim_state: "blue",
+  }[module.role] || "gray";
+
+  const mids = Object.keys(module.messages || {}).sort().slice(0, 3).join(", ");
+
   return `
-    <article class="dtam-module-card dtam-module-card--${module.accent} ${module.status === "connected" ? "is-connected" : ""}">
+    <article class="dtam-module-card dtam-module-card--${accent} ${module.connected ? "is-connected" : ""}">
       <header class="dtam-module-card__header">
         <div>
-          <strong>${module.name}</strong>
-          <span>${module.role}</span>
+          <strong>${module.display_name || module.role}</strong>
+          <span>${module.role.toUpperCase()}</span>
         </div>
-        <span class="dtam-module-status dtam-module-status--${module.status}">
+        <span class="dtam-module-status dtam-module-status--${status}">
           <i aria-hidden="true"></i>
-          ${copy[module.status]}
+          ${copy[status]}
         </span>
       </header>
-      <p class="dtam-module-endpoint">${module.endpoint} <span>(TCP ${module.tcp})</span></p>
+      <p class="dtam-module-endpoint">${module.ip}:${module.udp_port} <span>(TCP ${module.tcp_port})</span></p>
       <div class="dtam-module-metrics">
         <div>
           <span>${copy.rx}</span>
-          <strong>${module.rx}</strong>
+          <strong>${module.rx_count || 0}</strong>
         </div>
         <div>
           <span>${copy.tx}</span>
-          <strong>${module.tx}</strong>
+          <strong>${module.tx_count || 0}</strong>
         </div>
         <div>
           <span>${copy.heartbeat}</span>
-          <strong>${module.heartbeat}</strong>
+          <strong>${formatHeartbeat(module.last_heartbeat_ts)}</strong>
         </div>
       </div>
-      <span class="dtam-module-tag">${module.tag}</span>
+      <span class="dtam-module-tag">${mids || "idle"}</span>
     </article>
   `;
 }
 
-export function renderModuleManagement(container, language = "en") {
+export async function renderModuleManagement(container, language = "en") {
   const copy = moduleCopy(language);
-  const connectedCount = MODULE_CONNECTIONS.filter((module) => module.status === "connected").length;
-
+  
   container.classList.remove("detail-panel--icd");
   container.classList.add("detail-panel--module-management");
+  
+  // 초기 껍데기 렌더링
   container.innerHTML = `
     <section class="dtam-module-management">
       <header class="dtam-module-management__header">
@@ -201,23 +172,69 @@ export function renderModuleManagement(container, language = "en") {
           </button>
         </div>
       </header>
-      <div class="dtam-module-count">
+      <div class="dtam-module-count" data-module-count-wrapper>
         <strong>${copy.eyebrow}</strong>
-        <span>${connectedCount} / ${MODULE_CONNECTIONS.length}</span>
+        <span data-module-count-text>- / -</span>
       </div>
-      <div class="dtam-module-grid">
-        ${MODULE_CONNECTIONS.map((module) => renderModuleCard(module, copy)).join("")}
+      <div class="dtam-module-grid" data-module-grid-wrapper>
+        <div class="detail-loading">Loading status...</div>
       </div>
       <div class="dtam-module-command-status" data-module-command-status>${copy.ready}</div>
     </section>
   `;
 
+  const gridWrapper = container.querySelector("[data-module-grid-wrapper]");
+  const countText = container.querySelector("[data-module-count-text]");
+  const statusEl = container.querySelector("[data-module-command-status]");
+
+  async function refresh() {
+    try {
+      const data = await getJSON("/api/v1/system/modules");
+      const modules = data.modules || [];
+      const connectedCount = modules.filter((m) => m.connected).length;
+      
+      countText.textContent = `${connectedCount} / ${modules.length}`;
+      gridWrapper.innerHTML = modules.map((m) => renderModuleCard(m, copy)).join("");
+    } catch (error) {
+      gridWrapper.innerHTML = `<div class="detail-error">${error.message}</div>`;
+    }
+  }
+
+  // 주기적 갱신
+  const timer = setInterval(() => {
+    if (!document.body.contains(container)) {
+      clearInterval(timer);
+      return;
+    }
+    refresh();
+  }, 2000);
+
+  refresh();
+
+  // 명령 바인딩
   container.querySelectorAll("[data-module-command]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const status = container.querySelector("[data-module-command-status]");
-      const label = button.dataset.moduleCommand === "start" ? copy.start : copy.stop;
-      if (status) {
-        status.textContent = `${label}: ${copy.ready}`;
+    button.addEventListener("click", async () => {
+      const action = button.dataset.moduleCommand;
+      const roles = ["mission", "vehicle", "visual"];
+      const label = action === "start" ? copy.start : copy.stop;
+      
+      statusEl.textContent = `${label} 명령 전송 중...`;
+      
+      try {
+        const results = await Promise.all(roles.map(role => 
+          postJSON(`/api/v1/system/modules/${role}/${action}`).catch(e => ({ ok: false, error: e.message }))
+        ));
+        
+        const failed = results.filter(r => !r.ok);
+        if (failed.length > 0) {
+          statusEl.textContent = `${label} 실패: ${failed.map(f => f.error).join(", ")}`;
+        } else {
+          statusEl.textContent = `${label} 완료`;
+          setTimeout(() => { statusEl.textContent = copy.ready; }, 3000);
+          refresh();
+        }
+      } catch (error) {
+        statusEl.textContent = `${label} 에러: ${error.message}`;
       }
     });
   });

@@ -96,3 +96,51 @@ def send_tcp(
     except OSError as exc:
         result.errors.append(_format_send_error("TCP", ip, port, exc))
     return result
+
+
+def send_http(ip: str, port: int, mid: str, data: Dict[str, Any]) -> PushResult:
+    """Send a message via REST API (HTTP POST).
+    URL: http://{ip}:{port}/api/msg/{mid}
+    """
+    import urllib.request
+    from urllib.error import URLError, HTTPError
+    
+    # 2-Tier Architecture Port Mapping
+    p_str = str(port)
+    if p_str == "17000":   # State Server (Ingame)
+        http_port = 8096
+    elif p_str == "16000": # Core Server (Lobby)
+        http_port = 8095
+    elif p_str == "17010": # Mission Planner
+        http_port = 8090
+    elif p_str == "17020": # Operations Console
+        http_port = 8000
+    else:
+        http_port = port if port > 8000 else (port + 96)
+        
+    url = f"http://{ip}:{http_port}/api/msg/{mid}"
+    result = PushResult(target=url, payload=data)
+    
+    raw, err = _serialize(data)
+    if err:
+        result.errors.extend(err.errors)
+        return result
+        
+    try:
+        req = urllib.request.Request(
+            url, data=raw, 
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=2.0) as resp:
+            resp.read()
+            result.ok = True
+            result.bytes_sent = len(raw)
+    except HTTPError as exc:
+        result.errors.append(f"HTTP Error {exc.code}: {exc.reason}")
+    except (URLError, OSError) as exc:
+        result.errors.append(f"HTTP Connection failed: {exc}")
+    except Exception as exc:
+        result.errors.append(f"HTTP unexpected error: {exc}")
+        
+    return result

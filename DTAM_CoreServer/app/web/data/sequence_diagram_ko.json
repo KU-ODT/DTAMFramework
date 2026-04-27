@@ -1,0 +1,544 @@
+{
+  "actors": [
+    {
+      "id": "user",
+      "name": "사용자",
+      "color": "user"
+    },
+    {
+      "id": "monitoring",
+      "name": "운용\n콘솔",
+      "color": "monitoring"
+    },
+    {
+      "id": "server",
+      "name": "DTAM\nCore",
+      "color": "server"
+    },
+    {
+      "id": "sim_state",
+      "name": "시뮬레이션\n상태서버",
+      "color": "mission"
+    },
+    {
+      "id": "db",
+      "name": "중앙\nDB",
+      "color": "db"
+    },
+    {
+      "id": "mission",
+      "name": "임무\n계획 모듈",
+      "color": "mission"
+    },
+    {
+      "id": "vehicle",
+      "name": "비행체",
+      "color": "vehicle"
+    },
+    {
+      "id": "visual",
+      "name": "시각화",
+      "color": "visual"
+    }
+  ],
+  "messages": [
+    {
+      "group": "0. DTAM 초기화"
+    },
+    {
+      "from": "user",
+      "to": "monitoring",
+      "name": "초기화 클릭",
+      "proto": "UI"
+    },
+    {
+      "from": "monitoring",
+      "to": "server",
+      "name": "빌드파일 연결 / 서버 On",
+      "proto": "build"
+    },
+    {
+      "from": "monitoring",
+      "to": "mission",
+      "name": "빌드파일 연결 / 모듈 On",
+      "proto": "build"
+    },
+    {
+      "from": "monitoring",
+      "to": "vehicle",
+      "name": "빌드파일 연결 / 모듈 On",
+      "proto": "build"
+    },
+    {
+      "from": "monitoring",
+      "to": "visual",
+      "name": "빌드파일 연결 / 모듈 On",
+      "proto": "build"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "0001",
+      "name": "모듈 세팅 정보",
+      "proto": "UDP",
+      "note": "수신 포트 보고"
+    },
+    {
+      "from": "mission",
+      "to": "sim_state",
+      "id": "0001",
+      "name": "모듈 세팅 정보",
+      "proto": "UDP",
+      "note": "수신 포트 보고"
+    },
+    {
+      "from": "vehicle",
+      "to": "sim_state",
+      "id": "0001",
+      "name": "모듈 세팅 정보",
+      "proto": "UDP",
+      "note": "수신 포트 보고"
+    },
+    {
+      "from": "visual",
+      "to": "sim_state",
+      "id": "0001",
+      "name": "모듈 세팅 정보",
+      "proto": "UDP",
+      "note": "수신 포트 보고"
+    },
+    {
+      "from": "sim_state",
+      "to": "monitoring",
+      "id": "0001",
+      "name": "모듈 세팅 정보 종합",
+      "proto": "UDP",
+      "note": "종합 전달"
+    },
+    {
+      "from": "mission",
+      "to": "sim_state",
+      "id": "0002",
+      "name": "모듈 상태",
+      "proto": "UDP",
+      "note": "초기 보고"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "0002",
+      "name": "모듈 상태",
+      "proto": "UDP",
+      "note": "초기 보고"
+    },
+    {
+      "from": "vehicle",
+      "to": "sim_state",
+      "id": "0002",
+      "name": "모듈 상태",
+      "proto": "UDP",
+      "note": "초기 보고"
+    },
+    {
+      "from": "visual",
+      "to": "sim_state",
+      "id": "0002",
+      "name": "모듈 상태",
+      "proto": "UDP",
+      "note": "초기 보고"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "0002",
+      "name": "모듈 상태",
+      "proto": "file",
+      "note": "모듈별 최신 상태 저장"
+    },
+    {
+      "group": "1. 세팅 페이즈"
+    },
+    {
+      "from": "user",
+      "to": "monitoring",
+      "name": "모드 입력",
+      "proto": "UI"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "1001",
+      "name": "시뮬레이션 모드 세팅",
+      "proto": "UDP",
+      "note": "서버로 전송"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "1001",
+      "name": "시뮬레이션 모드 세팅",
+      "proto": "file",
+      "note": "저장"
+    },
+    {
+      "from": "user",
+      "to": "monitoring",
+      "name": "시나리오 입력",
+      "proto": "UI"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "1003",
+      "name": "시나리오 세팅",
+      "proto": "UDP",
+      "note": "서버로 전송"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "1003",
+      "name": "시나리오 세팅",
+      "proto": "file",
+      "note": "저장"
+    },
+    {
+      "group": "2. 계획 페이즈"
+    },
+    {
+      "from": "user",
+      "to": "monitoring",
+      "name": "비행 계획 요청",
+      "proto": "UI"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "2001",
+      "name": "비행 계획 요청",
+      "proto": "TCP",
+      "note": "요청"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "2001",
+      "name": "비행 계획 요청",
+      "proto": "file",
+      "note": "저장"
+    },
+    {
+      "from": "sim_state",
+      "to": "mission",
+      "id": "2001",
+      "name": "비행 계획 요청",
+      "proto": "TCP",
+      "note": "포워딩"
+    },
+    {
+      "from": "mission",
+      "to": "db",
+      "id": "1003",
+      "name": "시나리오 세팅",
+      "proto": "DB",
+      "note": "직접 조회"
+    },
+    {
+      "from": "db",
+      "to": "mission",
+      "id": "1003",
+      "name": "시나리오 세팅",
+      "proto": "DB",
+      "note": "페이로드"
+    },
+    {
+      "from": "mission",
+      "to": "sim_state",
+      "id": "3001",
+      "name": "계획 비행 데이터",
+      "proto": "TCP",
+      "note": "제출"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "3001",
+      "name": "계획 비행 데이터",
+      "proto": "file",
+      "note": "저장"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "3001",
+      "name": "계획 비행 데이터",
+      "proto": "TCP",
+      "note": "포워딩"
+    },
+    {
+      "group": "3. 실행 페이즈"
+    },
+    {
+      "from": "user",
+      "to": "monitoring",
+      "name": "실행 명령",
+      "proto": "UI"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "2002",
+      "name": "DTAM 실행",
+      "proto": "TCP",
+      "note": "실행"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "2002",
+      "name": "DTAM 실행",
+      "proto": "file",
+      "note": "저장"
+    },
+    {
+      "from": "sim_state",
+      "to": "mission",
+      "id": "2002",
+      "name": "DTAM 실행",
+      "proto": "TCP",
+      "note": "포워딩"
+    },
+    {
+      "from": "sim_state",
+      "to": "monitoring",
+      "id": "2002",
+      "name": "DTAM 실행",
+      "proto": "TCP",
+      "note": "포워딩"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "2002",
+      "name": "DTAM 실행",
+      "proto": "TCP",
+      "note": "포워딩"
+    },
+    {
+      "from": "sim_state",
+      "to": "visual",
+      "id": "2002",
+      "name": "DTAM 실행",
+      "proto": "TCP",
+      "note": "포워딩"
+    },
+    {
+      "from": "visual",
+      "to": "visual",
+      "name": "시각화 모듈 갱신",
+      "proto": "internal",
+      "note": "자체 갱신"
+    },
+    {
+      "from": "mission",
+      "to": "db",
+      "name": "중앙 데이터 조회",
+      "proto": "DB",
+      "note": "직접 조회"
+    },
+    {
+      "from": "db",
+      "to": "mission",
+      "name": "중앙 데이터",
+      "proto": "DB",
+      "note": "페이로드"
+    },
+    {
+      "from": "vehicle",
+      "to": "db",
+      "name": "중앙 데이터 조회",
+      "proto": "DB",
+      "note": "직접 조회"
+    },
+    {
+      "from": "db",
+      "to": "vehicle",
+      "name": "중앙 데이터",
+      "proto": "DB",
+      "note": "페이로드"
+    },
+    {
+      "from": "visual",
+      "to": "db",
+      "name": "중앙 데이터 조회",
+      "proto": "DB",
+      "note": "직접 조회"
+    },
+    {
+      "from": "db",
+      "to": "visual",
+      "name": "중앙 데이터",
+      "proto": "DB",
+      "note": "페이로드"
+    },
+    {
+      "group": "4. 시뮬레이션 제어"
+    },
+    {
+      "from": "user",
+      "to": "monitoring",
+      "name": "시뮬레이션 제어 명령",
+      "proto": "UI"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "1002",
+      "name": "시뮬레이션 제어",
+      "proto": "UDP",
+      "note": "서버로 전송"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "1002",
+      "name": "시뮬레이션 제어",
+      "proto": "file",
+      "note": "저장"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "1002",
+      "name": "시뮬레이션 제어",
+      "proto": "UDP",
+      "note": "포워딩"
+    },
+    {
+      "from": "sim_state",
+      "to": "visual",
+      "id": "1002",
+      "name": "시뮬레이션 제어",
+      "proto": "UDP",
+      "note": "포워딩"
+    },
+    {
+      "group": "5. 상태 정보 갱신 (주기적)"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "0003",
+      "name": "공통 시간 정보",
+      "proto": "UDP",
+      "note": "포워딩"
+    },
+    {
+      "from": "sim_state",
+      "to": "visual",
+      "id": "0003",
+      "name": "공통 시간 정보",
+      "proto": "UDP",
+      "note": "포워딩"
+    },
+    {
+      "from": "vehicle",
+      "to": "sim_state",
+      "id": "4001",
+      "name": "비행체 상태",
+      "proto": "UDP",
+      "note": "주기적"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "4001",
+      "name": "비행체 상태",
+      "proto": "file",
+      "note": "저장"
+    },
+    {
+      "from": "sim_state",
+      "to": "monitoring",
+      "id": "4001",
+      "name": "비행체 상태",
+      "proto": "UDP",
+      "note": "포워딩"
+    },
+    {
+      "from": "sim_state",
+      "to": "visual",
+      "id": "4001",
+      "name": "비행체 상태",
+      "proto": "UDP",
+      "note": "포워딩"
+    },
+    {
+      "from": "visual",
+      "to": "sim_state",
+      "id": "4101",
+      "name": "카메라 이미지 프레임",
+      "proto": "TCP",
+      "note": "주기적"
+    },
+    {
+      "from": "sim_state",
+      "to": "monitoring",
+      "id": "4101",
+      "name": "카메라 이미지 프레임",
+      "proto": "TCP",
+      "note": "포워딩"
+    },
+    {
+      "group": "6. 분리 명령"
+    },
+    {
+      "from": "mission",
+      "to": "sim_state",
+      "id": "3002",
+      "name": "전략적 분리",
+      "proto": "TCP",
+      "note": "제출"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "3002",
+      "name": "전략적 분리",
+      "proto": "file",
+      "note": "저장"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "3002",
+      "name": "전략적 분리",
+      "proto": "TCP",
+      "note": "포워딩"
+    },
+    {
+      "from": "mission",
+      "to": "sim_state",
+      "id": "3003",
+      "name": "전술적 분리",
+      "proto": "TCP",
+      "note": "제출"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "3003",
+      "name": "전술적 분리",
+      "proto": "file",
+      "note": "저장"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "3003",
+      "name": "전술적 분리",
+      "proto": "TCP",
+      "note": "포워딩"
+    }
+  ]
+}

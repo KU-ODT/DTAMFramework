@@ -1,0 +1,1490 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FGenericCrashContext>
+<RuntimeProperties>
+<CrashVersion>3</CrashVersion>
+<ExecutionGuid>78F5DE3A4478145ADE118F87C5D5300B</ExecutionGuid>
+<CrashGUID>UECC-Windows-272571084EAF57C2F6FC21988FC3B7C2_0000</CrashGUID>
+<IsEnsure>false</IsEnsure>
+<IsStall>false</IsStall>
+<IsAssert>false</IsAssert>
+<CrashType>Crash</CrashType>
+<ErrorMessage>Unhandled Exception: EXCEPTION_ACCESS_VIOLATION reading address 0xffffffffffffffff</ErrorMessage>
+<CrashReporterMessage></CrashReporterMessage>
+<CrashReporterMessage>Attended</CrashReporterMessage>
+<ProcessId>41504</ProcessId>
+<SecondsSinceStart>0</SecondsSinceStart>
+<IsInternalBuild>false</IsInternalBuild>
+<IsPerforceBuild>false</IsPerforceBuild>
+<IsWithDebugInfo>false</IsWithDebugInfo>
+<IsSourceDistribution>false</IsSourceDistribution>
+<GameName>UE-DTAMVisualization</GameName>
+<ExecutableName>DTAMVisualization</ExecutableName>
+<BuildConfiguration>Development</BuildConfiguration>
+<GameSessionID></GameSessionID>
+<PlatformName>Windows</PlatformName>
+<PlatformFullName>Windows</PlatformFullName>
+<PlatformNameIni>Windows</PlatformNameIni>
+<EngineMode>Game</EngineMode>
+<EngineModeEx>Unset</EngineModeEx>
+<DeploymentName></DeploymentName>
+<EngineVersion>5.5.4-40574608+++UE5+Release-5.5</EngineVersion>
+<EngineCompatibleVersion>5.5.4-40574608+++UE5+Release-5.5</EngineCompatibleVersion>
+<CommandLine> DTAMVisualization -windowed</CommandLine>
+<LanguageLCID>9</LanguageLCID>
+<AppDefaultLocale>ko-KR</AppDefaultLocale>
+<BuildVersion>++UE5+Release-5.5-CL-40574608</BuildVersion>
+<Symbols>**UE5*Release-5.5-CL-40574608-Win64-Development</Symbols>
+<IsUERelease>false</IsUERelease>
+<IsRequestingExit>false</IsRequestingExit>
+<UserName></UserName>
+<BaseDir>C:/Users/HJW/Documents/Dev/ODT/DTAMFramework/DTAMVisualizationModule/DTAMVisualization/Binaries/Win64/</BaseDir>
+<RootDir>C:/Users/HJW/Documents/Dev/ODT/DTAMFramework/DTAMVisualizationModule/</RootDir>
+<MachineId>5A5F891547E74323F725A7BA48DE1488</MachineId>
+<LoginId>5a5f891547e74323f725a7ba48de1488</LoginId>
+<EpicAccountId>e8cd3b942b924be19d9674019a0d8dc0</EpicAccountId>
+<SourceContext></SourceContext>
+<UserDescription></UserDescription>
+<UserActivityHint></UserActivityHint>
+<CrashDumpMode>0</CrashDumpMode>
+<GameStateName></GameStateName>
+<Misc.NumberOfCores>8</Misc.NumberOfCores>
+<Misc.NumberOfCoresIncludingHyperthreads>16</Misc.NumberOfCoresIncludingHyperthreads>
+<Misc.Is64bitOperatingSystem>1</Misc.Is64bitOperatingSystem>
+<Misc.CPUVendor>AuthenticAMD</Misc.CPUVendor>
+<Misc.CPUBrand>AMD Ryzen 7 5800X 8-Core Processor             </Misc.CPUBrand>
+<Misc.PrimaryGPUBrand>NVIDIA GeForce RTX 3060</Misc.PrimaryGPUBrand>
+<Misc.OSVersionMajor>Windows 11 (25H2) [10.0.26200.8246]</Misc.OSVersionMajor>
+<Misc.OSVersionMinor></Misc.OSVersionMinor>
+<Misc.AnticheatProvider></Misc.AnticheatProvider>
+<MemoryStats.TotalPhysical>34259034112</MemoryStats.TotalPhysical>
+<MemoryStats.TotalVirtual>51912519680</MemoryStats.TotalVirtual>
+<MemoryStats.PageSize>4096</MemoryStats.PageSize>
+<MemoryStats.TotalPhysicalGB>32</MemoryStats.TotalPhysicalGB>
+<MemoryStats.AvailablePhysical>0</MemoryStats.AvailablePhysical>
+<MemoryStats.AvailableVirtual>0</MemoryStats.AvailableVirtual>
+<MemoryStats.UsedPhysical>0</MemoryStats.UsedPhysical>
+<MemoryStats.PeakUsedPhysical>0</MemoryStats.PeakUsedPhysical>
+<MemoryStats.UsedVirtual>0</MemoryStats.UsedVirtual>
+<MemoryStats.PeakUsedVirtual>0</MemoryStats.PeakUsedVirtual>
+<MemoryStats.bIsOOM>0</MemoryStats.bIsOOM>
+<MemoryStats.OOMAllocationSize>0</MemoryStats.OOMAllocationSize>
+<MemoryStats.OOMAllocationAlignment>0</MemoryStats.OOMAllocationAlignment>
+<NumMinidumpFramesToIgnore>0</NumMinidumpFramesToIgnore>
+<CallStack></CallStack>
+<PCallStack>
+
+DTAMVisualization  0x00007ff617f00000 + 873fc05         
+DTAMVisualization  0x00007ff617f00000 + 53bd6f8         
+DTAMVisualization  0x00007ff617f00000 + 544940e         
+DTAMVisualization  0x00007ff617f00000 + 476255c         
+DTAMVisualization  0x00007ff617f00000 + 5471f1f         
+DTAMVisualization  0x00007ff617f00000 + 5472edd         
+DTAMVisualization  0x00007ff617f00000 + 5417bd5         
+DTAMVisualization  0x00007ff617f00000 + 5d7c701         
+DTAMVisualization  0x00007ff617f00000 + 5d995da         
+DTAMVisualization  0x00007ff617f00000 + 146edf3         
+DTAMVisualization  0x00007ff617f00000 + 1464ed7         
+DTAMVisualization  0x00007ff617f00000 + 146531e         
+DTAMVisualization  0x00007ff617f00000 + 5dbfba8         
+DTAMVisualization  0x00007ff617f00000 + 5dc3449         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</PCallStack>
+<PCallStackHash>7ED548A8A7ECDD5890A5FA709F2E06598ED8D0B1</PCallStackHash>
+<Threads><Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 5d9ed80         
+DTAMVisualization  0x00007ff617f00000 + 5ddae40         
+DTAMVisualization  0x00007ff617f00000 + 8ab5621         
+DTAMVisualization  0x00007ff617f00000 + 8f0576d         
+DTAMVisualization  0x00007ff617f00000 + 8f1441c         
+DTAMVisualization  0x00007ff617f00000 + 8f144ea         
+DTAMVisualization  0x00007ff617f00000 + 8f171e2         
+DTAMVisualization  0x00007ff617f00000 + 8f240f4         
+DTAMVisualization  0x00007ff617f00000 + ee642aa         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>28420</ThreadID>
+<ThreadName>GameThread</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 1635f50         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>3376</ThreadID>
+<ThreadName>BackgroundThreadPool #0</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 1635f50         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>39744</ThreadID>
+<ThreadName>BackgroundThreadPool #1</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 144c6c7         
+DTAMVisualization  0x00007ff617f00000 + 1444c52         
+DTAMVisualization  0x00007ff617f00000 + 147252c         
+DTAMVisualization  0x00007ff617f00000 + 143a911         
+DTAMVisualization  0x00007ff617f00000 + 1636323         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>13784</ThreadID>
+<ThreadName>Foreground Worker #0</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 144c6c7         
+DTAMVisualization  0x00007ff617f00000 + 1444c52         
+DTAMVisualization  0x00007ff617f00000 + 147252c         
+DTAMVisualization  0x00007ff617f00000 + 143a911         
+DTAMVisualization  0x00007ff617f00000 + 1636323         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>16716</ThreadID>
+<ThreadName>Foreground Worker #1</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 144c6c7         
+DTAMVisualization  0x00007ff617f00000 + 1444c52         
+DTAMVisualization  0x00007ff617f00000 + 147252c         
+DTAMVisualization  0x00007ff617f00000 + 143a911         
+DTAMVisualization  0x00007ff617f00000 + 1636323         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>35740</ThreadID>
+<ThreadName>Background Worker #0</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 144c6c7         
+DTAMVisualization  0x00007ff617f00000 + 1469b56         
+DTAMVisualization  0x00007ff617f00000 + 143a90a         
+DTAMVisualization  0x00007ff617f00000 + 1636323         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>41584</ThreadID>
+<ThreadName>Foreground Worker (Standby #0)</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 162184          
+ntdll              0x00007ffb2f500000 + d1014           
+KERNELBASE         0x00007ffb2bf50000 + 46f01           
+DTAMVisualization  0x00007ff617f00000 + 1636278         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>24268</ThreadID>
+<ThreadName>FHeartBeatThread</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 162464          
+KERNELBASE         0x00007ffb2bf50000 + f2249           
+DTAMVisualization  0x00007ff617f00000 + 19c226d         
+DTAMVisualization  0x00007ff617f00000 + 184c10d         
+DTAMVisualization  0x00007ff617f00000 + 1849a66         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>33832</ThreadID>
+<ThreadName>FAsyncWriter_DTAMVisualization</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 162654          
+KERNELBASE         0x00007ffb2bf50000 + 41a93           
+DTAMVisualization  0x00007ff617f00000 + e37f497         
+DTAMVisualization  0x00007ff617f00000 + e37ce3d         
+DTAMVisualization  0x00007ff617f00000 + 31497ca         
+DTAMVisualization  0x00007ff617f00000 + 3152b89         
+DTAMVisualization  0x00007ff617f00000 + 31517ab         
+DTAMVisualization  0x00007ff617f00000 + 3151c76         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>23664</ThreadID>
+<ThreadName>HttpManagerThread</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 6bfee6c         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>14956</ThreadID>
+<ThreadName>FMediaTicker</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + cd88e16         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>27936</ThreadID>
+<ThreadName>OnlineAsyncTaskThreadNull DefaultInstance(1)</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 165754          
+ntdll              0x00007ffb2f500000 + 9c083           
+KERNELBASE         0x00007ffb2bf50000 + e4148           
+DTAMVisualization  0x00007ff617f00000 + 179f98c         
+DTAMVisualization  0x00007ff617f00000 + 147104d         
+DTAMVisualization  0x00007ff617f00000 + 1470c8c         
+DTAMVisualization  0x00007ff617f00000 + 1854492         
+DTAMVisualization  0x00007ff617f00000 + 1636323         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>8420</ThreadID>
+<ThreadName>OutputDeviceRedirector</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 1635f50         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>41552</ThreadID>
+<ThreadName>IOThreadPool #0</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 1635f50         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>25120</ThreadID>
+<ThreadName>IOThreadPool #1</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 1635f50         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>42436</ThreadID>
+<ThreadName>IOThreadPool #2</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 1635f50         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>34396</ThreadID>
+<ThreadName>IOThreadPool #3</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 457fc62         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>9376</ThreadID>
+<ThreadName>IoService</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 16adc97         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>37824</ThreadID>
+<ThreadName>IoDispatcher</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 59d5ac5         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>42056</ThreadID>
+<ThreadName>RHIInterruptThread</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 59d5ac5         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>41388</ThreadID>
+<ThreadName>RHISubmissionThread</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 144c6c7         
+DTAMVisualization  0x00007ff617f00000 + 1444c52         
+DTAMVisualization  0x00007ff617f00000 + 147252c         
+DTAMVisualization  0x00007ff617f00000 + 143a911         
+DTAMVisualization  0x00007ff617f00000 + 1636323         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>25056</ThreadID>
+<ThreadName>Background Worker #1</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 165754          
+ntdll              0x00007ffb2f500000 + af4f            
+ntdll              0x00007ffb2f500000 + c66f            
+ntdll              0x00007ffb2f500000 + d8e2            
+DTAMVisualization  0x00007ff617f00000 + 143bcf6         
+DTAMVisualization  0x00007ff617f00000 + 1470485         
+DTAMVisualization  0x00007ff617f00000 + 1463713         
+DTAMVisualization  0x00007ff617f00000 + 1450e6e         
+DTAMVisualization  0x00007ff617f00000 + 152c121         
+DTAMVisualization  0x00007ff617f00000 + 179fa06         
+DTAMVisualization  0x00007ff617f00000 + 147104d         
+DTAMVisualization  0x00007ff617f00000 + 1470ceb         
+DTAMVisualization  0x00007ff617f00000 + 19b23e1         
+DTAMVisualization  0x00007ff617f00000 + 19b2ab2         
+DTAMVisualization  0x00007ff617f00000 + a0f62e2         
+DTAMVisualization  0x00007ff617f00000 + a0d5210         
+DTAMVisualization  0x00007ff617f00000 + a145722         
+DTAMVisualization  0x00007ff617f00000 + 9851473         
+DTAMVisualization  0x00007ff617f00000 + 981a0e2         
+DTAMVisualization  0x00007ff617f00000 + e5346fe         
+DTAMVisualization  0x00007ff617f00000 + e53780e         
+DTAMVisualization  0x00007ff617f00000 + e5344e2         
+DTAMVisualization  0x00007ff617f00000 + e538dec         
+DTAMVisualization  0x00007ff617f00000 + e538d18         
+DTAMVisualization  0x00007ff617f00000 + 9850308         
+DTAMVisualization  0x00007ff617f00000 + 98590c9         
+DTAMVisualization  0x00007ff617f00000 + 98212e8         
+DTAMVisualization  0x00007ff617f00000 + a2a0679         
+DTAMVisualization  0x00007ff617f00000 + e4b4b77         
+DTAMVisualization  0x00007ff617f00000 + e4a83d8         
+DTAMVisualization  0x00007ff617f00000 + 985e1e5         
+DTAMVisualization  0x00007ff617f00000 + 97ec8d7         
+DTAMVisualization  0x00007ff617f00000 + e4accd8         
+DTAMVisualization  0x00007ff617f00000 + e4b04b7         
+DTAMVisualization  0x00007ff617f00000 + e4bd977         
+DTAMVisualization  0x00007ff617f00000 + e4b4aa7         
+DTAMVisualization  0x00007ff617f00000 + e4a742e         
+DTAMVisualization  0x00007ff617f00000 + 985e1e5         
+DTAMVisualization  0x00007ff617f00000 + e4af28b         
+DTAMVisualization  0x00007ff617f00000 + e4b518a         
+DTAMVisualization  0x00007ff617f00000 + e4a7793         
+DTAMVisualization  0x00007ff617f00000 + 979af7a         
+DTAMVisualization  0x00007ff617f00000 + e4a78dc         
+DTAMVisualization  0x00007ff617f00000 + 97be216         
+DTAMVisualization  0x00007ff617f00000 + e4d6f17         
+DTAMVisualization  0x00007ff617f00000 + e4cad66         
+DTAMVisualization  0x00007ff617f00000 + 979af7a         
+DTAMVisualization  0x00007ff617f00000 + 97997c8         
+DTAMVisualization  0x00007ff617f00000 + e4e3ca6         
+DTAMVisualization  0x00007ff617f00000 + e4dfbf7         
+DTAMVisualization  0x00007ff617f00000 + e502d76         
+DTAMVisualization  0x00007ff617f00000 + a29673e         
+DTAMVisualization  0x00007ff617f00000 + 144ca8a         
+DTAMVisualization  0x00007ff617f00000 + 146edf3         
+DTAMVisualization  0x00007ff617f00000 + 1441e0f         
+DTAMVisualization  0x00007ff617f00000 + 144cefe         
+DTAMVisualization  0x00007ff617f00000 + 144cdaa         
+DTAMVisualization  0x00007ff617f00000 + 14723ad         
+DTAMVisualization  0x00007ff617f00000 + 143a911         
+DTAMVisualization  0x00007ff617f00000 + 1636323         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>35380</ThreadID>
+<ThreadName>Background Worker #2</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 1464c9c         
+DTAMVisualization  0x00007ff617f00000 + 146531e         
+DTAMVisualization  0x00007ff617f00000 + 5dc332b         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>14056</ThreadID>
+<ThreadName>RHIThread</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19d94dd         
+DTAMVisualization  0x00007ff617f00000 + f240962         
+VCRUNTIME140       0x00007ffb11b70000 + f47f            
+ntdll              0x00007ffb2f500000 + 16623f          
+ntdll              0x00007ffb2f500000 + 12397           
+ntdll              0x00007ffb2f500000 + 165b7e          
+DTAMVisualization  0x00007ff617f00000 + 873fc05         
+DTAMVisualization  0x00007ff617f00000 + 53bd6f8         
+DTAMVisualization  0x00007ff617f00000 + 544940e         
+DTAMVisualization  0x00007ff617f00000 + 476255c         
+DTAMVisualization  0x00007ff617f00000 + 5471f1f         
+DTAMVisualization  0x00007ff617f00000 + 5472edd         
+DTAMVisualization  0x00007ff617f00000 + 5417bd5         
+DTAMVisualization  0x00007ff617f00000 + 5d7c701         
+DTAMVisualization  0x00007ff617f00000 + 5d995da         
+DTAMVisualization  0x00007ff617f00000 + 146edf3         
+DTAMVisualization  0x00007ff617f00000 + 1464ed7         
+DTAMVisualization  0x00007ff617f00000 + 146531e         
+DTAMVisualization  0x00007ff617f00000 + 5dbfba8         
+DTAMVisualization  0x00007ff617f00000 + 5dc3449         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>true</IsCrashed>
+<Registers></Registers>
+<ThreadID>27988</ThreadID>
+<ThreadName>RenderThread 0</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 162184          
+ntdll              0x00007ffb2f500000 + d1014           
+KERNELBASE         0x00007ffb2bf50000 + 46f01           
+DTAMVisualization  0x00007ff617f00000 + 19df025         
+DTAMVisualization  0x00007ff617f00000 + 5dc3567         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>42116</ThreadID>
+<ThreadName>RTHeartBeat 0</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 165754          
+ntdll              0x00007ffb2f500000 + af4f            
+ntdll              0x00007ffb2f500000 + c66f            
+ntdll              0x00007ffb2f500000 + d8e2            
+DTAMVisualization  0x00007ff617f00000 + 143bcf6         
+DTAMVisualization  0x00007ff617f00000 + 1470485         
+DTAMVisualization  0x00007ff617f00000 + 1463713         
+DTAMVisualization  0x00007ff617f00000 + 1450e6e         
+DTAMVisualization  0x00007ff617f00000 + 152c121         
+DTAMVisualization  0x00007ff617f00000 + 179fa06         
+DTAMVisualization  0x00007ff617f00000 + 147104d         
+DTAMVisualization  0x00007ff617f00000 + 1470ceb         
+DTAMVisualization  0x00007ff617f00000 + 19b23e1         
+DTAMVisualization  0x00007ff617f00000 + 19b2ab2         
+DTAMVisualization  0x00007ff617f00000 + a0f62e2         
+DTAMVisualization  0x00007ff617f00000 + a0d5210         
+DTAMVisualization  0x00007ff617f00000 + a145722         
+DTAMVisualization  0x00007ff617f00000 + 9851473         
+DTAMVisualization  0x00007ff617f00000 + 981a0e2         
+DTAMVisualization  0x00007ff617f00000 + e5346fe         
+DTAMVisualization  0x00007ff617f00000 + e53780e         
+DTAMVisualization  0x00007ff617f00000 + e5344e2         
+DTAMVisualization  0x00007ff617f00000 + e538dec         
+DTAMVisualization  0x00007ff617f00000 + e538d18         
+DTAMVisualization  0x00007ff617f00000 + 9850308         
+DTAMVisualization  0x00007ff617f00000 + 98590c9         
+DTAMVisualization  0x00007ff617f00000 + 98212e8         
+DTAMVisualization  0x00007ff617f00000 + a2a0679         
+DTAMVisualization  0x00007ff617f00000 + e4b4b77         
+DTAMVisualization  0x00007ff617f00000 + e4a83d8         
+DTAMVisualization  0x00007ff617f00000 + 985e1e5         
+DTAMVisualization  0x00007ff617f00000 + 97ec8d7         
+DTAMVisualization  0x00007ff617f00000 + e4accd8         
+DTAMVisualization  0x00007ff617f00000 + e4b04b7         
+DTAMVisualization  0x00007ff617f00000 + e4bd977         
+DTAMVisualization  0x00007ff617f00000 + e4b4aa7         
+DTAMVisualization  0x00007ff617f00000 + e4a742e         
+DTAMVisualization  0x00007ff617f00000 + 985e1e5         
+DTAMVisualization  0x00007ff617f00000 + e4af28b         
+DTAMVisualization  0x00007ff617f00000 + e4b518a         
+DTAMVisualization  0x00007ff617f00000 + e4a7793         
+DTAMVisualization  0x00007ff617f00000 + 979af7a         
+DTAMVisualization  0x00007ff617f00000 + e4a78dc         
+DTAMVisualization  0x00007ff617f00000 + 97be216         
+DTAMVisualization  0x00007ff617f00000 + e4d6f17         
+DTAMVisualization  0x00007ff617f00000 + e4cad66         
+DTAMVisualization  0x00007ff617f00000 + 979af7a         
+DTAMVisualization  0x00007ff617f00000 + 97997c8         
+DTAMVisualization  0x00007ff617f00000 + e4e3ca6         
+DTAMVisualization  0x00007ff617f00000 + e4dfbf7         
+DTAMVisualization  0x00007ff617f00000 + e502d76         
+DTAMVisualization  0x00007ff617f00000 + a29673e         
+DTAMVisualization  0x00007ff617f00000 + 144ca8a         
+DTAMVisualization  0x00007ff617f00000 + 146edf3         
+DTAMVisualization  0x00007ff617f00000 + 1441e0f         
+DTAMVisualization  0x00007ff617f00000 + 144cefe         
+DTAMVisualization  0x00007ff617f00000 + 144cdaa         
+DTAMVisualization  0x00007ff617f00000 + 14723ad         
+DTAMVisualization  0x00007ff617f00000 + 143a911         
+DTAMVisualization  0x00007ff617f00000 + 1636323         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>27196</ThreadID>
+<ThreadName>Background Worker #3</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 165754          
+ntdll              0x00007ffb2f500000 + af4f            
+ntdll              0x00007ffb2f500000 + c66f            
+ntdll              0x00007ffb2f500000 + d8e2            
+DTAMVisualization  0x00007ff617f00000 + 143bcf6         
+DTAMVisualization  0x00007ff617f00000 + 1470485         
+DTAMVisualization  0x00007ff617f00000 + 1463713         
+DTAMVisualization  0x00007ff617f00000 + 1450e6e         
+DTAMVisualization  0x00007ff617f00000 + 152c121         
+DTAMVisualization  0x00007ff617f00000 + 179fa06         
+DTAMVisualization  0x00007ff617f00000 + 147104d         
+DTAMVisualization  0x00007ff617f00000 + 1470ceb         
+DTAMVisualization  0x00007ff617f00000 + 19b23e1         
+DTAMVisualization  0x00007ff617f00000 + 19b2ab2         
+DTAMVisualization  0x00007ff617f00000 + a0f62e2         
+DTAMVisualization  0x00007ff617f00000 + a0d5210         
+DTAMVisualization  0x00007ff617f00000 + a145722         
+DTAMVisualization  0x00007ff617f00000 + 9851473         
+DTAMVisualization  0x00007ff617f00000 + 981a0e2         
+DTAMVisualization  0x00007ff617f00000 + e5346fe         
+DTAMVisualization  0x00007ff617f00000 + e53780e         
+DTAMVisualization  0x00007ff617f00000 + e5344e2         
+DTAMVisualization  0x00007ff617f00000 + e538dec         
+DTAMVisualization  0x00007ff617f00000 + e538d18         
+DTAMVisualization  0x00007ff617f00000 + 9850308         
+DTAMVisualization  0x00007ff617f00000 + 98590c9         
+DTAMVisualization  0x00007ff617f00000 + 98212e8         
+DTAMVisualization  0x00007ff617f00000 + a2a0679         
+DTAMVisualization  0x00007ff617f00000 + e4b4b77         
+DTAMVisualization  0x00007ff617f00000 + e4a83d8         
+DTAMVisualization  0x00007ff617f00000 + 985e1e5         
+DTAMVisualization  0x00007ff617f00000 + 97ec8d7         
+DTAMVisualization  0x00007ff617f00000 + e4accd8         
+DTAMVisualization  0x00007ff617f00000 + e4b04b7         
+DTAMVisualization  0x00007ff617f00000 + e4bd977         
+DTAMVisualization  0x00007ff617f00000 + e4b4aa7         
+DTAMVisualization  0x00007ff617f00000 + e4a742e         
+DTAMVisualization  0x00007ff617f00000 + 985e1e5         
+DTAMVisualization  0x00007ff617f00000 + e4af28b         
+DTAMVisualization  0x00007ff617f00000 + e4b518a         
+DTAMVisualization  0x00007ff617f00000 + e4a7793         
+DTAMVisualization  0x00007ff617f00000 + 979af7a         
+DTAMVisualization  0x00007ff617f00000 + e4a78dc         
+DTAMVisualization  0x00007ff617f00000 + 97be216         
+DTAMVisualization  0x00007ff617f00000 + e4d6f17         
+DTAMVisualization  0x00007ff617f00000 + e4cad66         
+DTAMVisualization  0x00007ff617f00000 + 979af7a         
+DTAMVisualization  0x00007ff617f00000 + 97997c8         
+DTAMVisualization  0x00007ff617f00000 + e4e3ca6         
+DTAMVisualization  0x00007ff617f00000 + e4dfbf7         
+DTAMVisualization  0x00007ff617f00000 + e502d76         
+DTAMVisualization  0x00007ff617f00000 + a29673e         
+DTAMVisualization  0x00007ff617f00000 + 144ca8a         
+DTAMVisualization  0x00007ff617f00000 + 146edf3         
+DTAMVisualization  0x00007ff617f00000 + 1441e0f         
+DTAMVisualization  0x00007ff617f00000 + 144cefe         
+DTAMVisualization  0x00007ff617f00000 + 144cdaa         
+DTAMVisualization  0x00007ff617f00000 + 14723ad         
+DTAMVisualization  0x00007ff617f00000 + 143a911         
+DTAMVisualization  0x00007ff617f00000 + 1636323         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>34352</ThreadID>
+<ThreadName>Background Worker #4</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 165754          
+ntdll              0x00007ffb2f500000 + af4f            
+ntdll              0x00007ffb2f500000 + c66f            
+ntdll              0x00007ffb2f500000 + d8e2            
+DTAMVisualization  0x00007ff617f00000 + 143bcf6         
+DTAMVisualization  0x00007ff617f00000 + 1470485         
+DTAMVisualization  0x00007ff617f00000 + 1463713         
+DTAMVisualization  0x00007ff617f00000 + 1450e6e         
+DTAMVisualization  0x00007ff617f00000 + 152c121         
+DTAMVisualization  0x00007ff617f00000 + 179fa06         
+DTAMVisualization  0x00007ff617f00000 + 147104d         
+DTAMVisualization  0x00007ff617f00000 + 1470ceb         
+DTAMVisualization  0x00007ff617f00000 + 19b23e1         
+DTAMVisualization  0x00007ff617f00000 + 19b2ab2         
+DTAMVisualization  0x00007ff617f00000 + a0f62e2         
+DTAMVisualization  0x00007ff617f00000 + a0d5210         
+DTAMVisualization  0x00007ff617f00000 + a145722         
+DTAMVisualization  0x00007ff617f00000 + 9851473         
+DTAMVisualization  0x00007ff617f00000 + 981a0e2         
+DTAMVisualization  0x00007ff617f00000 + e5346fe         
+DTAMVisualization  0x00007ff617f00000 + e53780e         
+DTAMVisualization  0x00007ff617f00000 + e5344e2         
+DTAMVisualization  0x00007ff617f00000 + e538dec         
+DTAMVisualization  0x00007ff617f00000 + e538d18         
+DTAMVisualization  0x00007ff617f00000 + 9850308         
+DTAMVisualization  0x00007ff617f00000 + 98590c9         
+DTAMVisualization  0x00007ff617f00000 + 98212e8         
+DTAMVisualization  0x00007ff617f00000 + a2a0679         
+DTAMVisualization  0x00007ff617f00000 + e4b4b77         
+DTAMVisualization  0x00007ff617f00000 + e4a83d8         
+DTAMVisualization  0x00007ff617f00000 + 985e1e5         
+DTAMVisualization  0x00007ff617f00000 + 97ec8d7         
+DTAMVisualization  0x00007ff617f00000 + e4accd8         
+DTAMVisualization  0x00007ff617f00000 + e4b04b7         
+DTAMVisualization  0x00007ff617f00000 + e4bd977         
+DTAMVisualization  0x00007ff617f00000 + e4b4aa7         
+DTAMVisualization  0x00007ff617f00000 + e4a742e         
+DTAMVisualization  0x00007ff617f00000 + 985e1e5         
+DTAMVisualization  0x00007ff617f00000 + e4af28b         
+DTAMVisualization  0x00007ff617f00000 + e4b518a         
+DTAMVisualization  0x00007ff617f00000 + e4a7793         
+DTAMVisualization  0x00007ff617f00000 + 979af7a         
+DTAMVisualization  0x00007ff617f00000 + e4a78dc         
+DTAMVisualization  0x00007ff617f00000 + 97be216         
+DTAMVisualization  0x00007ff617f00000 + e4d6f17         
+DTAMVisualization  0x00007ff617f00000 + e4cad66         
+DTAMVisualization  0x00007ff617f00000 + 979af7a         
+DTAMVisualization  0x00007ff617f00000 + 97997c8         
+DTAMVisualization  0x00007ff617f00000 + e4e3ca6         
+DTAMVisualization  0x00007ff617f00000 + e4dfbf7         
+DTAMVisualization  0x00007ff617f00000 + e502d76         
+DTAMVisualization  0x00007ff617f00000 + a29673e         
+DTAMVisualization  0x00007ff617f00000 + 144ca8a         
+DTAMVisualization  0x00007ff617f00000 + 146edf3         
+DTAMVisualization  0x00007ff617f00000 + 1441e0f         
+DTAMVisualization  0x00007ff617f00000 + 144cefe         
+DTAMVisualization  0x00007ff617f00000 + 144cdaa         
+DTAMVisualization  0x00007ff617f00000 + 14723ad         
+DTAMVisualization  0x00007ff617f00000 + 143a911         
+DTAMVisualization  0x00007ff617f00000 + 1636323         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>276</ThreadID>
+<ThreadName>Background Worker #5</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 165754          
+ntdll              0x00007ffb2f500000 + af4f            
+ntdll              0x00007ffb2f500000 + c66f            
+ntdll              0x00007ffb2f500000 + d8e2            
+DTAMVisualization  0x00007ff617f00000 + 143bcf6         
+DTAMVisualization  0x00007ff617f00000 + 1470485         
+DTAMVisualization  0x00007ff617f00000 + 1463713         
+DTAMVisualization  0x00007ff617f00000 + 1450e6e         
+DTAMVisualization  0x00007ff617f00000 + 152c121         
+DTAMVisualization  0x00007ff617f00000 + 179fa06         
+DTAMVisualization  0x00007ff617f00000 + 147104d         
+DTAMVisualization  0x00007ff617f00000 + 1470ceb         
+DTAMVisualization  0x00007ff617f00000 + 19b23e1         
+DTAMVisualization  0x00007ff617f00000 + 19b2ab2         
+DTAMVisualization  0x00007ff617f00000 + a0f62e2         
+DTAMVisualization  0x00007ff617f00000 + a0d5210         
+DTAMVisualization  0x00007ff617f00000 + a145722         
+DTAMVisualization  0x00007ff617f00000 + 9851473         
+DTAMVisualization  0x00007ff617f00000 + 981a0e2         
+DTAMVisualization  0x00007ff617f00000 + e5346fe         
+DTAMVisualization  0x00007ff617f00000 + e53780e         
+DTAMVisualization  0x00007ff617f00000 + e5344e2         
+DTAMVisualization  0x00007ff617f00000 + e538dec         
+DTAMVisualization  0x00007ff617f00000 + e538d18         
+DTAMVisualization  0x00007ff617f00000 + 9850308         
+DTAMVisualization  0x00007ff617f00000 + 98590c9         
+DTAMVisualization  0x00007ff617f00000 + 98212e8         
+DTAMVisualization  0x00007ff617f00000 + a2a0679         
+DTAMVisualization  0x00007ff617f00000 + e4b4b77         
+DTAMVisualization  0x00007ff617f00000 + e4a83d8         
+DTAMVisualization  0x00007ff617f00000 + 985e1e5         
+DTAMVisualization  0x00007ff617f00000 + 97ec8d7         
+DTAMVisualization  0x00007ff617f00000 + e4accd8         
+DTAMVisualization  0x00007ff617f00000 + e4b04b7         
+DTAMVisualization  0x00007ff617f00000 + e4bd977         
+DTAMVisualization  0x00007ff617f00000 + e4b4aa7         
+DTAMVisualization  0x00007ff617f00000 + e4a742e         
+DTAMVisualization  0x00007ff617f00000 + 985e1e5         
+DTAMVisualization  0x00007ff617f00000 + e4af28b         
+DTAMVisualization  0x00007ff617f00000 + e4b518a         
+DTAMVisualization  0x00007ff617f00000 + e4a7793         
+DTAMVisualization  0x00007ff617f00000 + 979af7a         
+DTAMVisualization  0x00007ff617f00000 + e4a78dc         
+DTAMVisualization  0x00007ff617f00000 + 97be216         
+DTAMVisualization  0x00007ff617f00000 + e4d6f17         
+DTAMVisualization  0x00007ff617f00000 + e4cad66         
+DTAMVisualization  0x00007ff617f00000 + 979af7a         
+DTAMVisualization  0x00007ff617f00000 + 97997c8         
+DTAMVisualization  0x00007ff617f00000 + e4e3ca6         
+DTAMVisualization  0x00007ff617f00000 + e4dfbf7         
+DTAMVisualization  0x00007ff617f00000 + e502d76         
+DTAMVisualization  0x00007ff617f00000 + a29673e         
+DTAMVisualization  0x00007ff617f00000 + 144ca8a         
+DTAMVisualization  0x00007ff617f00000 + 146edf3         
+DTAMVisualization  0x00007ff617f00000 + 1441e0f         
+DTAMVisualization  0x00007ff617f00000 + 144cefe         
+DTAMVisualization  0x00007ff617f00000 + 144cdaa         
+DTAMVisualization  0x00007ff617f00000 + 14723ad         
+DTAMVisualization  0x00007ff617f00000 + 143a911         
+DTAMVisualization  0x00007ff617f00000 + 1636323         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>37100</ThreadID>
+<ThreadName>Background Worker #6</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 165754          
+ntdll              0x00007ffb2f500000 + af4f            
+ntdll              0x00007ffb2f500000 + c66f            
+ntdll              0x00007ffb2f500000 + d8e2            
+DTAMVisualization  0x00007ff617f00000 + 143bcf6         
+DTAMVisualization  0x00007ff617f00000 + 1470485         
+DTAMVisualization  0x00007ff617f00000 + 1463713         
+DTAMVisualization  0x00007ff617f00000 + 1450e6e         
+DTAMVisualization  0x00007ff617f00000 + 152c121         
+DTAMVisualization  0x00007ff617f00000 + 179fa06         
+DTAMVisualization  0x00007ff617f00000 + 147104d         
+DTAMVisualization  0x00007ff617f00000 + 1470ceb         
+DTAMVisualization  0x00007ff617f00000 + 19b23e1         
+DTAMVisualization  0x00007ff617f00000 + 19b2ab2         
+DTAMVisualization  0x00007ff617f00000 + a0f62e2         
+DTAMVisualization  0x00007ff617f00000 + a0d5210         
+DTAMVisualization  0x00007ff617f00000 + a145722         
+DTAMVisualization  0x00007ff617f00000 + 9851473         
+DTAMVisualization  0x00007ff617f00000 + 981a0e2         
+DTAMVisualization  0x00007ff617f00000 + e5346fe         
+DTAMVisualization  0x00007ff617f00000 + e53780e         
+DTAMVisualization  0x00007ff617f00000 + e5344e2         
+DTAMVisualization  0x00007ff617f00000 + e538dec         
+DTAMVisualization  0x00007ff617f00000 + e538d18         
+DTAMVisualization  0x00007ff617f00000 + 9850308         
+DTAMVisualization  0x00007ff617f00000 + 98590c9         
+DTAMVisualization  0x00007ff617f00000 + 98212e8         
+DTAMVisualization  0x00007ff617f00000 + a2a0679         
+DTAMVisualization  0x00007ff617f00000 + e4b4b77         
+DTAMVisualization  0x00007ff617f00000 + e4a83d8         
+DTAMVisualization  0x00007ff617f00000 + 985e1e5         
+DTAMVisualization  0x00007ff617f00000 + 97ec8d7         
+DTAMVisualization  0x00007ff617f00000 + e4accd8         
+DTAMVisualization  0x00007ff617f00000 + e4b04b7         
+DTAMVisualization  0x00007ff617f00000 + e4bd977         
+DTAMVisualization  0x00007ff617f00000 + e4b4aa7         
+DTAMVisualization  0x00007ff617f00000 + e4a742e         
+DTAMVisualization  0x00007ff617f00000 + 985e1e5         
+DTAMVisualization  0x00007ff617f00000 + e4af28b         
+DTAMVisualization  0x00007ff617f00000 + e4b518a         
+DTAMVisualization  0x00007ff617f00000 + e4a7793         
+DTAMVisualization  0x00007ff617f00000 + 979af7a         
+DTAMVisualization  0x00007ff617f00000 + e4a78dc         
+DTAMVisualization  0x00007ff617f00000 + 97be216         
+DTAMVisualization  0x00007ff617f00000 + e4d6f17         
+DTAMVisualization  0x00007ff617f00000 + e4cad66         
+DTAMVisualization  0x00007ff617f00000 + 979af7a         
+DTAMVisualization  0x00007ff617f00000 + 97997c8         
+DTAMVisualization  0x00007ff617f00000 + e4e3ca6         
+DTAMVisualization  0x00007ff617f00000 + e4dfbf7         
+DTAMVisualization  0x00007ff617f00000 + e502d76         
+DTAMVisualization  0x00007ff617f00000 + a29673e         
+DTAMVisualization  0x00007ff617f00000 + 144ca8a         
+DTAMVisualization  0x00007ff617f00000 + 146edf3         
+DTAMVisualization  0x00007ff617f00000 + 1441e0f         
+DTAMVisualization  0x00007ff617f00000 + 144cefe         
+DTAMVisualization  0x00007ff617f00000 + 144cdaa         
+DTAMVisualization  0x00007ff617f00000 + 14723ad         
+DTAMVisualization  0x00007ff617f00000 + 143a911         
+DTAMVisualization  0x00007ff617f00000 + 1636323         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>8832</ThreadID>
+<ThreadName>Background Worker #7</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 144c6c7         
+DTAMVisualization  0x00007ff617f00000 + 1444c52         
+DTAMVisualization  0x00007ff617f00000 + 147252c         
+DTAMVisualization  0x00007ff617f00000 + 143a911         
+DTAMVisualization  0x00007ff617f00000 + 1636323         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>36964</ThreadID>
+<ThreadName>Background Worker #8</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 1635f50         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>13484</ThreadID>
+<ThreadName>PSOPrecompilePool #0</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 165754          
+ntdll              0x00007ffb2f500000 + af4f            
+ntdll              0x00007ffb2f500000 + c66f            
+ntdll              0x00007ffb2f500000 + d8e2            
+DTAMVisualization  0x00007ff617f00000 + 143bcf6         
+DTAMVisualization  0x00007ff617f00000 + 1470485         
+DTAMVisualization  0x00007ff617f00000 + 1463713         
+DTAMVisualization  0x00007ff617f00000 + 1450e6e         
+DTAMVisualization  0x00007ff617f00000 + 152c121         
+DTAMVisualization  0x00007ff617f00000 + 179fa06         
+DTAMVisualization  0x00007ff617f00000 + 147104d         
+DTAMVisualization  0x00007ff617f00000 + 1470ceb         
+DTAMVisualization  0x00007ff617f00000 + 19b23e1         
+DTAMVisualization  0x00007ff617f00000 + 19b2ab2         
+DTAMVisualization  0x00007ff617f00000 + a0f62e2         
+DTAMVisualization  0x00007ff617f00000 + a0d5210         
+DTAMVisualization  0x00007ff617f00000 + a145722         
+DTAMVisualization  0x00007ff617f00000 + 9851473         
+DTAMVisualization  0x00007ff617f00000 + 981a0e2         
+DTAMVisualization  0x00007ff617f00000 + e5346fe         
+DTAMVisualization  0x00007ff617f00000 + e53780e         
+DTAMVisualization  0x00007ff617f00000 + e5344e2         
+DTAMVisualization  0x00007ff617f00000 + e538dec         
+DTAMVisualization  0x00007ff617f00000 + e538d18         
+DTAMVisualization  0x00007ff617f00000 + 9850308         
+DTAMVisualization  0x00007ff617f00000 + 98590c9         
+DTAMVisualization  0x00007ff617f00000 + 98212e8         
+DTAMVisualization  0x00007ff617f00000 + a2a0679         
+DTAMVisualization  0x00007ff617f00000 + e4b4b77         
+DTAMVisualization  0x00007ff617f00000 + e4a83d8         
+DTAMVisualization  0x00007ff617f00000 + 985e1e5         
+DTAMVisualization  0x00007ff617f00000 + 97ec8d7         
+DTAMVisualization  0x00007ff617f00000 + e4accd8         
+DTAMVisualization  0x00007ff617f00000 + e4b04b7         
+DTAMVisualization  0x00007ff617f00000 + e4bd977         
+DTAMVisualization  0x00007ff617f00000 + e4b4aa7         
+DTAMVisualization  0x00007ff617f00000 + e4a742e         
+DTAMVisualization  0x00007ff617f00000 + 985e1e5         
+DTAMVisualization  0x00007ff617f00000 + e4af28b         
+DTAMVisualization  0x00007ff617f00000 + e4b518a         
+DTAMVisualization  0x00007ff617f00000 + e4a7793         
+DTAMVisualization  0x00007ff617f00000 + 979af7a         
+DTAMVisualization  0x00007ff617f00000 + e4a78dc         
+DTAMVisualization  0x00007ff617f00000 + 97be216         
+DTAMVisualization  0x00007ff617f00000 + e4d6f17         
+DTAMVisualization  0x00007ff617f00000 + e4cad66         
+DTAMVisualization  0x00007ff617f00000 + 979af7a         
+DTAMVisualization  0x00007ff617f00000 + 97997c8         
+DTAMVisualization  0x00007ff617f00000 + e4e3ca6         
+DTAMVisualization  0x00007ff617f00000 + e4dfbf7         
+DTAMVisualization  0x00007ff617f00000 + e502d76         
+DTAMVisualization  0x00007ff617f00000 + a29673e         
+DTAMVisualization  0x00007ff617f00000 + 144ca8a         
+DTAMVisualization  0x00007ff617f00000 + 146edf3         
+DTAMVisualization  0x00007ff617f00000 + 1441e0f         
+DTAMVisualization  0x00007ff617f00000 + 144cefe         
+DTAMVisualization  0x00007ff617f00000 + 144cdaa         
+DTAMVisualization  0x00007ff617f00000 + 14723ad         
+DTAMVisualization  0x00007ff617f00000 + 143a911         
+DTAMVisualization  0x00007ff617f00000 + 1636323         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>30960</ThreadID>
+<ThreadName>Background Worker #9</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 19be9d9         
+DTAMVisualization  0x00007ff617f00000 + 1639c11         
+DTAMVisualization  0x00007ff617f00000 + 1606a8a         
+DTAMVisualization  0x00007ff617f00000 + 15f23d3         
+DTAMVisualization  0x00007ff617f00000 + 15f1ddf         
+DTAMVisualization  0x00007ff617f00000 + 1446d01         
+DTAMVisualization  0x00007ff617f00000 + 143b1c0         
+DTAMVisualization  0x00007ff617f00000 + 143bd3f         
+DTAMVisualization  0x00007ff617f00000 + 1470485         
+DTAMVisualization  0x00007ff617f00000 + 1463713         
+DTAMVisualization  0x00007ff617f00000 + 1450e6e         
+DTAMVisualization  0x00007ff617f00000 + 152c121         
+DTAMVisualization  0x00007ff617f00000 + 179fa06         
+DTAMVisualization  0x00007ff617f00000 + 147104d         
+DTAMVisualization  0x00007ff617f00000 + 1470ceb         
+DTAMVisualization  0x00007ff617f00000 + 19b23e1         
+DTAMVisualization  0x00007ff617f00000 + 19b2ab2         
+DTAMVisualization  0x00007ff617f00000 + a0f62e2         
+DTAMVisualization  0x00007ff617f00000 + a0d5210         
+DTAMVisualization  0x00007ff617f00000 + a145722         
+DTAMVisualization  0x00007ff617f00000 + 9851473         
+DTAMVisualization  0x00007ff617f00000 + 981a0e2         
+DTAMVisualization  0x00007ff617f00000 + e5346fe         
+DTAMVisualization  0x00007ff617f00000 + e53780e         
+DTAMVisualization  0x00007ff617f00000 + e5344e2         
+DTAMVisualization  0x00007ff617f00000 + e538dec         
+DTAMVisualization  0x00007ff617f00000 + e538d18         
+DTAMVisualization  0x00007ff617f00000 + 9850308         
+DTAMVisualization  0x00007ff617f00000 + 98590c9         
+DTAMVisualization  0x00007ff617f00000 + 98212e8         
+DTAMVisualization  0x00007ff617f00000 + a2a0679         
+DTAMVisualization  0x00007ff617f00000 + e4b4b77         
+DTAMVisualization  0x00007ff617f00000 + e4a83d8         
+DTAMVisualization  0x00007ff617f00000 + 985e1e5         
+DTAMVisualization  0x00007ff617f00000 + 97ec8d7         
+DTAMVisualization  0x00007ff617f00000 + e4accd8         
+DTAMVisualization  0x00007ff617f00000 + e4b04b7         
+DTAMVisualization  0x00007ff617f00000 + e4bd977         
+DTAMVisualization  0x00007ff617f00000 + e4b4aa7         
+DTAMVisualization  0x00007ff617f00000 + e4a742e         
+DTAMVisualization  0x00007ff617f00000 + 985e1e5         
+DTAMVisualization  0x00007ff617f00000 + e4af28b         
+DTAMVisualization  0x00007ff617f00000 + e4b518a         
+DTAMVisualization  0x00007ff617f00000 + e4a7793         
+DTAMVisualization  0x00007ff617f00000 + 979af7a         
+DTAMVisualization  0x00007ff617f00000 + e4a78dc         
+DTAMVisualization  0x00007ff617f00000 + 97be216         
+DTAMVisualization  0x00007ff617f00000 + e4d6f17         
+DTAMVisualization  0x00007ff617f00000 + e4cad66         
+DTAMVisualization  0x00007ff617f00000 + 979af7a         
+DTAMVisualization  0x00007ff617f00000 + 97997c8         
+DTAMVisualization  0x00007ff617f00000 + e4e3ca6         
+DTAMVisualization  0x00007ff617f00000 + e4dfbf7         
+DTAMVisualization  0x00007ff617f00000 + e502d76         
+DTAMVisualization  0x00007ff617f00000 + a29673e         
+DTAMVisualization  0x00007ff617f00000 + 144ca8a         
+DTAMVisualization  0x00007ff617f00000 + 146edf3         
+DTAMVisualization  0x00007ff617f00000 + 1441e0f         
+DTAMVisualization  0x00007ff617f00000 + 144cefe         
+DTAMVisualization  0x00007ff617f00000 + 144cdaa         
+DTAMVisualization  0x00007ff617f00000 + 14723ad         
+DTAMVisualization  0x00007ff617f00000 + 143a911         
+DTAMVisualization  0x00007ff617f00000 + 1636323         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>34804</ThreadID>
+<ThreadName>Background Worker #10</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 165754          
+ntdll              0x00007ffb2f500000 + af4f            
+ntdll              0x00007ffb2f500000 + c66f            
+ntdll              0x00007ffb2f500000 + d8e2            
+DTAMVisualization  0x00007ff617f00000 + 143bcf6         
+DTAMVisualization  0x00007ff617f00000 + 1470485         
+DTAMVisualization  0x00007ff617f00000 + 1463713         
+DTAMVisualization  0x00007ff617f00000 + 1450e6e         
+DTAMVisualization  0x00007ff617f00000 + 152c121         
+DTAMVisualization  0x00007ff617f00000 + 179fa06         
+DTAMVisualization  0x00007ff617f00000 + 147104d         
+DTAMVisualization  0x00007ff617f00000 + 1470ceb         
+DTAMVisualization  0x00007ff617f00000 + 19b23e1         
+DTAMVisualization  0x00007ff617f00000 + 19b2ab2         
+DTAMVisualization  0x00007ff617f00000 + a0f62e2         
+DTAMVisualization  0x00007ff617f00000 + a0d5210         
+DTAMVisualization  0x00007ff617f00000 + a145722         
+DTAMVisualization  0x00007ff617f00000 + 9851473         
+DTAMVisualization  0x00007ff617f00000 + 981a0e2         
+DTAMVisualization  0x00007ff617f00000 + e5346fe         
+DTAMVisualization  0x00007ff617f00000 + e53780e         
+DTAMVisualization  0x00007ff617f00000 + e5344e2         
+DTAMVisualization  0x00007ff617f00000 + e538dec         
+DTAMVisualization  0x00007ff617f00000 + e538d18         
+DTAMVisualization  0x00007ff617f00000 + 9850308         
+DTAMVisualization  0x00007ff617f00000 + 98590c9         
+DTAMVisualization  0x00007ff617f00000 + 98212e8         
+DTAMVisualization  0x00007ff617f00000 + a2a0679         
+DTAMVisualization  0x00007ff617f00000 + e4b4b77         
+DTAMVisualization  0x00007ff617f00000 + e4a83d8         
+DTAMVisualization  0x00007ff617f00000 + 985e1e5         
+DTAMVisualization  0x00007ff617f00000 + 97ec8d7         
+DTAMVisualization  0x00007ff617f00000 + e4accd8         
+DTAMVisualization  0x00007ff617f00000 + e4b04b7         
+DTAMVisualization  0x00007ff617f00000 + e4bd977         
+DTAMVisualization  0x00007ff617f00000 + e4b4aa7         
+DTAMVisualization  0x00007ff617f00000 + e4a742e         
+DTAMVisualization  0x00007ff617f00000 + 985e1e5         
+DTAMVisualization  0x00007ff617f00000 + e4af28b         
+DTAMVisualization  0x00007ff617f00000 + e4b518a         
+DTAMVisualization  0x00007ff617f00000 + e4a7793         
+DTAMVisualization  0x00007ff617f00000 + 979af7a         
+DTAMVisualization  0x00007ff617f00000 + e4a78dc         
+DTAMVisualization  0x00007ff617f00000 + 97be216         
+DTAMVisualization  0x00007ff617f00000 + e4d6f17         
+DTAMVisualization  0x00007ff617f00000 + e4cad66         
+DTAMVisualization  0x00007ff617f00000 + 979af7a         
+DTAMVisualization  0x00007ff617f00000 + 97997c8         
+DTAMVisualization  0x00007ff617f00000 + e4e3ca6         
+DTAMVisualization  0x00007ff617f00000 + e4dfbf7         
+DTAMVisualization  0x00007ff617f00000 + e502d76         
+DTAMVisualization  0x00007ff617f00000 + a29673e         
+DTAMVisualization  0x00007ff617f00000 + 144ca8a         
+DTAMVisualization  0x00007ff617f00000 + 146edf3         
+DTAMVisualization  0x00007ff617f00000 + 1441e0f         
+DTAMVisualization  0x00007ff617f00000 + 144cefe         
+DTAMVisualization  0x00007ff617f00000 + 144cdaa         
+DTAMVisualization  0x00007ff617f00000 + 14723ad         
+DTAMVisualization  0x00007ff617f00000 + 143a911         
+DTAMVisualization  0x00007ff617f00000 + 1636323         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>41384</ThreadID>
+<ThreadName>Background Worker #11</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 1635f50         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>39116</ThreadID>
+<ThreadName>PSOPrecompilePool #1</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 144c6c7         
+DTAMVisualization  0x00007ff617f00000 + 1469969         
+DTAMVisualization  0x00007ff617f00000 + 143a90a         
+DTAMVisualization  0x00007ff617f00000 + 1636323         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>24304</ThreadID>
+<ThreadName>Background Worker (Standby #0)</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 1635f50         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>24476</ThreadID>
+<ThreadName>PSOPrecompilePool #2</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 1635f50         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>21720</ThreadID>
+<ThreadName>PSOPrecompilePool #3</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 1635f50         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>27188</ThreadID>
+<ThreadName>PSOPrecompilePool #4</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 1635f50         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>18580</ThreadID>
+<ThreadName>PSOPrecompilePool #5</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 1635f50         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>13544</ThreadID>
+<ThreadName>PSOPrecompilePool #6</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 1635f50         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>33420</ThreadID>
+<ThreadName>PSOPrecompilePool #7</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 1635f50         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>33764</ThreadID>
+<ThreadName>PSOPrecompilePool #8</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 1635f50         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>42784</ThreadID>
+<ThreadName>PSOPrecompilePool #9</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 1635f50         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>22544</ThreadID>
+<ThreadName>PSOPrecompilePool #10</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 1635f50         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>42376</ThreadID>
+<ThreadName>PSOPrecompilePool #11</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 2bec970         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>21296</ThreadID>
+<ThreadName>FMessageBus.DefaultBus.Router</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + c240dc5         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>21312</ThreadID>
+<ThreadName>LiveLinkMessageBusDiscoveryManager</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 1eb99d4         
+DTAMVisualization  0x00007ff617f00000 + 1eb9996         
+DTAMVisualization  0x00007ff617f00000 + 1e114ee         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>15372</ThreadID>
+<ThreadName>FAsyncLoadingThread</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 162184          
+ntdll              0x00007ffb2f500000 + d1014           
+KERNELBASE         0x00007ffb2bf50000 + 46f01           
+DTAMVisualization  0x00007ff617f00000 + 19df025         
+DTAMVisualization  0x00007ff617f00000 + 8aa9125         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>9456</ThreadID>
+<ThreadName>ScreenSaverInhibitor</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 44bc7ee         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>34552</ThreadID>
+<ThreadName>AudioMixerNullCallbackThread</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+KERNELBASE         0x00007ffb2bf50000 + 3b1bf           
+DTAMVisualization  0x00007ff617f00000 + 19e1e46         
+DTAMVisualization  0x00007ff617f00000 + 44bcc3d         
+DTAMVisualization  0x00007ff617f00000 + 44bcae8         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>42488</ThreadID>
+<ThreadName>AudioMixerRenderThread(1)</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 161b84          
+MSWSOCK            0x00007ffb2b070000 + 951a            
+MSWSOCK            0x00007ffb2b070000 + 91f2            
+WS2_32             0x00007ffb2dc90000 + 119c1           
+DTAMVisualization  0x00007ff617f00000 + 30ec76c         
+DTAMVisualization  0x00007ff617f00000 + 30f345a         
+DTAMVisualization  0x00007ff617f00000 + a2f8121         
+DTAMVisualization  0x00007ff617f00000 + a2f7a30         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>4488</ThreadID>
+<ThreadName>DTAM4001VehicleStatusReceiverThread</ThreadName>
+</Thread>
+<Thread><CallStack>ntdll              0x00007ffb2f500000 + 165754          
+ntdll              0x00007ffb2f500000 + af4f            
+ntdll              0x00007ffb2f500000 + c66f            
+ntdll              0x00007ffb2f500000 + d8e2            
+DTAMVisualization  0x00007ff617f00000 + 143bcf6         
+DTAMVisualization  0x00007ff617f00000 + 1470485         
+DTAMVisualization  0x00007ff617f00000 + 1463713         
+DTAMVisualization  0x00007ff617f00000 + 1450e6e         
+DTAMVisualization  0x00007ff617f00000 + 152c121         
+DTAMVisualization  0x00007ff617f00000 + 179fa06         
+DTAMVisualization  0x00007ff617f00000 + 147104d         
+DTAMVisualization  0x00007ff617f00000 + 1470ceb         
+DTAMVisualization  0x00007ff617f00000 + 19b23e1         
+DTAMVisualization  0x00007ff617f00000 + 19b2ab2         
+DTAMVisualization  0x00007ff617f00000 + a0f62e2         
+DTAMVisualization  0x00007ff617f00000 + a0d5210         
+DTAMVisualization  0x00007ff617f00000 + a145722         
+DTAMVisualization  0x00007ff617f00000 + 9851473         
+DTAMVisualization  0x00007ff617f00000 + 981a0e2         
+DTAMVisualization  0x00007ff617f00000 + e5346fe         
+DTAMVisualization  0x00007ff617f00000 + e53780e         
+DTAMVisualization  0x00007ff617f00000 + e5344e2         
+DTAMVisualization  0x00007ff617f00000 + e538dec         
+DTAMVisualization  0x00007ff617f00000 + e538d18         
+DTAMVisualization  0x00007ff617f00000 + 9850308         
+DTAMVisualization  0x00007ff617f00000 + 98590c9         
+DTAMVisualization  0x00007ff617f00000 + 98212e8         
+DTAMVisualization  0x00007ff617f00000 + a2a0679         
+DTAMVisualization  0x00007ff617f00000 + e4b4b77         
+DTAMVisualization  0x00007ff617f00000 + e4a83d8         
+DTAMVisualization  0x00007ff617f00000 + 985e1e5         
+DTAMVisualization  0x00007ff617f00000 + 97ec8d7         
+DTAMVisualization  0x00007ff617f00000 + e4accd8         
+DTAMVisualization  0x00007ff617f00000 + e4b04b7         
+DTAMVisualization  0x00007ff617f00000 + e4bd977         
+DTAMVisualization  0x00007ff617f00000 + e4b4aa7         
+DTAMVisualization  0x00007ff617f00000 + e4a742e         
+DTAMVisualization  0x00007ff617f00000 + 985e1e5         
+DTAMVisualization  0x00007ff617f00000 + e4af28b         
+DTAMVisualization  0x00007ff617f00000 + e4b518a         
+DTAMVisualization  0x00007ff617f00000 + e4a7793         
+DTAMVisualization  0x00007ff617f00000 + 979af7a         
+DTAMVisualization  0x00007ff617f00000 + e4a78dc         
+DTAMVisualization  0x00007ff617f00000 + 97be216         
+DTAMVisualization  0x00007ff617f00000 + e4d6f17         
+DTAMVisualization  0x00007ff617f00000 + e4cad66         
+DTAMVisualization  0x00007ff617f00000 + 979af7a         
+DTAMVisualization  0x00007ff617f00000 + 97997c8         
+DTAMVisualization  0x00007ff617f00000 + e4e3ca6         
+DTAMVisualization  0x00007ff617f00000 + e4dfbf7         
+DTAMVisualization  0x00007ff617f00000 + e502d76         
+DTAMVisualization  0x00007ff617f00000 + a29673e         
+DTAMVisualization  0x00007ff617f00000 + 144ca8a         
+DTAMVisualization  0x00007ff617f00000 + 146edf3         
+DTAMVisualization  0x00007ff617f00000 + 1441e0f         
+DTAMVisualization  0x00007ff617f00000 + 144cefe         
+DTAMVisualization  0x00007ff617f00000 + 144cdaa         
+DTAMVisualization  0x00007ff617f00000 + 14697fe         
+DTAMVisualization  0x00007ff617f00000 + 143a90a         
+DTAMVisualization  0x00007ff617f00000 + 1636323         
+DTAMVisualization  0x00007ff617f00000 + 1a4d628         
+DTAMVisualization  0x00007ff617f00000 + 1a44c8f         
+KERNEL32           0x00007ffb2d290000 + 2e8d7           
+</CallStack>
+<IsCrashed>false</IsCrashed>
+<Registers></Registers>
+<ThreadID>6288</ThreadID>
+<ThreadName>Background Worker (Standby #1)</ThreadName>
+</Thread>
+</Threads>
+</RuntimeProperties>
+<PlatformProperties>
+<PlatformIsRunningWindows>1</PlatformIsRunningWindows>
+<PlatformIsRunningWine>false</PlatformIsRunningWine>
+<IsRunningOnBattery>false</IsRunningOnBattery>
+<DriveStats.Project.Name>C:/Users/HJW/Documents/Dev/ODT/DTAMFramework/DTAMVisualizationModule/DTAMVisualization/Binaries/Win64/</DriveStats.Project.Name>
+<DriveStats.Project.Type>NVMe</DriveStats.Project.Type>
+<DriveStats.Project.FreeSpaceKb>35976908</DriveStats.Project.FreeSpaceKb>
+<PlatformCallbackResult>0</PlatformCallbackResult>
+<CrashTrigger>0</CrashTrigger>
+</PlatformProperties>
+<EngineData>
+<MatchingDPStatus>WindowsNo errors</MatchingDPStatus>
+<RHI.IntegratedGPU>false</RHI.IntegratedGPU>
+<RHI.DriverDenylisted>false</RHI.DriverDenylisted>
+<RHI.D3DDebug>false</RHI.D3DDebug>
+<RHI.DRED>false</RHI.DRED>
+<RHI.DREDMarkersOnly>false</RHI.DREDMarkersOnly>
+<RHI.DREDContext>false</RHI.DREDContext>
+<RHI.Aftermath>true</RHI.Aftermath>
+<RHI.RHIName>D3D12</RHI.RHIName>
+<RHI.AdapterName>NVIDIA GeForce RTX 3060</RHI.AdapterName>
+<RHI.UserDriverVersion>591.86</RHI.UserDriverVersion>
+<RHI.InternalDriverVersion>32.0.15.9186</RHI.InternalDriverVersion>
+<RHI.DriverDate>1-20-2026</RHI.DriverDate>
+<RHI.FeatureLevel>SM6</RHI.FeatureLevel>
+<RHI.GPUVendor>NVIDIA</RHI.GPUVendor>
+<RHI.DeviceId>2487</RHI.DeviceId>
+<DeviceProfile.Name>Windows</DeviceProfile.Name>
+</EngineData>
+<GameData>
+</GameData>
+</FGenericCrashContext>

@@ -128,6 +128,7 @@ class DtamClient:
         target_tcp_port: int | None = None,
         auto_listen: bool = False,
         send_workers: int = 4,
+        use_rest: bool = True,
     ) -> None:
         cfg = get_config()
         my_udp, my_tcp = _resolve_ports(
@@ -161,6 +162,7 @@ class DtamClient:
         self.tcp_port = self.my_tcp_port
         self.on_send_result: Optional[SendCallback] = None
         self.on_send_error: Optional[SendCallback] = None
+        self.use_rest = use_rest
         self._send_executor = ThreadPoolExecutor(
             max_workers=max(1, int(send_workers)),
             thread_name_prefix="dtam-send",
@@ -185,6 +187,7 @@ class DtamClient:
         peer_tcp_port: int | None = None,
         auto_listen: bool = True,
         send_workers: int = 4,
+        use_rest: bool = True,
     ) -> "DtamClient":
         """Create a client with explicit local and peer endpoints.
 
@@ -200,6 +203,7 @@ class DtamClient:
             target_tcp_port=peer_tcp_port,
             auto_listen=auto_listen,
             send_workers=send_workers,
+            use_rest=use_rest,
         )
 
     @classmethod
@@ -209,6 +213,7 @@ class DtamClient:
         *,
         auto_listen: bool = True,
         send_workers: int = 4,
+        use_rest: bool = True,
     ) -> "DtamClient":
         """Create a client from a short config file or config object."""
         if isinstance(config, DtamNetworkConfig):
@@ -227,6 +232,7 @@ class DtamClient:
             peer_tcp_port=net.peer.tcp_port,
             auto_listen=auto_listen,
             send_workers=send_workers,
+            use_rest=use_rest,
         )
         client.name = net.my.name
         return client
@@ -403,6 +409,8 @@ class DtamClient:
         tcp_port: int | None = None,
     ) -> PushResult:
         """Validate and send a DTAM message dict."""
+        from ._transport import send_http
+        
         spec = _resolve_message(message)
         ip = target_ip or self.peer_ip
         port = (
@@ -411,6 +419,11 @@ class DtamClient:
             else self.peer_tcp_port if spec.protocol == "tcp"
             else self.peer_udp_port
         )
+        
+        # REST API 사용 조건: 4101(이미지)이 아니고 use_rest가 활성화되었으며, 대상이 server(17000) 또는 mission(17010)인 경우
+        if spec.mid != "4101" and getattr(self, "use_rest", False) and str(port) in ("17000", "17010"):
+            return send_http(ip, port, spec.mid, data)
+
         fn = _sender(spec.sender_name)
         if spec.mid == "4101":
             return fn(data, image_bytes, target_ip=ip, target_port=port)

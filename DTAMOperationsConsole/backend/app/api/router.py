@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from backend.app.api.routes import airspace, dashboard, data, environment, fleet, health, icd, mission, operations, simulation, system, tiles, traffic
+from backend.app.api.routes import airspace, dashboard, data, environment, fleet, health, icd, mission, modules, operations, simulation, system, tiles, traffic
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])
@@ -18,3 +18,4 @@ api_router.include_router(data.router, prefix="/data", tags=["data"])
 api_router.include_router(system.router, prefix="/system", tags=["system"])
 api_router.include_router(tiles.router, prefix="/tiles", tags=["tiles"])
 api_router.include_router(traffic.router, prefix="/traffic", tags=["traffic"])
+api_router.include_router(modules.router, prefix="/system/modules", tags=["system-modules"])

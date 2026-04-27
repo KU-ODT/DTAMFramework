@@ -1,0 +1,544 @@
+{
+  "actors": [
+    {
+      "id": "user",
+      "name": "User",
+      "color": "user"
+    },
+    {
+      "id": "monitoring",
+      "name": "Operations\nConsole",
+      "color": "monitoring"
+    },
+    {
+      "id": "server",
+      "name": "DTAM\nCore",
+      "color": "server"
+    },
+    {
+      "id": "sim_state",
+      "name": "Simulation\nState",
+      "color": "mission"
+    },
+    {
+      "id": "db",
+      "name": "Central\nDB",
+      "color": "db"
+    },
+    {
+      "id": "mission",
+      "name": "Mission\nPlanner",
+      "color": "mission"
+    },
+    {
+      "id": "vehicle",
+      "name": "Air\nMobility",
+      "color": "vehicle"
+    },
+    {
+      "id": "visual",
+      "name": "Visualization",
+      "color": "visual"
+    }
+  ],
+  "messages": [
+    {
+      "group": "0. DTAM Initialization"
+    },
+    {
+      "from": "user",
+      "to": "monitoring",
+      "name": "initialization click",
+      "proto": "UI"
+    },
+    {
+      "from": "monitoring",
+      "to": "server",
+      "name": "build file link / server on",
+      "proto": "build"
+    },
+    {
+      "from": "monitoring",
+      "to": "mission",
+      "name": "build file link / module on",
+      "proto": "build"
+    },
+    {
+      "from": "monitoring",
+      "to": "vehicle",
+      "name": "build file link / module on",
+      "proto": "build"
+    },
+    {
+      "from": "monitoring",
+      "to": "visual",
+      "name": "build file link / module on",
+      "proto": "build"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "0001",
+      "name": "Module Setting Info",
+      "proto": "UDP",
+      "note": "report endpoint"
+    },
+    {
+      "from": "mission",
+      "to": "sim_state",
+      "id": "0001",
+      "name": "Module Setting Info",
+      "proto": "UDP",
+      "note": "report endpoint"
+    },
+    {
+      "from": "vehicle",
+      "to": "sim_state",
+      "id": "0001",
+      "name": "Module Setting Info",
+      "proto": "UDP",
+      "note": "report endpoint"
+    },
+    {
+      "from": "visual",
+      "to": "sim_state",
+      "id": "0001",
+      "name": "Module Setting Info",
+      "proto": "UDP",
+      "note": "report endpoint"
+    },
+    {
+      "from": "sim_state",
+      "to": "monitoring",
+      "id": "0001",
+      "name": "Module Setting Summary",
+      "proto": "UDP",
+      "note": "aggregate"
+    },
+    {
+      "from": "mission",
+      "to": "sim_state",
+      "id": "0002",
+      "name": "Module Status",
+      "proto": "UDP",
+      "note": "initial report"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "0002",
+      "name": "Module Status",
+      "proto": "UDP",
+      "note": "initial report"
+    },
+    {
+      "from": "vehicle",
+      "to": "sim_state",
+      "id": "0002",
+      "name": "Module Status",
+      "proto": "UDP",
+      "note": "initial report"
+    },
+    {
+      "from": "visual",
+      "to": "sim_state",
+      "id": "0002",
+      "name": "Module Status",
+      "proto": "UDP",
+      "note": "initial report"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "0002",
+      "name": "Module Status",
+      "proto": "file",
+      "note": "save latest per module"
+    },
+    {
+      "group": "1. Setting Phase"
+    },
+    {
+      "from": "user",
+      "to": "monitoring",
+      "name": "mode input",
+      "proto": "UI"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "1001",
+      "name": "Sim Mode Setup",
+      "proto": "UDP",
+      "note": "send to server"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "1001",
+      "name": "Sim Mode Setup",
+      "proto": "file",
+      "note": "save"
+    },
+    {
+      "from": "user",
+      "to": "monitoring",
+      "name": "scenario input",
+      "proto": "UI"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "1003",
+      "name": "Scenario Setup",
+      "proto": "UDP",
+      "note": "send to server"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "1003",
+      "name": "Scenario Setup",
+      "proto": "file",
+      "note": "save"
+    },
+    {
+      "group": "2. Planning Phase"
+    },
+    {
+      "from": "user",
+      "to": "monitoring",
+      "name": "flight plan request",
+      "proto": "UI"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "2001",
+      "name": "Flight Plan Request",
+      "proto": "TCP",
+      "note": "request"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "2001",
+      "name": "Flight Plan Request",
+      "proto": "file",
+      "note": "save"
+    },
+    {
+      "from": "sim_state",
+      "to": "mission",
+      "id": "2001",
+      "name": "Flight Plan Request",
+      "proto": "TCP",
+      "note": "forward"
+    },
+    {
+      "from": "mission",
+      "to": "db",
+      "id": "1003",
+      "name": "Scenario Setup",
+      "proto": "DB",
+      "note": "direct read"
+    },
+    {
+      "from": "db",
+      "to": "mission",
+      "id": "1003",
+      "name": "Scenario Setup",
+      "proto": "DB",
+      "note": "payload"
+    },
+    {
+      "from": "mission",
+      "to": "sim_state",
+      "id": "3001",
+      "name": "Scheduled Flight",
+      "proto": "TCP",
+      "note": "submit"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "3001",
+      "name": "Scheduled Flight",
+      "proto": "file",
+      "note": "save"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "3001",
+      "name": "Scheduled Flight",
+      "proto": "TCP",
+      "note": "forward"
+    },
+    {
+      "group": "3. Execution Phase"
+    },
+    {
+      "from": "user",
+      "to": "monitoring",
+      "name": "execution command",
+      "proto": "UI"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "2002",
+      "name": "DTAM Execute",
+      "proto": "TCP",
+      "note": "execute"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "2002",
+      "name": "DTAM Execute",
+      "proto": "file",
+      "note": "save"
+    },
+    {
+      "from": "sim_state",
+      "to": "mission",
+      "id": "2002",
+      "name": "DTAM Execute",
+      "proto": "TCP",
+      "note": "forward"
+    },
+    {
+      "from": "sim_state",
+      "to": "monitoring",
+      "id": "2002",
+      "name": "DTAM Execute",
+      "proto": "TCP",
+      "note": "forward"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "2002",
+      "name": "DTAM Execute",
+      "proto": "TCP",
+      "note": "forward"
+    },
+    {
+      "from": "sim_state",
+      "to": "visual",
+      "id": "2002",
+      "name": "DTAM Execute",
+      "proto": "TCP",
+      "note": "forward"
+    },
+    {
+      "from": "visual",
+      "to": "visual",
+      "name": "Visualization Module Update",
+      "proto": "internal",
+      "note": "self update"
+    },
+    {
+      "from": "mission",
+      "to": "db",
+      "name": "central data lookup",
+      "proto": "DB",
+      "note": "direct read"
+    },
+    {
+      "from": "db",
+      "to": "mission",
+      "name": "central data",
+      "proto": "DB",
+      "note": "payload"
+    },
+    {
+      "from": "vehicle",
+      "to": "db",
+      "name": "central data lookup",
+      "proto": "DB",
+      "note": "direct read"
+    },
+    {
+      "from": "db",
+      "to": "vehicle",
+      "name": "central data",
+      "proto": "DB",
+      "note": "payload"
+    },
+    {
+      "from": "visual",
+      "to": "db",
+      "name": "central data lookup",
+      "proto": "DB",
+      "note": "direct read"
+    },
+    {
+      "from": "db",
+      "to": "visual",
+      "name": "central data",
+      "proto": "DB",
+      "note": "payload"
+    },
+    {
+      "group": "4. Simulation Control Phase"
+    },
+    {
+      "from": "user",
+      "to": "monitoring",
+      "name": "simulation control command",
+      "proto": "UI"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "1002",
+      "name": "Simulation Control",
+      "proto": "UDP",
+      "note": "send to server"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "1002",
+      "name": "Simulation Control",
+      "proto": "file",
+      "note": "save"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "1002",
+      "name": "Simulation Control",
+      "proto": "UDP",
+      "note": "forward"
+    },
+    {
+      "from": "sim_state",
+      "to": "visual",
+      "id": "1002",
+      "name": "Simulation Control",
+      "proto": "UDP",
+      "note": "forward"
+    },
+    {
+      "group": "5. Status Info Update (Periodic)"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "0003",
+      "name": "Common Time Info",
+      "proto": "UDP",
+      "note": "forward"
+    },
+    {
+      "from": "sim_state",
+      "to": "visual",
+      "id": "0003",
+      "name": "Common Time Info",
+      "proto": "UDP",
+      "note": "forward"
+    },
+    {
+      "from": "vehicle",
+      "to": "sim_state",
+      "id": "4001",
+      "name": "Vehicle Status",
+      "proto": "UDP",
+      "note": "periodic"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "4001",
+      "name": "Vehicle Status",
+      "proto": "file",
+      "note": "save"
+    },
+    {
+      "from": "sim_state",
+      "to": "monitoring",
+      "id": "4001",
+      "name": "Vehicle Status",
+      "proto": "UDP",
+      "note": "forward"
+    },
+    {
+      "from": "sim_state",
+      "to": "visual",
+      "id": "4001",
+      "name": "Vehicle Status",
+      "proto": "UDP",
+      "note": "forward"
+    },
+    {
+      "from": "visual",
+      "to": "sim_state",
+      "id": "4101",
+      "name": "Camera Image Frame",
+      "proto": "TCP",
+      "note": "periodic"
+    },
+    {
+      "from": "sim_state",
+      "to": "monitoring",
+      "id": "4101",
+      "name": "Camera Image Frame",
+      "proto": "TCP",
+      "note": "forward"
+    },
+    {
+      "group": "6. Separation Commands"
+    },
+    {
+      "from": "mission",
+      "to": "sim_state",
+      "id": "3002",
+      "name": "Strategic Separation",
+      "proto": "TCP",
+      "note": "submit"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "3002",
+      "name": "Strategic Separation",
+      "proto": "file",
+      "note": "save"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "3002",
+      "name": "Strategic Separation",
+      "proto": "TCP",
+      "note": "forward"
+    },
+    {
+      "from": "mission",
+      "to": "sim_state",
+      "id": "3003",
+      "name": "Tactical Separation",
+      "proto": "TCP",
+      "note": "submit"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "3003",
+      "name": "Tactical Separation",
+      "proto": "file",
+      "note": "save"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "3003",
+      "name": "Tactical Separation",
+      "proto": "TCP",
+      "note": "forward"
+    }
+  ]
+}

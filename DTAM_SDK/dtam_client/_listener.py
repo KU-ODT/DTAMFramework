@@ -140,7 +140,9 @@ class DtamListener:
                 try:
                     cb(result)
                 except Exception as e:
+                    import traceback
                     print(f"[dtam_client] {cb_name} 콜백 예외: {type(e).__name__}: {e}")
+                    traceback.print_exc()
 
     # ── 내부: UDP 수신 루프 ────────────────────────────────────────
 
