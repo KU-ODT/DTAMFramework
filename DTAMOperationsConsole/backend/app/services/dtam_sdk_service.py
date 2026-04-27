@@ -1,11 +1,17 @@
-"""Thin integration layer between the operations console and DTAM_SDK."""
+"""Operations Console ↔ DTAM 서버 통합 서비스.
+
+- 0002 모듈 상태 heartbeat 는 ``DtamModule`` (WebSocket /ws/dtam) 가 자동 송신.
+- ICD 송신은 운영자/외부 트리거 호환을 위해 REST 그대로 (`DtamRest.push`).
+- 서버 스냅샷 / 모듈 프로세스 start-stop 도 REST.
+
+이전(legacy):
+  · DtamClient 기반 UDP heartbeat thread + urllib 직접 호출.
+"""
 
 from __future__ import annotations
 
 import os
 import sys
-import threading
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -13,16 +19,14 @@ from fastapi import HTTPException
 
 from backend.app.core.settings import settings
 from backend.app.schemas.icd import IcdSendResponse
-import urllib.request
-import json
 
 
 SUPPORTED_UDP_MESSAGES = {"1001", "1002", "1003"}
 MODULE_SOURCE_NAME = "DTAMOperationsConsole"
-HEARTBEAT_PERIOD_S = 1.0
 
-_heartbeat_stop = threading.Event()
-_heartbeat_thread: threading.Thread | None = None
+CORE_HTTP_PORT = 8095
+STATE_HTTP_PORT = 8096
+STATE_WS_PORT = 8096
 
 
 def _sdk_root() -> Path:
@@ -39,78 +43,53 @@ def _ensure_sdk_on_path() -> Path:
     return sdk_root
 
 
-def _iso_ts() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+def _server_ip() -> str:
+    return os.environ.get("DTAM_TARGET_IP") or "127.0.0.1"
 
 
-def _create_client():
-    sdk_root = _ensure_sdk_on_path()
-    from dtam_client import DtamClient
-
-    target_ip = os.environ.get("DTAM_TARGET_IP")
-    target_port = os.environ.get("DTAM_TARGET_PORT")
-    if target_ip or target_port:
-        return DtamClient(
-            target_ip=target_ip or "127.0.0.1",
-            target_udp_port=int(target_port or 17000),
-            auto_listen=False,
-        )
-
-    config_path = sdk_root / "dtam_config.json"
-    if config_path.exists():
-        return DtamClient.from_config(str(config_path), auto_listen=False)
-    return DtamClient(target_ip="127.0.0.1", target_udp_port=17000, auto_listen=False)
+# ── DtamModule heartbeat (WebSocket) ─────────────────────────
+_module: Any = None  # DtamModule
 
 
 def start_module_status_heartbeat() -> None:
-    global _heartbeat_thread
-    if _heartbeat_thread is not None and _heartbeat_thread.is_alive():
+    """0002 module status 1Hz 자동 송신을 시작."""
+    global _module
+    if _module is not None:
         return
-    _heartbeat_stop.clear()
-    _heartbeat_thread = threading.Thread(
-        target=_module_status_loop,
-        name="dtam-operations-console-heartbeat",
-        daemon=True,
+    _ensure_sdk_on_path()
+    from dtam_client import DtamModule, Role  # type: ignore
+
+    server_url = f"ws://{_server_ip()}:{STATE_WS_PORT}/ws/dtam"
+    _module = DtamModule.start(
+        role=Role.MONITORING,
+        server_url=server_url,
+        heartbeat=True,
     )
-    _heartbeat_thread.start()
 
 
 def stop_module_status_heartbeat() -> None:
-    _heartbeat_stop.set()
-    thread = _heartbeat_thread
-    if thread is not None and thread.is_alive():
-        thread.join(timeout=2.0)
-
-
-def _module_status_loop() -> None:
-    client = None
+    global _module
+    mod = _module
+    _module = None
+    if mod is None:
+        return
     try:
-        while not _heartbeat_stop.is_set():
-            try:
-                if client is None:
-                    client = _create_client()
-                client.push_module_status(
-                    {
-                        "timestamp": _iso_ts(),
-                        "source": MODULE_SOURCE_NAME,
-                        "status": 1,
-                    }
-                )
-            except Exception:
-                if client is not None:
-                    try:
-                        client.close()
-                    except Exception:
-                        pass
-                client = None
-            if _heartbeat_stop.wait(HEARTBEAT_PERIOD_S):
-                break
-    finally:
-        if client is not None:
-            try:
-                client.close()
-            except Exception:
-                pass
+        mod.close()
+    except Exception:
+        pass
+
+
+# ── REST 기반 ICD 송신 / 서버 조회 / 프로세스 제어 ──────────
+def _state_rest():
+    _ensure_sdk_on_path()
+    from dtam_client import DtamRest  # type: ignore
+    return DtamRest(f"http://{_server_ip()}:{STATE_HTTP_PORT}")
+
+
+def _core_rest():
+    _ensure_sdk_on_path()
+    from dtam_client import DtamRest  # type: ignore
+    return DtamRest(f"http://{_server_ip()}:{CORE_HTTP_PORT}")
 
 
 def send_icd_command(
@@ -120,70 +99,62 @@ def send_icd_command(
     target_ip: str | None = None,
     target_port: int | None = None,
 ) -> IcdSendResponse:
-    """Validate and send one supported ICD payload over HTTP REST to the State Server."""
+    """ICD 메시지를 State Server REST(``POST /api/msg/{mid}``) 로 송신."""
     normalized_id = str(message_id).strip()
-    
-    # State Server HTTP 포트는 8096으로 기본 설정
-    http_port = 8096
-    ip = target_ip or os.environ.get("DTAM_TARGET_IP") or "127.0.0.1"
-    
-    url = f"http://{ip}:{http_port}/api/msg/{normalized_id}"
-    
-    body = json.dumps({"role": "", "payload": payload}).encode('utf-8')
-    req = urllib.request.Request(url, data=body, headers={'Content-Type': 'application/json'})
-    
+    ip = target_ip or _server_ip()
+    target = f"{ip}:{STATE_HTTP_PORT}"
+
+    _ensure_sdk_on_path()
+    from dtam_client import DtamRest, DtamRestError  # type: ignore
+
+    rest = DtamRest(f"http://{ip}:{STATE_HTTP_PORT}")
+    sent = False
+    errors: list[str] = []
     try:
-        with urllib.request.urlopen(req, timeout=5.0) as response:
-            res_data = json.loads(response.read().decode('utf-8'))
-            sent = res_data.get("ok", False)
-            if sent:
-                errors = []
-            else:
-                errors = [res_data.get("error")] if "error" in res_data else []
-                if "details" in res_data:
-                    for role, d in res_data["details"].items():
-                        if not d.get("ok") and "errors" in d:
-                            errors.extend([f"[{role}] {e}" for e in d["errors"]])
-                if not errors:
-                    errors = ["Unknown REST validation error"]
-    except Exception as e:
-        sent = False
-        errors = [str(e)]
+        res = rest.push(normalized_id, payload, role="")
+        sent = bool(res.get("ok"))
+        if not sent:
+            details = res.get("details") or {}
+            for role, d in details.items():
+                if isinstance(d, dict) and not d.get("ok"):
+                    for e in (d.get("errors") or []):
+                        errors.append(f"[{role}] {e}")
+            if "error" in res:
+                errors.append(str(res["error"]))
+            if not errors:
+                errors = ["Unknown REST validation error"]
+    except DtamRestError as exc:
+        errors = [str(exc)]
+    except Exception as exc:
+        errors = [f"{type(exc).__name__}: {exc}"]
 
     return IcdSendResponse(
         message_id=normalized_id,
         protocol="HTTP",
         sent=sent,
-        bytes_sent=len(body) if sent else 0,
-        target=f"{ip}:{http_port}",
+        bytes_sent=0,
+        target=target,
         errors=errors,
         payload=payload,
     )
 
+
 def get_registry_snapshot() -> dict[str, Any]:
-    """Fetch module registry snapshot from the State Server (8096)."""
-    http_port = 8096
-    ip = os.environ.get("DTAM_TARGET_IP") or "127.0.0.1"
-    url = f"http://{ip}:{http_port}/api/state"
-    
+    """State Server 의 ``GET /api/state`` 결과를 반환."""
     try:
-        with urllib.request.urlopen(url, timeout=3.0) as response:
-            return json.loads(response.read().decode('utf-8'))
+        return _state_rest().snapshot()
     except Exception:
         return {"registry": {"modules": []}}
 
+
 def control_module_process(role: str, action: str) -> dict[str, Any]:
-    """Send start/stop command to the Core Server (8095)."""
-    # Core Server HTTP 포트는 8095
-    http_port = 8095
-    ip = os.environ.get("DTAM_TARGET_IP") or "127.0.0.1"
-    
-    # action: "start" or "stop"
-    url = f"http://{ip}:{http_port}/api/v1/process/{role}/{action}"
-    
+    """Core Server 의 ``POST /api/v1/process/{role}/{start|stop}`` 호출."""
+    rest = _core_rest()
     try:
-        req = urllib.request.Request(url, method="POST")
-        with urllib.request.urlopen(req, timeout=5.0) as response:
-            return json.loads(response.read().decode('utf-8'))
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+        if action == "start":
+            return rest.process_start(role)
+        if action == "stop":
+            return rest.process_stop(role)
+        return {"ok": False, "error": f"unknown action: {action}"}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
