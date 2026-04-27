@@ -1,11 +1,10 @@
-"""DTAMAirMobility — UAM flight trajectory generator + DTAM 4001 publisher.
+"""DTAMAirMobility — UAM flight trajectory generator + DTAM 4001 송신.
 
 구성:
- - ``simpleDynamics`` : 비행체(트래젝토리) 시뮬레이터 (odt_mp 에서 분리)
+ - ``simpleDynamics`` : 비행체(트래젝토리) 시뮬레이터
  - ``transform``      : WGS84 ↔ local NED 좌표 변환
- - ``publisher``      : DTAM SDK 기반 MSG 4001 송신기
+ - ``publisher``      : MSG 4001 페이로드 빌더 (송신은 SDK ``DtamModule`` 이 담당)
  - ``service``        : 비행계획 + 시계 → 10 Hz 4001 스트리머
- - ``gui``            : 얇은 Qt 대시보드
 """
 
 from .service.integrated_service import (
@@ -22,7 +21,6 @@ from .publisher.msg4001 import (
     build_4001_message,
     build_vehicle_payload,
 )
-from .publisher.publisher import DtamVehiclePublisher
 
 __all__ = [
     "ClockMode",
@@ -35,7 +33,6 @@ __all__ = [
     "VehiclePublishContext",
     "build_4001_message",
     "build_vehicle_payload",
-    "DtamVehiclePublisher",
 ]
 
 __version__ = "0.1.0"

@@ -41,13 +41,14 @@ from ..simpleDynamics.core.types import (
 from ..simpleDynamics.core.wind_model import WindModel
 from ..simpleDynamics.io.icd_parser import parse_flight_plans, parse_flight_plan
 
+from dtam_client import DtamModule, Role  # type: ignore  # SDK가 sys.path 에 있어야 함
+
 from ..publisher.msg4001 import (
     VehiclePublishContext,
     build_4001_message,
     build_vehicle_payload,
     iso_timestamp,
 )
-from ..publisher.publisher import DtamVehiclePublisher
 from ..transform.coord_transform import LocalNEDFrame
 
 logger = logging.getLogger(__name__)
@@ -261,6 +262,38 @@ class VehicleSession:
         )
 
 
+class _PublisherCompat:
+    """``service.publisher.target_ip`` 등 기존 외부 사용 호환을 위한 mirror.
+
+    DtamVehiclePublisher 가 사라졌지만 backend/app.py 의 ``_status_to_dict``
+    가 아직 ``service.publisher.{target_ip,target_port,my_port}`` 를 읽기 때문에
+    같은 이름의 속성을 service 에서 받아서 노출한다.
+    """
+
+    def __init__(self, service: "IntegratedAirMobilityService") -> None:
+        self._svc = service
+
+    @property
+    def target_ip(self) -> str:
+        return self._svc.target_ip
+
+    @property
+    def target_port(self) -> int:
+        return self._svc.target_port
+
+    @property
+    def my_port(self) -> int:
+        return self._svc.my_port
+
+    @property
+    def connected(self) -> bool:
+        return self._svc.module.connected
+
+    @property
+    def last_error(self) -> str:
+        return ""
+
+
 class IntegratedAirMobilityService:
     """Top-level 서비스.
 
@@ -273,10 +306,11 @@ class IntegratedAirMobilityService:
         self,
         *,
         target_ip: str = "127.0.0.1",
-        target_port: int = 17000,
-        my_ip: str = "0.0.0.0",
-        my_port: int = 17030,
-        async_send: bool = True,
+        target_port: int = 17000,            # (legacy UDP port — 미사용. 호환을 위해 유지)
+        my_ip: str = "0.0.0.0",              # (legacy bind IP — 미사용)
+        my_port: int = 17030,                # (legacy UDP port — 미사용)
+        ws_port: int = 8096,                 # SimulationState HTTP/WS 포트
+        async_send: bool = True,             # (legacy — DtamModule 은 WS fire-and-forget)
         config: Optional[SimulationConfig] = None,
         wind_seed: int = 20260121,
         month: int = 4,
@@ -289,19 +323,26 @@ class IntegratedAirMobilityService:
         self.month = int(month)
         self._lock = threading.RLock()
 
-        self.publisher = DtamVehiclePublisher(
-            target_ip=target_ip,
-            target_port=target_port,
-            my_ip=my_ip,
-            my_port=my_port,
-            async_send=async_send,
-            auto_listen=True,
-            on_scheduled_flight_raw=self._on_scheduled_flight,
-            on_common_time_info_raw=self._on_common_time_info,
-            on_dtam_execute_raw=self._on_dtam_execute,
-            on_strategic_separation_raw=self._on_strategic_separation,
-            on_tactical_separation_raw=self._on_tactical_separation,
+        # ── DtamModule 기반 통신 (WebSocket /ws/dtam) ─────────────
+        self.target_ip = str(target_ip)
+        self.target_port = int(target_port)
+        self.my_port = int(my_port)
+        self.ws_port = int(ws_port)
+        self._async_send = bool(async_send)
+        server_url = f"ws://{self.target_ip}:{self.ws_port}/ws/dtam"
+        self.module = DtamModule.start(
+            role=Role.VEHICLE,
+            server_url=server_url,
+            heartbeat=True,                   # 0002 1Hz 자동 송신
         )
+        self.module.on("scheduled_flight",     self._on_scheduled_flight)
+        self.module.on("common_time_info",     self._on_common_time_info)
+        self.module.on("dtam_execute",         self._on_dtam_execute)
+        self.module.on("strategic_separation", self._on_strategic_separation)
+        self.module.on("tactical_separation",  self._on_tactical_separation)
+
+        # backend/app.py 의 _status_to_dict 호환을 위한 publisher mirror
+        self.publisher = _PublisherCompat(self)
 
         self._sessions: Dict[str, VehicleSession] = {}
         self._clock_mode: ClockMode = ClockMode.EXTERNAL
@@ -326,12 +367,11 @@ class IntegratedAirMobilityService:
         self._last_rx_2002: str = ""
         self._last_rx_3002: str = ""
         self._last_rx_3003: str = ""
+        # heartbeat 는 DtamModule(heartbeat=True) 가 자동 송신.
+        # _last_heartbeat_error 는 호환을 위해 보존하되 DtamModule.stats 에서 채움.
         self._last_heartbeat_error: str = ""
-        self._heartbeat_stop = threading.Event()
-        self._heartbeat_thread: Optional[threading.Thread] = None
         # 계획 버전 추적 (planVersion 이 낮으면 무시)
         self._plan_versions: Dict[str, int] = {}
-        self._start_heartbeat()
 
     # ── 비행계획 관리 ──────────────────────────────────────────
 
@@ -381,45 +421,39 @@ class IntegratedAirMobilityService:
         target_port: Optional[int] = None,
         my_ip: Optional[str] = None,
         my_port: Optional[int] = None,
+        ws_port: Optional[int] = None,
     ) -> None:
-        self.publisher.reconfigure(
-            target_ip=target_ip,
-            target_port=target_port,
-            my_ip=my_ip,
-            my_port=my_port,
-        )
+        """WebSocket 서버 endpoint 재설정.
+
+        ``target_port`` / ``my_ip`` / ``my_port`` 는 legacy UDP 시절 인자라 이제
+        무시되지만 외부 호출 호환을 위해 시그니처는 유지한다.
+        """
+        if target_ip is not None:
+            self.target_ip = str(target_ip)
+        if target_port is not None:
+            self.target_port = int(target_port)
+        if my_port is not None:
+            self.my_port = int(my_port)
+        if ws_port is not None:
+            self.ws_port = int(ws_port)
+        new_url = f"ws://{self.target_ip}:{self.ws_port}/ws/dtam"
+        if new_url != self.module.server_url:
+            try:
+                self.module.close()
+            except Exception:
+                pass
+            self.module = DtamModule.start(
+                role=Role.VEHICLE,
+                server_url=new_url,
+                heartbeat=True,
+            )
+            self.module.on("scheduled_flight",     self._on_scheduled_flight)
+            self.module.on("common_time_info",     self._on_common_time_info)
+            self.module.on("dtam_execute",         self._on_dtam_execute)
+            self.module.on("strategic_separation", self._on_strategic_separation)
+            self.module.on("tactical_separation",  self._on_tactical_separation)
 
     # ── 시계 제어 ──────────────────────────────────────────────
-
-    def _start_heartbeat(self) -> None:
-        if self._heartbeat_thread is not None:
-            return
-        self._heartbeat_thread = threading.Thread(
-            target=self._heartbeat_loop,
-            name="dtam-airmobility-heartbeat",
-            daemon=True,
-        )
-        self._heartbeat_thread.start()
-
-    def _stop_heartbeat(self) -> None:
-        self._heartbeat_stop.set()
-        thread = self._heartbeat_thread
-        if thread and thread.is_alive():
-            thread.join(timeout=2.0)
-        self._heartbeat_thread = None
-
-    def _heartbeat_loop(self) -> None:
-        while not self._heartbeat_stop.is_set():
-            try:
-                ok = self.publisher.push_module_status(source="DTAMAirMobility", status=1)
-                with self._lock:
-                    self._last_heartbeat_error = "" if ok else "module status send failed"
-            except Exception as exc:
-                with self._lock:
-                    self._last_heartbeat_error = f"{type(exc).__name__}: {exc}"
-                logger.debug("AirMobility heartbeat failed: %s", exc)
-            if self._heartbeat_stop.wait(timeout=1.0):
-                break
 
     def set_clock_mode(self, mode: ClockMode | str) -> None:
         mode = ClockMode(mode) if isinstance(mode, str) else mode
@@ -477,9 +511,11 @@ class IntegratedAirMobilityService:
         self._thread = None
 
     def close(self) -> None:
-        self._stop_heartbeat()
         self.stop()
-        self.publisher.close()
+        try:
+            self.module.close()
+        except Exception:
+            pass
 
     # ── 내부 ──────────────────────────────────────────────────
 
@@ -592,9 +628,9 @@ class IntegratedAirMobilityService:
         ts = _sim_time_to_iso(sim_time_s)
         message = build_4001_message(vehicle_payloads, timestamp=ts)
         try:
-            self.publisher.push(message)
+            self.module.send("vehicle_status", message)
         except Exception:
-            logger.exception("publisher push failed")
+            logger.exception("vehicle_status send failed")
         if self.on_publish is not None:
             try:
                 self.on_publish(message)
@@ -624,8 +660,8 @@ class IntegratedAirMobilityService:
         return FleetStatus(
             clock_mode=clock_mode,
             running=running,
-            publisher_connected=self.publisher.connected,
-            publisher_error=self.publisher.last_error or "",
+            publisher_connected=self.module.connected,
+            publisher_error=self.module.stats.last_error or "",
             sim_time_s=sim_t,
             sim_time_hms=_s_to_hhmmss(sim_t),
             vehicles=[s.status() for s in sessions],
@@ -647,17 +683,13 @@ class IntegratedAirMobilityService:
     def _on_scheduled_flight(self, result: Any) -> None:
         """MSG 3001 수신 → 해당 비행체의 계획을 자동 등록/갱신.
 
-        ``result`` 는 dtam_client 의 ReceiveResult (raw dict 포함).
+        DtamModule 은 plain dict 를, 구버전 SDK 는 ReceiveResult 를 넘긴다.
         planStatus == 'discarded' 면 해당 비행체 계획 제거.
         planStatus == 'superseded' 면 무시 (더 신선한 active 가 올 것).
         planVersion 이 기존보다 낮으면 무시.
         """
         try:
-            raw = getattr(result, "raw", None) or {}
-            ok = bool(getattr(result, "ok", True))
-            if not ok:
-                logger.warning("3001 수신 무효: %s", getattr(result, "errors", None))
-                return
+            raw = _result_raw(result)
             vehicle_id = str(raw.get("aircraftId") or "").strip()
             fpn = raw.get("flightPlanNumber")
             version = int(raw.get("planVersion") or 0)
@@ -701,10 +733,8 @@ class IntegratedAirMobilityService:
           서비스 루프가 1 tick 진행하고 4001 을 송출하도록 유도.
         """
         try:
-            sim_iso = getattr(result, "sim_time", None) or ""
-            if not sim_iso:
-                raw = getattr(result, "raw", None) or {}
-                sim_iso = raw.get("simTime") or ""
+            raw = _result_raw(result)
+            sim_iso = raw.get("simTime") or getattr(result, "sim_time", "") or ""
             if not sim_iso:
                 return
             sim_s = _iso_to_seconds_of_day(str(sim_iso))
@@ -720,7 +750,7 @@ class IntegratedAirMobilityService:
 
     def _on_dtam_execute(self, result: Any) -> None:
         try:
-            raw = getattr(result, "raw", None) or {}
+            raw = _result_raw(result)
             folder = str(raw.get("flightPlanFolderName") or "")
             with self._lock:
                 self._rx_2002_count += 1
@@ -732,7 +762,7 @@ class IntegratedAirMobilityService:
 
     def _on_strategic_separation(self, result: Any) -> None:
         try:
-            raw = getattr(result, "raw", None) or {}
+            raw = _result_raw(result)
             command_id = str(raw.get("commandId") or "")
             aircraft_id = str(raw.get("aircraftId") or "").strip()
             modification = str(raw.get("modificationType") or "")
@@ -750,7 +780,7 @@ class IntegratedAirMobilityService:
 
     def _on_tactical_separation(self, result: Any) -> None:
         try:
-            raw = getattr(result, "raw", None) or {}
+            raw = _result_raw(result)
             command_id = str(raw.get("commandId") or "")
             aircraft_id = str(raw.get("aircraftId") or "").strip()
             actions = raw.get("actions") if isinstance(raw, dict) else None
@@ -764,6 +794,20 @@ class IntegratedAirMobilityService:
             logger.info("3003 Tactical Separation received: %s", brief)
         except Exception:
             logger.exception("_on_tactical_separation failed")
+
+
+def _result_raw(result: Any) -> Dict[str, Any]:
+    """수신 콜백 인자를 raw dict 으로 정규화.
+
+    구버전 SDK 는 ``ReceiveResult`` 객체(.raw, .ok, .errors)를, 신버전 DtamModule
+    은 plain dict 를 넘긴다. 둘 다 호환.
+    """
+    if isinstance(result, dict):
+        return result
+    raw = getattr(result, "raw", None)
+    if isinstance(raw, dict):
+        return raw
+    return {}
 
 
 def _find_seq_for_phase(plan: FlightPlan, phase: str, cursor: int) -> int:
