@@ -34,7 +34,7 @@ for extra in (str(FRAMEWORK_ROOT), str(DTAM_SDK_ROOT)):
     if extra not in sys.path:
         sys.path.insert(0, extra)
 
-from dtam_client._ports import find_available_tcp_port, find_available_udp_tcp_pair  # noqa: E402
+from dtam_client.ports import find_available_tcp_port  # noqa: E402
 from DTAM_CoreServer.app.config import (  # noqa: E402
     DEFAULT_CONFIG_FILE,
     DEFAULT_DB_ROOT,
@@ -112,19 +112,7 @@ def main() -> None:
 
     os.chdir(ROOT)
 
-    requested_udp_port = int(cfg.server.udp_port)
-    requested_tcp_port = int(cfg.server.tcp_port)
-    cfg.server.udp_port, selected_tcp_port = find_available_udp_tcp_pair(
-        cfg.server.bind_ip,
-        requested_udp_port,
-        preferred_tcp_port=requested_tcp_port,
-    )
-    if cfg.server.udp_port != requested_udp_port or selected_tcp_port != requested_tcp_port:
-        print(
-            f"[DSE] server ports {requested_udp_port}/{requested_tcp_port} are busy; "
-            f"using {cfg.server.udp_port}/{cfg.server.tcp_port}."
-        )
-
+    # Core 는 control plane (HTTP REST) 만 호스팅. 데이터 통신은 SimulationState (8096 WS) 가 담당.
     requested_port = int(cfg.gui_port)
     cfg.gui_port = find_available_tcp_port(cfg.gui_host, requested_port)
     if cfg.gui_port != requested_port:
@@ -132,10 +120,9 @@ def main() -> None:
 
     url = f"http://{cfg.gui_host}:{cfg.gui_port}"
     print(f"[DSE] GUI    : {url}")
-    print(f"[DSE] Server : {cfg.server.bind_ip}:{cfg.server.udp_port} (TCP {cfg.server.tcp_port})")
     print(f"[DSE] DB root: {cfg.db_root}")
     for m in cfg.modules:
-        print(f"[DSE]   [{m.role:<10s}] {m.display_name:<20s}  {m.ip}:{m.udp_port} (TCP {m.resolved_tcp_port})  src='{m.expected_source}'")
+        print(f"[DSE]   [{m.role:<10s}] {m.display_name:<20s}  {m.ip}  src='{m.expected_source}'")
 
     if not args.no_browser:
         threading.Timer(1.2, lambda: open_browser(url)).start()

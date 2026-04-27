@@ -19,7 +19,7 @@ APP_IMPORT = "backend.app.main:app"
 if str(DTAM_SDK_ROOT) not in sys.path:
     sys.path.insert(0, str(DTAM_SDK_ROOT))
 
-from dtam_client._ports import find_available_tcp_port  # noqa: E402
+from dtam_client.ports import find_available_tcp_port  # noqa: E402
 
 
 def find_fullscreen_browser() -> Path | None:

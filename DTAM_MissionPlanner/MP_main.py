@@ -37,7 +37,7 @@ for extra in (str(FRAMEWORK_ROOT), str(DTAM_SDK_ROOT)):
     if extra not in sys.path:
         sys.path.insert(0, extra)
 
-from dtam_client._ports import find_available_tcp_port  # noqa: E402
+from dtam_client.ports import find_available_tcp_port  # noqa: E402
 from DTAM_MissionPlanner.app.server import create_app, settings  # noqa: E402
 
 

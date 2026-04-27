@@ -26,7 +26,7 @@ from backend.app.services.dtam_sdk_service import (
     stop_module_status_heartbeat,
 )
 from backend.app.web.router import web_router
-from dtam_client._ports import find_available_tcp_port
+from dtam_client.ports import find_available_tcp_port
 
 
 @asynccontextmanager

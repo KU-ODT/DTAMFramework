@@ -36,7 +36,7 @@ for extra in (str(FRAMEWORK_ROOT), str(DTAM_SDK_ROOT)):
     if extra not in sys.path:
         sys.path.insert(0, extra)
 
-from dtam_client._ports import find_available_tcp_port  # noqa: E402
+from dtam_client.ports import find_available_tcp_port  # noqa: E402
 from DTAMAirMobility.backend.app import create_app  # noqa: E402
 from DTAMAirMobility.service.integrated_service import (  # noqa: E402
     ClockMode,
