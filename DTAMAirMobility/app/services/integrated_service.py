@@ -31,7 +31,7 @@ from typing import Any, Callable, Dict, List, Optional
 from ..domain.dynamics.core.types import FlightPlan, SimulationConfig
 from ..domain.dynamics.io.icd_parser import parse_flight_plans, parse_flight_plan
 
-from dtam_client import VehicleModule  # type: ignore  # SDK 가 sys.path 에 있어야 함
+from dtam_client import VehicleModule, on_receive  # type: ignore  # SDK 가 sys.path 에 있어야 함
 
 from .msg4001 import (
     build_4001_message,
@@ -410,7 +410,11 @@ class IntegratedAirMobilityService(VehicleModule):
         )
 
     # ── DTAM 수신 핸들러 ──────────────────────────────────────
+    # 데코레이터는 가독성용 — base ``VehicleModule`` 이 이미 mid 매핑 보유.
+    # mid 가 다르면 SDK 가 import 시점에 ``TypeError`` 로 잡아준다.
+    # 1002 (SimulationSetup) 은 base 의 빈 stub 그대로 사용 (override 불필요).
 
+    @on_receive("3001")
     def on_scheduled_flight(self, result: Any) -> None:
         """MSG 3001 수신 → 해당 비행체의 계획을 자동 등록/갱신.
 
@@ -456,6 +460,7 @@ class IntegratedAirMobilityService(VehicleModule):
         except Exception:
             logger.exception("_on_scheduled_flight failed")
 
+    @on_receive("0003")
     def on_common_time_info(self, result: Any) -> None:
         """MSG 0003 수신 → simTime 을 시계로 주입.
 
@@ -479,6 +484,7 @@ class IntegratedAirMobilityService(VehicleModule):
         except Exception:
             logger.exception("_on_common_time_info failed")
 
+    @on_receive("2002")
     def on_dtam_execute(self, result: Any) -> None:
         try:
             raw = _result_raw(result)
@@ -491,6 +497,7 @@ class IntegratedAirMobilityService(VehicleModule):
         except Exception:
             logger.exception("_on_dtam_execute failed")
 
+    @on_receive("3002")
     def on_strategic_separation(self, result: Any) -> None:
         try:
             raw = _result_raw(result)
@@ -509,6 +516,7 @@ class IntegratedAirMobilityService(VehicleModule):
         except Exception:
             logger.exception("_on_strategic_separation failed")
 
+    @on_receive("3003")
     def on_tactical_separation(self, result: Any) -> None:
         try:
             raw = _result_raw(result)

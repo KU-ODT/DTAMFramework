@@ -35,7 +35,7 @@ _SDK_ROOT = Path(__file__).resolve().parents[3] / "DTAM_SDK"
 if _SDK_ROOT.is_dir() and str(_SDK_ROOT) not in sys.path:
     sys.path.insert(0, str(_SDK_ROOT))
 
-from dtam_client import MissionModule  # type: ignore
+from dtam_client import MissionModule, on_receive  # type: ignore
 
 from .mission_icd_export import build_mission_icd_export, validate_mission_icd_record
 from .route_planner import RoutePlanner
@@ -127,7 +127,10 @@ class MissionService(MissionModule):
 
     # ──────────────────────────────────────────────────────────
     # 수신 핸들러 (MissionModule 의 빈 stub 을 override)
+    # 데코레이터는 가독성용 — base 가 이미 mid 매핑을 보유. mid 가 다르면
+    # SDK 가 import 시점에 ``TypeError`` 로 잡아준다.
     # ──────────────────────────────────────────────────────────
+    @on_receive("2001")
     def on_flight_plan_request(self, msg: Any) -> None:
         """MSG 2001 수신 → 자동 3001 트리거.
 
@@ -186,6 +189,7 @@ class MissionService(MissionModule):
                 self._last_auto_3001_error = "; ".join(errors_out) or "send failed"
                 logger.warning("auto_3001 failed: %s", self._last_auto_3001_error)
 
+    @on_receive("2002")
     def on_dtam_execute(self, msg: Any) -> None:
         raw = _result_raw(msg)
         folder = str(raw.get("flightPlanFolderName") or "")

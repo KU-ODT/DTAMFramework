@@ -23,7 +23,7 @@
 ```python
 # DTAM_MyModule/app/services/my_service.py
 
-from dtam_client import VehicleModule         # 자기 역할의 베이스
+from dtam_client import VehicleModule, on_receive   # 자기 역할의 베이스 + 데코레이터
 from dtam_client.schema import Msg4001_VehicleStatus
 
 class MyVehicleService(VehicleModule):
@@ -38,6 +38,9 @@ class MyVehicleService(VehicleModule):
                          heartbeat=True)
 
     # ─── base stub override (내가 처리할 것만) ─────────────────
+    # 데코레이터는 가독성용 — 이 함수가 어떤 mid 를 처리하는지 한눈에.
+    # 생략해도 동작하지만 (base 가 이미 매핑 보유), 권장.
+    @on_receive("3001")
     def on_scheduled_flight(self, plan):
         """3001 받음 — base 의 빈 stub 을 override."""
         self._sessions[plan.aircraftId] = plan
@@ -71,6 +74,26 @@ class MyVehicleService(VehicleModule):
 각 베이스의 메서드 이름은 `on_<alias>` (예: `on_scheduled_flight`, `on_dtam_execute`).
 Override 안 하면 silent drop. import 시점에 `subscriptions_for(role)` 와의
 일치 자동 검증 (drift 발생 시 `AssertionError`).
+
+### 서브클래스 `@on_receive` 데코레이터 — 가독성용 (선택, 권장)
+
+베이스가 mid 매핑을 이미 보유하므로 서브클래스에서 데코레이터를 다시
+적지 않아도 동작한다. 하지만 가독성을 위해 권장한다 — 이 함수가
+어떤 mid 를 처리하는지 함수 정의 위에 바로 보임.
+
+```python
+class MissionService(MissionModule):
+    @on_receive("2001")        # ← 가독성용 (생략 가능)
+    def on_flight_plan_request(self, msg):
+        ...
+```
+
+규칙:
+- 서브클래스 데코레이터의 mid 는 **반드시 베이스의 mid 와 일치**.
+  불일치 시 인스턴스 생성 시점에 `TypeError` (잘못된 mid 가 silent
+  하게 등록되는 footgun 방지).
+- mid 와 메서드 이름 모두 베이스를 따른다 — 다른 이름을 쓰면 라우팅
+  되지 않음 (베이스 stub 이 그대로 활성).
 
 ## 2. 표준 폴더 구조
 
