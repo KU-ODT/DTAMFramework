@@ -747,35 +747,18 @@ def _build_auto_mission_payload_from_scenario(scenario: Dict[str, Any]) -> Dict[
     }
 
 
-def _handle_flight_plan_request(payload: Dict[str, Any], sender: MissionService) -> Dict[str, Any]:
-    scenario_file_name = str(payload.get("scenarioFileName") or "")
-    scenario, scenario_path = _find_scenario_setup_payload(scenario_file_name)
+def _auto_3001_pipeline(raw_2001: Dict[str, Any]) -> Dict[str, Any]:
+    """2001 raw payload → ICD export bundle dict.
+
+    server.py 의 module-level helpers (``_find_scenario_setup_payload``,
+    ``_build_auto_mission_payload_from_scenario``, ``_build_mission_icd_bundle``)
+    를 한 줄로 묶어 MissionService 에 주입. MissionService 는 이 결과를
+    받아 검증·송신·요약을 자체 처리한다.
+    """
+    scenario_file_name = str(raw_2001.get("scenarioFileName") or "")
+    scenario, _ = _find_scenario_setup_payload(scenario_file_name)
     mission_payload = _build_auto_mission_payload_from_scenario(scenario)
-    export = _build_mission_icd_bundle(mission_payload)
-    validation = export.get("validation", {}) or {}
-    if not validation.get("valid", False):
-        errors = "; ".join(str(item) for item in validation.get("errors", []))
-        return {"ok": False, "count": 0, "summary": f"Auto 3001 validation failed: {errors}"}
-
-    records = _extract_records_from_export(export)
-    if not records:
-        return {"ok": False, "count": 0, "summary": "Auto 3001 generated no records."}
-
-    send_result = sender.send_scheduled_flights(records)
-    ok = bool(send_result.get("ok"))
-    count = int(send_result.get("count") or 0)
-    source = str(scenario_path) if scenario_path else "latest ScenarioSetup"
-    summary = (
-        f"scenario={Path(scenario_file_name).name or source}, "
-        f"source={source}, generated={len(records)}, sent={count}, storage=server_db"
-    )
-    if not ok:
-        errors: List[str] = []
-        for item in send_result.get("results", []) or []:
-            if isinstance(item, dict):
-                errors.extend(str(err) for err in item.get("errors", []) or [])
-        summary += "; errors=" + ("; ".join(errors) if errors else "send failed")
-    return {"ok": ok, "count": count if ok else 0, "summary": summary, "send_result": send_result}
+    return _build_mission_icd_bundle(mission_payload)
 
 
 def create_app() -> FastAPI:
@@ -815,7 +798,7 @@ def create_app() -> FastAPI:
             mission_service = MissionService(
                 target_ip=str(settings["dtam_target_ip"]),
                 ws_port=int(settings.get("dtam_ws_port", 8096)),
-                on_flight_plan_request=_handle_flight_plan_request,
+                auto_3001_pipeline=_auto_3001_pipeline,
             )
             desc = mission_service.describe()
             print(f"[DTAM MP] DTAM sender ready → {desc['server_url']}")

@@ -1,16 +1,22 @@
-"""DTAM Mission Planner 통신 layer (WebSocket /ws/dtam).
+"""DTAM Mission Planner 서비스 계층 (WebSocket /ws/dtam + 도메인 통합).
 
-``DtamModule`` 서브클래스 + ``@on_receive("MID")`` 데코레이터 패턴.
-2001 (Flight Plan Request) / 2002 (DTAM Execute) 수신 핸들러를 데코레이터로
-자동 등록하고, 3001 (Scheduled Flight) 송신은 도메인 메서드로 노출한다.
+``MissionModule`` (SDK 베이스) 를 상속해 2001/2002 핸들러를 자체 처리.
+2001 수신 시 자동 3001 트리거 — 검증·송신·통계 모두 핸들러 안에서 처리하고,
+server.py 에서는 단일 callable (``auto_3001_pipeline``) 만 주입해 server.py
+의 module-level helpers 와의 결합을 한 군데로 좁힌다.
 
 외부 인터페이스 (server.py / routes/* 가 사용):
-  - MissionService(target_ip, ws_port, on_flight_plan_request)
+  - MissionService(target_ip, ws_port, auto_3001_pipeline=...)
   - .describe() → dict
   - .send_scheduled_flight(record) → dict
   - .send_scheduled_flights(records) → dict
   - .reconfigure(target_ip=..., ws_port=...) → dict
   - .close()
+
+``auto_3001_pipeline`` 계약:
+  Callable[[Dict], Dict]
+  Input: 2001 raw payload dict (scenarioFileName 등)
+  Output: ICD export bundle dict (validation, record/records, fleet, ...)
 """
 from __future__ import annotations
 
@@ -29,7 +35,7 @@ from dtam_client import MissionModule  # type: ignore
 
 logger = logging.getLogger(__name__)
 
-FlightPlanRequestHandler = Callable[[Dict[str, Any], "MissionService"], Optional[Dict[str, Any]]]
+Auto3001Pipeline = Callable[[Dict[str, Any]], Dict[str, Any]]
 
 
 def _result_raw(result: Any) -> Dict[str, Any]:
@@ -92,7 +98,7 @@ class MissionService(MissionModule):
         *,
         target_ip: str = "127.0.0.1",
         ws_port: int = 8096,
-        on_flight_plan_request: Optional[FlightPlanRequestHandler] = None,
+        auto_3001_pipeline: Optional[Auto3001Pipeline] = None,
     ) -> None:
         # 통계/상태 (super().__init__ 보다 먼저 — 데코레이터 핸들러가 곧 참조 가능)
         self._mc_lock = threading.RLock()
@@ -105,7 +111,7 @@ class MissionService(MissionModule):
         self._auto_3001_count = 0
         self._last_auto_3001 = ""
         self._last_auto_3001_error = ""
-        self._on_flight_plan_request_handler = on_flight_plan_request
+        self._auto_3001_pipeline = auto_3001_pipeline
 
         super().__init__(
             server_url=f"ws://{target_ip}:{ws_port}/ws/dtam",
@@ -114,36 +120,88 @@ class MissionService(MissionModule):
 
     # ── 수신 핸들러 (MissionModule 의 빈 stub 을 override) ──────
     def on_flight_plan_request(self, msg: Any) -> None:
+        """MSG 2001 수신 → 자동 3001 트리거.
+
+        흐름:
+          1. 통계 갱신
+          2. ``auto_3001_pipeline(raw)`` 호출 — server.py 가 주입한 callable.
+             scenario lookup + auto-mission 빌드 + ICD bundle 묶음을 한 번에
+             돌려준다 (export dict). 이 단계가 실패하면 stats 에 기록 후 종료.
+          3. ``export["validation"]`` 검증 — invalid 면 에러 통계 기록 후 종료.
+          4. ``records`` 추출 → ``self.send_scheduled_flights(records)``
+          5. 송신 결과를 통계에 반영 (auto_3001_count, last_auto_3001*).
+
+        외부 (server.py) 는 단계 2 의 pipeline 함수만 책임 — 검증·송신·요약은
+        모두 이 메서드 내부에서 처리.
+        """
         raw = _result_raw(msg)
         scenario = str(raw.get("scenarioFileName") or "")
         with self._mc_lock:
             self._rx_2001_count += 1
             self._last_rx_2001 = scenario or str(raw)
         logger.info("2001 Flight Plan Request received: scenario=%s", scenario)
-        handler = self._on_flight_plan_request_handler
-        if handler is None:
+
+        pipeline = self._auto_3001_pipeline
+        if pipeline is None:
             return
+
+        # 1) Pipeline 호출 (scenario → mission payload → ICD bundle)
         try:
-            auto_result = handler(raw, self) or {}
-            count = int(auto_result.get("count") or 0)
-            ok = bool(auto_result.get("ok", False))
-            summary = str(auto_result.get("summary") or "")
-            with self._mc_lock:
-                if ok:
-                    self._auto_3001_count += count
-                    self._last_auto_3001 = summary or f"sent {count} scheduled flight(s)"
-                    self._last_auto_3001_error = ""
-                else:
-                    self._last_auto_3001_error = summary or str(auto_result)
-            if ok:
-                logger.info("2001 auto 3001 completed: %s", summary)
-            else:
-                logger.warning("2001 auto 3001 failed: %s", summary)
+            export = pipeline(raw) or {}
         except Exception as exc:
-            err = f"{type(exc).__name__}: {exc}"
+            err = f"pipeline raised: {type(exc).__name__}: {exc}"
             with self._mc_lock:
                 self._last_auto_3001_error = err
-            logger.exception("2001 auto 3001 handler failed")
+            logger.exception("auto_3001 pipeline failed")
+            return
+
+        # 2) Validation 확인
+        validation = export.get("validation") if isinstance(export, dict) else None
+        if not (isinstance(validation, dict) and validation.get("valid")):
+            errs = "; ".join(str(e) for e in (validation or {}).get("errors", []))
+            summary = f"Auto 3001 validation failed: {errs}" if errs else "Auto 3001 validation failed"
+            with self._mc_lock:
+                self._last_auto_3001_error = summary
+            logger.warning(summary)
+            return
+
+        # 3) records 추출 (record/records 둘 다 허용)
+        records: List[Dict[str, Any]] = []
+        rec = export.get("record")
+        if isinstance(rec, dict):
+            records.append(rec)
+        elif isinstance(rec, list):
+            records.extend(item for item in rec if isinstance(item, dict))
+        recs = export.get("records")
+        if isinstance(recs, list):
+            for item in recs:
+                if isinstance(item, dict) and item not in records:
+                    records.append(item)
+        if not records:
+            with self._mc_lock:
+                self._last_auto_3001_error = "Auto 3001 generated no records"
+            logger.warning("auto_3001: no records in export")
+            return
+
+        # 4) 송신
+        send_result = self.send_scheduled_flights(records)
+        ok = bool(send_result.get("ok"))
+        count = int(send_result.get("count") or 0)
+
+        # 5) 결과를 통계에 반영
+        with self._mc_lock:
+            if ok:
+                self._auto_3001_count += count
+                self._last_auto_3001 = f"sent {count} scheduled flight(s)"
+                self._last_auto_3001_error = ""
+                logger.info("auto_3001 sent: count=%d", count)
+            else:
+                errors_out: List[str] = []
+                for item in send_result.get("results", []) or []:
+                    if isinstance(item, dict):
+                        errors_out.extend(str(e) for e in (item.get("errors") or []))
+                self._last_auto_3001_error = "; ".join(errors_out) or "send failed"
+                logger.warning("auto_3001 failed: %s", self._last_auto_3001_error)
 
     def on_dtam_execute(self, msg: Any) -> None:
         raw = _result_raw(msg)
@@ -240,4 +298,4 @@ class MissionService(MissionModule):
         return {"ok": ok, "count": len(items), "results": items}
 
 
-__all__ = ["MissionService", "FlightPlanRequestHandler"]
+__all__ = ["MissionService", "Auto3001Pipeline"]
