@@ -41,7 +41,11 @@ async def get_config() -> JSONResponse:
             "buildingPitchThreshold": 28,
             "buildingZoomThreshold": 13.5,
         },
-        "dtam": server._dtam_status_payload(),
+        "dtam": (
+            server.mission_service.describe()
+            if server.mission_service is not None
+            else {"ready": False, "last_error": "service not initialised"}
+        ),
     })
 
 

@@ -11,7 +11,14 @@ router = APIRouter(prefix="/api/dtam")
 
 @router.get("/status")
 async def get_dtam_status() -> JSONResponse:
-    return JSONResponse(server._dtam_status_payload())
+    if server.mission_service is None:
+        return JSONResponse({
+            "ready": False,
+            "target_ip": server.settings.get("dtam_target_ip"),
+            "ws_port": server.settings.get("dtam_ws_port"),
+            "last_error": "service not initialised",
+        })
+    return JSONResponse(server.mission_service.describe())
 
 
 @router.post("/config")
@@ -19,7 +26,8 @@ async def update_dtam_config(request: Request) -> JSONResponse:
     body = await request.json()
     try:
         target_ip = body.get("target_ip") or body.get("targetIp")
-        ws_port = server._coerce_int(body.get("ws_port") or body.get("wsPort"))
+        ws_port_raw = body.get("ws_port") or body.get("wsPort")
+        ws_port = int(ws_port_raw) if ws_port_raw not in (None, "") else None
         if target_ip:
             server.settings["dtam_target_ip"] = str(target_ip)
         if ws_port is not None:
@@ -29,7 +37,8 @@ async def update_dtam_config(request: Request) -> JSONResponse:
                 target_ip=str(server.settings["dtam_target_ip"]),
                 ws_port=int(server.settings["dtam_ws_port"]),
             )
-        return JSONResponse(server._dtam_status_payload())
+            return JSONResponse(server.mission_service.describe())
+        return JSONResponse({"ready": False, "last_error": "service not initialised"})
     except Exception as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
 
@@ -37,14 +46,15 @@ async def update_dtam_config(request: Request) -> JSONResponse:
 @router.post("/send")
 async def send_to_dtam(request: Request) -> JSONResponse:
     """Mission payload (ICD record / list / mission draft) 를 받아 3001 로 송신."""
-    if server.mission_service is None:
+    svc = server.mission_service
+    if svc is None:
         return JSONResponse({"error": "DTAM sender not ready"}, status_code=500)
     body = await request.json()
     try:
-        if server._looks_like_icd_record(body) or server._looks_like_icd_record_list(body):
-            export = server._build_existing_icd_export_bundle(body)
+        if svc.looks_like_icd_record(body) or svc.looks_like_icd_record_list(body):
+            export = svc.build_existing_icd_export_bundle(body)
         else:
-            export = server._build_mission_icd_bundle(body)
+            export = svc.build_mission_icd_bundle(body)
     except Exception as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
 
@@ -58,11 +68,11 @@ async def send_to_dtam(request: Request) -> JSONResponse:
             "fleet": export.get("fleet", []),
         }, status_code=400)
 
-    records = server._extract_records_from_export(export)
+    records = svc.extract_records_from_export(export)
     if not records:
         return JSONResponse({"error": "No ICD records to send"}, status_code=400)
 
-    send_result = server.mission_service.send_scheduled_flights(records)
+    send_result = svc.send_scheduled_flights(records)
     response = {
         "ok": send_result["ok"],
         "target": f"ws://{server.settings['dtam_target_ip']}:{int(server.settings['dtam_ws_port'])}/ws/dtam",

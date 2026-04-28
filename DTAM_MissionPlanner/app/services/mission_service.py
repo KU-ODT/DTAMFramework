@@ -1,25 +1,29 @@
-"""DTAM Mission Planner 서비스 계층 (WebSocket /ws/dtam + 도메인 통합).
+"""DTAM Mission Planner 서비스 (WebSocket /ws/dtam + 도메인 통합).
 
-``MissionModule`` (SDK 베이스) 를 상속해 2001/2002 핸들러를 자체 처리.
-2001 수신 시 자동 3001 트리거 — 검증·송신·통계 모두 핸들러 안에서 처리하고,
-server.py 에서는 단일 callable (``auto_3001_pipeline``) 만 주입해 server.py
-의 module-level helpers 와의 결합을 한 군데로 좁힌다.
+``MissionModule`` (SDK 베이스) 를 상속한 ``MissionService`` — 통신과 ICD
+빌드 도메인을 한 클래스에 묶었다. 다른 클라이언트 모듈
+(``IntegratedAirMobilityService(VehicleModule)``,
+``MonitoringService(MonitoringModule)``) 과 동일한 패턴.
 
-외부 인터페이스 (server.py / routes/* 가 사용):
-  - MissionService(target_ip, ws_port, auto_3001_pipeline=...)
-  - .describe() → dict
-  - .send_scheduled_flight(record) → dict
-  - .send_scheduled_flights(records) → dict
-  - .reconfigure(target_ip=..., ws_port=...) → dict
-  - .close()
+책임:
+  - 2001 / 2002 수신 (베이스 stub override)
+  - 2001 받으면 자동으로 ICD bundle 만들어 3001 송신 (auto-3001 트리거)
+  - ICD bundle 빌드 helpers (build_mission_icd_bundle 등) — routes 도 호출
+  - 3001 송신 wrapper (send_scheduled_flight*)
+  - reconfigure / describe
 
-``auto_3001_pipeline`` 계약:
-  Callable[[Dict], Dict]
-  Input: 2001 raw payload dict (scenarioFileName 등)
-  Output: ICD export bundle dict (validation, record/records, fleet, ...)
+생성자에 주입되는 deps:
+  - route_planner    : RoutePlanner (find_route, list_ports 등)
+  - settings         : dict (mutable 공유 — default_speed_mps, dtam_target_ip 등)
+  - resource_csv     : Path (mission_icd_export 가 사용하는 vertiport CSV)
+  - route_response_fn: Callable[[str, str, RouteResult], Dict] — server.py
+                       의 _route_payload_response (routes/route.py 와 공유)
+  - server_http_get_fn: Callable[[str, Optional[Dict]], Dict] — server.py
+                       의 _server_get_json (CoreServer DB API)
 """
 from __future__ import annotations
 
+import datetime
 import logging
 import sys
 import threading
@@ -33,13 +37,13 @@ if _SDK_ROOT.is_dir() and str(_SDK_ROOT) not in sys.path:
 
 from dtam_client import MissionModule  # type: ignore
 
-logger = logging.getLogger(__name__)
+from .mission_icd_export import build_mission_icd_export, validate_mission_icd_record
+from .route_planner import RoutePlanner
 
-Auto3001Pipeline = Callable[[Dict[str, Any]], Dict[str, Any]]
+logger = logging.getLogger(__name__)
 
 
 def _result_raw(result: Any) -> Dict[str, Any]:
-    """수신 콜백 인자(dataclass 또는 dict)를 dict 으로 정규화."""
     if isinstance(result, dict):
         return result
     raw = getattr(result, "raw", None)
@@ -51,7 +55,7 @@ def _result_raw(result: Any) -> Dict[str, Any]:
     return {}
 
 
-def _coerce_int(value: Any, default: int) -> int:
+def _coerce_int(value: Any, default: Optional[int] = None) -> Optional[int]:
     try:
         if value in (None, ""):
             return default
@@ -72,7 +76,6 @@ def _ensure_plan_metadata(record: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _quick_validate(record: Dict[str, Any]) -> List[str]:
-    """스키마 세부는 SDK 가 검증하지만 흔한 사전오류를 먼저 잡는다."""
     errors: List[str] = []
     if not isinstance(record, dict):
         return ["record is not a dict"]
@@ -86,24 +89,29 @@ def _quick_validate(record: Dict[str, Any]) -> List[str]:
 
 
 class MissionService(MissionModule):
-    """Mission Planner DTAM 통신 layer.
-
-    ``MissionModule`` 베이스가 ``role = Role.MISSION`` + 2001/2002 의 빈
-    ``@on_receive`` stub 을 제공. 이 클래스는 그 위에 도메인 처리 (자동
-    3001 트리거 + 통계) 를 얹는다.
-    """
+    """Mission Planner DTAM service — 통신 + ICD 빌드 도메인 통합."""
 
     def __init__(
         self,
         *,
         target_ip: str = "127.0.0.1",
         ws_port: int = 8096,
-        auto_3001_pipeline: Optional[Auto3001Pipeline] = None,
+        route_planner: Optional[RoutePlanner] = None,
+        settings: Optional[Dict[str, Any]] = None,
+        resource_csv: Optional[Path] = None,
+        route_response_fn: Optional[Callable[[str, str, Any], Dict[str, Any]]] = None,
+        server_http_get_fn: Optional[Callable[[str, Optional[Dict[str, str]]], Dict[str, Any]]] = None,
     ) -> None:
-        # 통계/상태 (super().__init__ 보다 먼저 — 데코레이터 핸들러가 곧 참조 가능)
+        # 도메인 deps + 통계 (super().__init__ 보다 먼저)
         self._mc_lock = threading.RLock()
         self._target_ip = str(target_ip)
         self._ws_port = int(ws_port)
+        self.route_planner = route_planner
+        self.settings = settings if settings is not None else {}
+        self._resource_csv = resource_csv
+        self._route_response_fn = route_response_fn
+        self._server_http_get_fn = server_http_get_fn
+
         self._rx_2001_count = 0
         self._rx_2002_count = 0
         self._last_rx_2001 = ""
@@ -111,43 +119,33 @@ class MissionService(MissionModule):
         self._auto_3001_count = 0
         self._last_auto_3001 = ""
         self._last_auto_3001_error = ""
-        self._auto_3001_pipeline = auto_3001_pipeline
 
         super().__init__(
             server_url=f"ws://{target_ip}:{ws_port}/ws/dtam",
             heartbeat=True,
         )
 
-    # ── 수신 핸들러 (MissionModule 의 빈 stub 을 override) ──────
+    # ──────────────────────────────────────────────────────────
+    # 수신 핸들러 (MissionModule 의 빈 stub 을 override)
+    # ──────────────────────────────────────────────────────────
     def on_flight_plan_request(self, msg: Any) -> None:
         """MSG 2001 수신 → 자동 3001 트리거.
 
-        흐름:
-          1. 통계 갱신
-          2. ``auto_3001_pipeline(raw)`` 호출 — server.py 가 주입한 callable.
-             scenario lookup + auto-mission 빌드 + ICD bundle 묶음을 한 번에
-             돌려준다 (export dict). 이 단계가 실패하면 stats 에 기록 후 종료.
-          3. ``export["validation"]`` 검증 — invalid 면 에러 통계 기록 후 종료.
-          4. ``records`` 추출 → ``self.send_scheduled_flights(records)``
-          5. 송신 결과를 통계에 반영 (auto_3001_count, last_auto_3001*).
-
-        외부 (server.py) 는 단계 2 의 pipeline 함수만 책임 — 검증·송신·요약은
-        모두 이 메서드 내부에서 처리.
+        흐름: 통계 → scenario lookup → mission payload 빌드 → ICD bundle →
+        records 추출 → send_scheduled_flights → 결과 통계 갱신.
         """
         raw = _result_raw(msg)
-        scenario = str(raw.get("scenarioFileName") or "")
+        scenario_file_name = str(raw.get("scenarioFileName") or "")
         with self._mc_lock:
             self._rx_2001_count += 1
-            self._last_rx_2001 = scenario or str(raw)
-        logger.info("2001 Flight Plan Request received: scenario=%s", scenario)
+            self._last_rx_2001 = scenario_file_name or str(raw)
+        logger.info("2001 received: scenario=%s", scenario_file_name)
 
-        pipeline = self._auto_3001_pipeline
-        if pipeline is None:
-            return
-
-        # 1) Pipeline 호출 (scenario → mission payload → ICD bundle)
+        # Auto-3001 pipeline (helpers 가 self.route_planner 등을 사용)
         try:
-            export = pipeline(raw) or {}
+            scenario, _ = self._find_scenario_setup_payload(scenario_file_name)
+            mission_payload = self._build_auto_mission_payload_from_scenario(scenario)
+            export = self.build_mission_icd_bundle(mission_payload)
         except Exception as exc:
             err = f"pipeline raised: {type(exc).__name__}: {exc}"
             with self._mc_lock:
@@ -155,7 +153,6 @@ class MissionService(MissionModule):
             logger.exception("auto_3001 pipeline failed")
             return
 
-        # 2) Validation 확인
         validation = export.get("validation") if isinstance(export, dict) else None
         if not (isinstance(validation, dict) and validation.get("valid")):
             errs = "; ".join(str(e) for e in (validation or {}).get("errors", []))
@@ -165,30 +162,16 @@ class MissionService(MissionModule):
             logger.warning(summary)
             return
 
-        # 3) records 추출 (record/records 둘 다 허용)
-        records: List[Dict[str, Any]] = []
-        rec = export.get("record")
-        if isinstance(rec, dict):
-            records.append(rec)
-        elif isinstance(rec, list):
-            records.extend(item for item in rec if isinstance(item, dict))
-        recs = export.get("records")
-        if isinstance(recs, list):
-            for item in recs:
-                if isinstance(item, dict) and item not in records:
-                    records.append(item)
+        records = self.extract_records_from_export(export)
         if not records:
             with self._mc_lock:
                 self._last_auto_3001_error = "Auto 3001 generated no records"
-            logger.warning("auto_3001: no records in export")
+            logger.warning("auto_3001: no records")
             return
 
-        # 4) 송신
         send_result = self.send_scheduled_flights(records)
         ok = bool(send_result.get("ok"))
         count = int(send_result.get("count") or 0)
-
-        # 5) 결과를 통계에 반영
         with self._mc_lock:
             if ok:
                 self._auto_3001_count += count
@@ -211,14 +194,15 @@ class MissionService(MissionModule):
             self._last_rx_2002 = folder or str(raw)
         logger.info("2002 DTAM Execute received: flightPlanFolderName=%s", folder)
 
-    # ── 설정/상태 ─────────────────────────────────────────────
+    # ──────────────────────────────────────────────────────────
+    # 설정/상태
+    # ──────────────────────────────────────────────────────────
     def reconfigure(
         self,
         *,
         target_ip: Optional[str] = None,
         ws_port: Optional[int] = None,
     ) -> Dict[str, Any]:
-        """target_ip/ws_port 변경 시 WS 끊고 재접속."""
         with self._mc_lock:
             changed = False
             if target_ip is not None and str(target_ip) != self._target_ip:
@@ -252,20 +236,19 @@ class MissionService(MissionModule):
                 "stats": self.stats.to_dict(),
             }
 
-    # ── 송신 ──────────────────────────────────────────────────
+    # ──────────────────────────────────────────────────────────
+    # 송신 (3001)
+    # ──────────────────────────────────────────────────────────
     def send_scheduled_flight(self, record: Dict[str, Any]) -> Dict[str, Any]:
-        """단일 3001 record 송신 결과 dict."""
         payload = _ensure_plan_metadata(record)
         target = self.server_url
         errors = _quick_validate(payload)
         if errors:
             return {
-                "ok": False,
-                "target": target,
+                "ok": False, "target": target,
                 "aircraftId": payload.get("aircraftId"),
                 "flightPlanNumber": payload.get("flightPlanNumber"),
-                "errors": errors,
-                "warnings": [],
+                "errors": errors, "warnings": [],
             }
         try:
             ok = self.send("scheduled_flight", payload)
@@ -282,12 +265,10 @@ class MissionService(MissionModule):
         if not ok:
             errors_out.append("WebSocket send failed (not connected or registered)")
         return {
-            "ok": ok,
-            "target": target,
+            "ok": ok, "target": target,
             "aircraftId": payload.get("aircraftId"),
             "flightPlanNumber": payload.get("flightPlanNumber"),
-            "errors": errors_out,
-            "warnings": [],
+            "errors": errors_out, "warnings": [],
         }
 
     def send_scheduled_flights(self, records: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -297,5 +278,280 @@ class MissionService(MissionModule):
         ok = all(item["ok"] for item in items) if items else False
         return {"ok": ok, "count": len(items), "results": items}
 
+    # ──────────────────────────────────────────────────────────
+    # ICD bundle helpers (routes 도 호출)
+    # ──────────────────────────────────────────────────────────
+    @staticmethod
+    def looks_like_icd_record(payload: Dict[str, Any]) -> bool:
+        required = {"flightPlanNumber", "aircraftId", "departure", "enRoute", "arrival"}
+        return isinstance(payload, dict) and required.issubset(payload.keys())
 
-__all__ = ["MissionService", "Auto3001Pipeline"]
+    @staticmethod
+    def looks_like_icd_record_list(payload: Any) -> bool:
+        return isinstance(payload, list) and bool(payload) and all(
+            MissionService.looks_like_icd_record(item) for item in payload
+        )
+
+    @staticmethod
+    def extract_records_from_export(result: Dict[str, Any]) -> List[Dict[str, Any]]:
+        records = result.get("records") if isinstance(result, dict) else None
+        if isinstance(records, list) and records:
+            return [item for item in records if isinstance(item, dict)]
+        record = result.get("record") if isinstance(result, dict) else None
+        if isinstance(record, list):
+            return [item for item in record if isinstance(item, dict)]
+        if isinstance(record, dict):
+            return [record]
+        return []
+
+    def _normalize_simulation_fleet(
+        self,
+        mission_payload: Dict[str, Any],
+        default_vehicle_name: str = "UAM1",
+    ) -> List[Dict[str, Any]]:
+        options = mission_payload.get("options") or {}
+        base_aircraft_id = str(options.get("aircraftId") or "UAM0001").strip() or "UAM0001"
+        base_flight_plan = _coerce_int(options.get("flightPlanNumber"))
+        if base_flight_plan is None:
+            base_flight_plan = int(datetime.datetime.now().strftime("%m%d%H%M"))
+
+        raw_fleet = mission_payload.get("fleet") or []
+        normalized: List[Dict[str, Any]] = []
+        if isinstance(raw_fleet, list):
+            for index, item in enumerate(raw_fleet):
+                if not isinstance(item, dict):
+                    continue
+                aircraft_id = (
+                    str(item.get("aircraftId") or base_aircraft_id or f"UAM{index + 1:04d}").strip()
+                    or f"UAM{index + 1:04d}"
+                )
+                vehicle_name = (
+                    str(item.get("vehicleName") or item.get("vehicle_name") or "").strip()
+                    or (default_vehicle_name if index == 0 else f"UAM{index + 1}")
+                )
+                flight_plan_number = _coerce_int(item.get("flightPlanNumber"))
+                if flight_plan_number is None:
+                    flight_plan_number = base_flight_plan + index
+                normalized.append({
+                    "aircraftId": aircraft_id,
+                    "vehicleName": vehicle_name,
+                    "flightPlanNumber": flight_plan_number,
+                })
+        if normalized:
+            return normalized
+        return [{
+            "aircraftId": base_aircraft_id,
+            "vehicleName": str(default_vehicle_name or "UAM1").strip() or "UAM1",
+            "flightPlanNumber": base_flight_plan,
+        }]
+
+    def build_existing_icd_export_bundle(
+        self,
+        mission_payload: Any,
+        fleet: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        records = mission_payload if isinstance(mission_payload, list) else [mission_payload]
+        normalized_records = [item for item in records if isinstance(item, dict)]
+        if not normalized_records:
+            raise ValueError("No ICD records were provided.")
+
+        normalized_fleet = list(fleet or [])
+        if not normalized_fleet:
+            base_number = int(datetime.datetime.now().strftime("%m%d%H%M"))
+            for index, record in enumerate(normalized_records):
+                normalized_fleet.append({
+                    "aircraftId": str(record.get("aircraftId") or f"UAM{index + 1:04d}"),
+                    "vehicleName": f"UAM{index + 1}",
+                    "flightPlanNumber": _coerce_int(record.get("flightPlanNumber")) or (base_number + index),
+                })
+
+        errors: List[str] = []
+        for fleet_entry, record in zip(normalized_fleet, normalized_records):
+            prefix = f"{fleet_entry['aircraftId']} ({fleet_entry['vehicleName']})"
+            for message in validate_mission_icd_record(record):
+                errors.append(f"{prefix}: {message}")
+
+        first_record = normalized_records[0]
+        filename = (
+            f"mission_icd_v1_{first_record.get('flightPlanNumber', 'fleet')}_{first_record.get('aircraftId', 'UAM0001')}.json"
+            if len(normalized_records) == 1
+            else f"mission_icd_v1_fleet_{normalized_fleet[0]['flightPlanNumber']}_{len(normalized_records)}ac.json"
+        )
+        return {
+            "mode": "icd",
+            "filename": filename,
+            "record": normalized_records[0] if len(normalized_records) == 1 else normalized_records,
+            "records": normalized_records,
+            "fleet": normalized_fleet,
+            "validation": {"valid": not errors, "errors": errors},
+            "warnings": [],
+        }
+
+    def build_mission_icd_bundle(
+        self,
+        payload: Dict[str, Any],
+        fleet: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        if self.route_planner is None:
+            raise RuntimeError("Route planner not loaded.")
+        if self._resource_csv is None:
+            raise RuntimeError("Mission ICD resource CSV path not configured.")
+
+        normalized_fleet = list(fleet or self._normalize_simulation_fleet(payload))
+        raw_missions = payload.get("missions")
+        missions = (
+            [item for item in raw_missions if isinstance(item, dict)]
+            if isinstance(raw_missions, list)
+            else [payload]
+        )
+        if not missions:
+            raise ValueError("No mission payloads were provided.")
+        if len(missions) != len(normalized_fleet):
+            raise ValueError(
+                f"Mission count ({len(missions)}) does not match fleet count ({len(normalized_fleet)})."
+            )
+
+        base_options = dict(payload.get("options") or {})
+        exports: List[Dict[str, Any]] = []
+        for mission_payload, fleet_entry in zip(missions, normalized_fleet):
+            item_payload = dict(mission_payload)
+            item_payload.pop("fleet", None)
+            item_payload.pop("missions", None)
+            item_payload["options"] = {
+                **base_options,
+                **dict(item_payload.get("options") or {}),
+                "aircraftId": fleet_entry["aircraftId"],
+                "flightPlanNumber": fleet_entry["flightPlanNumber"],
+            }
+            exports.append(
+                build_mission_icd_export(
+                    item_payload,
+                    self.route_planner,
+                    self._resource_csv,
+                    float(self.settings.get("default_altitude_m", 300.0)),
+                )
+            )
+
+        if len(exports) == 1:
+            result = dict(exports[0])
+            result["records"] = [exports[0]["record"]]
+            result["fleet"] = normalized_fleet
+            return result
+
+        warnings: List[str] = []
+        errors: List[str] = []
+        records: List[Dict[str, Any]] = []
+        for fleet_entry, export in zip(normalized_fleet, exports):
+            prefix = f"{fleet_entry['aircraftId']} ({fleet_entry['vehicleName']})"
+            records.append(export["record"])
+            for warning in export.get("warnings", []):
+                warnings.append(f"{prefix}: {warning}")
+            for message in export.get("validation", {}).get("errors", []):
+                errors.append(f"{prefix}: {message}")
+
+        return {
+            "mode": str(payload.get("mode") or "route"),
+            "filename": f"mission_icd_v1_fleet_{normalized_fleet[0]['flightPlanNumber']}_{len(records)}ac.json",
+            "record": records,
+            "records": records,
+            "fleet": normalized_fleet,
+            "validation": {"valid": not errors, "errors": errors},
+            "warnings": warnings,
+        }
+
+    # ──────────────────────────────────────────────────────────
+    # Auto-3001 내부 helpers (on_flight_plan_request 가 사용)
+    # ──────────────────────────────────────────────────────────
+    def _find_scenario_setup_payload(
+        self, scenario_file_name: str
+    ) -> tuple[Dict[str, Any], Optional[str]]:
+        if self._server_http_get_fn is None:
+            raise RuntimeError("server_http_get_fn not configured.")
+        requested = Path(str(scenario_file_name or "")).name
+        query = {"field": "scenarioFileName", "value": requested} if requested else None
+        data = self._server_http_get_fn("/api/db/messages/1003/latest", query)
+        payload = data.get("payload")
+        if not isinstance(payload, dict):
+            raise FileNotFoundError("No ScenarioSetup payload exists on DTAM server.")
+        return payload, str(data.get("path") or "") or None
+
+    def _scenario_vertiport_names(self, scenario: Dict[str, Any]) -> List[str]:
+        names: List[str] = []
+        for item in scenario.get("vertiports") or []:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name") or "").strip()
+            if name and name not in names:
+                names.append(name)
+        if self.route_planner is not None:
+            names = [name for name in names if name in self.route_planner.ports]
+            if len(names) < 2:
+                for name in self.route_planner.list_ports():
+                    if name not in names:
+                        names.append(name)
+                    if len(names) >= 2:
+                        break
+        return names
+
+    def _auto_plan_count(self, scenario: Dict[str, Any]) -> int:
+        requested = _coerce_int(scenario.get("totalAircraftCount")) or 1
+        max_count = _coerce_int(self.settings.get("auto_plan_max_aircraft")) or 1
+        return max(1, min(int(requested), int(max_count)))
+
+    def _build_auto_mission_payload_from_scenario(
+        self, scenario: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        if self.route_planner is None:
+            raise RuntimeError("Route planner not loaded.")
+        if self._route_response_fn is None:
+            raise RuntimeError("route_response_fn not configured.")
+
+        vertiports = self._scenario_vertiport_names(scenario)
+        if len(vertiports) < 2:
+            raise RuntimeError("At least two vertiports are required to auto-generate 3001.")
+
+        operation_time = scenario.get("operationTime") if isinstance(scenario.get("operationTime"), dict) else {}
+        std = str(operation_time.get("startTime") or datetime.datetime.now().strftime("%H:%M:%S"))
+        base_number = int(datetime.datetime.now().strftime("%m%d%H%M"))
+        count = self._auto_plan_count(scenario)
+        missions: List[Dict[str, Any]] = []
+        fleet: List[Dict[str, Any]] = []
+
+        for index in range(count):
+            departure = vertiports[index % len(vertiports)]
+            arrival = vertiports[(index + 1) % len(vertiports)]
+            if departure == arrival:
+                arrival = vertiports[-1] if departure != vertiports[-1] else vertiports[0]
+
+            route = self.route_planner.find_route(departure, arrival, include_turn_arcs=True)
+            route_data = self._route_response_fn(departure, arrival, route)
+            aircraft_id = f"UAM{index + 1:04d}"
+            flight_plan_number = base_number + index
+            fleet.append({
+                "aircraftId": aircraft_id,
+                "vehicleName": f"UAM{index + 1}",
+                "flightPlanNumber": flight_plan_number,
+            })
+            missions.append({
+                "mode": "route",
+                "departureName": departure,
+                "arrivalName": arrival,
+                "routeData": route_data,
+                "options": {
+                    "std": std,
+                    "cruiseSpeedMps": float(self.settings.get("default_speed_mps", 30.0)),
+                },
+            })
+
+        return {
+            "mode": "route",
+            "missions": missions,
+            "fleet": fleet,
+            "options": {
+                "std": std,
+                "cruiseSpeedMps": float(self.settings.get("default_speed_mps", 30.0)),
+            },
+        }
+
+
+__all__ = ["MissionService"]

@@ -11,12 +11,15 @@ router = APIRouter(prefix="/api/mission/icd")
 
 @router.post("/export")
 async def export_mission_icd(request: Request) -> JSONResponse:
+    svc = server.mission_service
+    if svc is None:
+        return JSONResponse({"error": "MissionService not ready"}, status_code=500)
     body = await request.json()
     try:
-        if server._looks_like_icd_record(body) or server._looks_like_icd_record_list(body):
-            result = server._build_existing_icd_export_bundle(body)
+        if svc.looks_like_icd_record(body) or svc.looks_like_icd_record_list(body):
+            result = svc.build_existing_icd_export_bundle(body)
         else:
-            result = server._build_mission_icd_bundle(body)
+            result = svc.build_mission_icd_bundle(body)
         return JSONResponse(result)
     except Exception as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
@@ -24,20 +27,21 @@ async def export_mission_icd(request: Request) -> JSONResponse:
 
 @router.post("/save")
 async def save_mission_icd(request: Request) -> JSONResponse:
-    if server.mission_service is None:
+    svc = server.mission_service
+    if svc is None:
         return JSONResponse({"error": "DTAM sender not ready"}, status_code=500)
     body = await request.json()
     try:
-        if server._looks_like_icd_record(body) or server._looks_like_icd_record_list(body):
-            result = server._build_existing_icd_export_bundle(body)
+        if svc.looks_like_icd_record(body) or svc.looks_like_icd_record_list(body):
+            result = svc.build_existing_icd_export_bundle(body)
         else:
-            result = server._build_mission_icd_bundle(body)
+            result = svc.build_mission_icd_bundle(body)
         if not result.get("validation", {}).get("valid", False):
             return JSONResponse(result, status_code=400)
-        records = server._extract_records_from_export(result)
+        records = svc.extract_records_from_export(result)
         if not records:
             return JSONResponse({"error": "No ICD records to save"}, status_code=400)
-        send_result = server.mission_service.send_scheduled_flights(records)
+        send_result = svc.send_scheduled_flights(records)
         result["saved_by"] = "DTAM_SimulationState"
         result["local_save"] = False
         result["send_result"] = send_result

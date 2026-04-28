@@ -52,35 +52,29 @@ def _server_ip() -> str:
     return os.environ.get("DTAM_TARGET_IP") or "127.0.0.1"
 
 
-# ── WebSocket 모듈 (SDK 의 MonitoringModule 직접 사용) ───────
-# OpsConsole 의 WS 책임은 0002 heartbeat + 향후 forwarding 수신뿐이라
-# 별도 wrapper 클래스 없이 SDK 의 ``MonitoringModule`` 인스턴스 그대로 사용.
-# 향후 4001/4101 등의 도메인 처리가 필요해지면, 그때 MonitoringModule 을
-# 상속한 클래스를 만들고 핸들러를 override.
-
-_module: Any = None  # MonitoringModule 인스턴스
+# ── WebSocket service (다른 모듈들과 동일한 XxxService(XxxModule) 패턴) ──
+_service: Any = None  # MonitoringService 인스턴스
 
 
 def start_module_status_heartbeat() -> None:
     """0002 module status 1Hz 자동 송신을 시작."""
-    global _module
-    if _module is not None:
+    global _service
+    if _service is not None:
         return
     _ensure_sdk_on_path()
-    from dtam_client import MonitoringModule  # type: ignore
+    from app.services.monitoring_service import MonitoringService  # type: ignore
 
-    server_url = f"ws://{_server_ip()}:{STATE_WS_PORT}/ws/dtam"
-    _module = MonitoringModule(server_url=server_url, heartbeat=True)
+    _service = MonitoringService(target_ip=_server_ip(), ws_port=STATE_WS_PORT)
 
 
 def stop_module_status_heartbeat() -> None:
-    global _module
-    mod = _module
-    _module = None
-    if mod is None:
+    global _service
+    svc = _service
+    _service = None
+    if svc is None:
         return
     try:
-        mod.close()
+        svc.close()
     except Exception:
         pass
 

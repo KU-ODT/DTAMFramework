@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 import csv
-import datetime
 import json
 import math
 import os
@@ -47,10 +46,6 @@ from .domain.converter_tool import (
     load_airsim_settings_summary,
 )
 from .services.mission_service import MissionService
-from .services.mission_icd_export import (
-    build_mission_icd_export,
-    validate_mission_icd_record,
-)
 from .services.mbtiles import MBTiles
 from .services.route_planner import RoutePlanner
 
@@ -122,17 +117,6 @@ def _sample_ground_m(lon: float, lat: float) -> float:
     return value if value is not None else 0.0
 
 
-def _looks_like_icd_record(payload: Dict[str, Any]) -> bool:
-    required = {"flightPlanNumber", "aircraftId", "departure", "enRoute", "arrival"}
-    return required.issubset(payload.keys())
-
-
-def _looks_like_icd_record_list(payload: Any) -> bool:
-    return isinstance(payload, list) and bool(payload) and all(
-        isinstance(item, dict) and _looks_like_icd_record(item) for item in payload
-    )
-
-
 def _coerce_int(value: Any) -> Optional[int]:
     try:
         if value in (None, ""):
@@ -142,164 +126,10 @@ def _coerce_int(value: Any) -> Optional[int]:
         return None
 
 
-def _normalize_simulation_fleet(
-    mission_payload: Dict[str, Any],
-    default_vehicle_name: str = "UAM1",
-) -> List[Dict[str, Any]]:
-    options = mission_payload.get("options") or {}
-    base_aircraft_id = str(options.get("aircraftId") or "UAM0001").strip() or "UAM0001"
-    base_flight_plan = _coerce_int(options.get("flightPlanNumber"))
-    if base_flight_plan is None:
-        base_flight_plan = int(datetime.datetime.now().strftime("%m%d%H%M"))
-
-    raw_fleet = mission_payload.get("fleet") or []
-    normalized: List[Dict[str, Any]] = []
-    if isinstance(raw_fleet, list):
-        for index, item in enumerate(raw_fleet):
-            if not isinstance(item, dict):
-                continue
-            aircraft_id = (
-                str(item.get("aircraftId") or base_aircraft_id or f"UAM{index + 1:04d}").strip()
-                or f"UAM{index + 1:04d}"
-            )
-            vehicle_name = (
-                str(item.get("vehicleName") or item.get("vehicle_name") or "").strip()
-                or (default_vehicle_name if index == 0 else f"UAM{index + 1}")
-            )
-            flight_plan_number = _coerce_int(item.get("flightPlanNumber"))
-            if flight_plan_number is None:
-                flight_plan_number = base_flight_plan + index
-            normalized.append({
-                "aircraftId": aircraft_id,
-                "vehicleName": vehicle_name,
-                "flightPlanNumber": flight_plan_number,
-            })
-
-    if normalized:
-        return normalized
-
-    return [{
-        "aircraftId": base_aircraft_id,
-        "vehicleName": str(default_vehicle_name or "UAM1").strip() or "UAM1",
-        "flightPlanNumber": base_flight_plan,
-    }]
-
-
-def _build_existing_icd_export_bundle(
-    mission_payload: Dict[str, Any] | List[Dict[str, Any]],
-    fleet: Optional[List[Dict[str, Any]]] = None,
-) -> Dict[str, Any]:
-    records = mission_payload if isinstance(mission_payload, list) else [mission_payload]
-    normalized_records = [item for item in records if isinstance(item, dict)]
-    if not normalized_records:
-        raise ValueError("No ICD records were provided.")
-
-    normalized_fleet = list(fleet or [])
-    if not normalized_fleet:
-        normalized_fleet = []
-        base_number = int(datetime.datetime.now().strftime("%m%d%H%M"))
-        for index, record in enumerate(normalized_records):
-            normalized_fleet.append({
-                "aircraftId": str(record.get("aircraftId") or f"UAM{index + 1:04d}"),
-                "vehicleName": f"UAM{index + 1}",
-                "flightPlanNumber": _coerce_int(record.get("flightPlanNumber")) or (base_number + index),
-            })
-
-    errors: List[str] = []
-    for fleet_entry, record in zip(normalized_fleet, normalized_records):
-        prefix = f"{fleet_entry['aircraftId']} ({fleet_entry['vehicleName']})"
-        for message in validate_mission_icd_record(record):
-            errors.append(f"{prefix}: {message}")
-
-    first_record = normalized_records[0]
-    filename = (
-        f"mission_icd_v1_{first_record.get('flightPlanNumber', 'fleet')}_{first_record.get('aircraftId', 'UAM0001')}.json"
-        if len(normalized_records) == 1
-        else f"mission_icd_v1_fleet_{normalized_fleet[0]['flightPlanNumber']}_{len(normalized_records)}ac.json"
-    )
-    return {
-        "mode": "icd",
-        "filename": filename,
-        "record": normalized_records[0] if len(normalized_records) == 1 else normalized_records,
-        "records": normalized_records,
-        "fleet": normalized_fleet,
-        "validation": {
-            "valid": not errors,
-            "errors": errors,
-        },
-        "warnings": [],
-    }
-
-
-def _build_mission_icd_bundle(
-    payload: Dict[str, Any],
-    fleet: Optional[List[Dict[str, Any]]] = None,
-) -> Dict[str, Any]:
-    normalized_fleet = list(fleet or _normalize_simulation_fleet(payload))
-    raw_missions = payload.get("missions")
-    missions = (
-        [item for item in raw_missions if isinstance(item, dict)]
-        if isinstance(raw_missions, list)
-        else [payload]
-    )
-    if not missions:
-        raise ValueError("No mission payloads were provided.")
-    if len(missions) != len(normalized_fleet):
-        raise ValueError(
-            f"Mission count ({len(missions)}) does not match fleet count ({len(normalized_fleet)})."
-        )
-
-    base_options = dict(payload.get("options") or {})
-    exports: List[Dict[str, Any]] = []
-
-    for mission_payload, fleet_entry in zip(missions, normalized_fleet):
-        item_payload = dict(mission_payload)
-        item_payload.pop("fleet", None)
-        item_payload.pop("missions", None)
-        item_payload["options"] = {
-            **base_options,
-            **dict(item_payload.get("options") or {}),
-            "aircraftId": fleet_entry["aircraftId"],
-            "flightPlanNumber": fleet_entry["flightPlanNumber"],
-        }
-        exports.append(
-            build_mission_icd_export(
-                item_payload,
-                route_planner,
-                MISSION_ICD_RESOURCE_CSV,
-                float(settings["default_altitude_m"]),
-            )
-        )
-
-    if len(exports) == 1:
-        result = dict(exports[0])
-        result["records"] = [exports[0]["record"]]
-        result["fleet"] = normalized_fleet
-        return result
-
-    warnings: List[str] = []
-    errors: List[str] = []
-    records: List[Dict[str, Any]] = []
-    for fleet_entry, export in zip(normalized_fleet, exports):
-        prefix = f"{fleet_entry['aircraftId']} ({fleet_entry['vehicleName']})"
-        records.append(export["record"])
-        for warning in export.get("warnings", []):
-            warnings.append(f"{prefix}: {warning}")
-        for message in export.get("validation", {}).get("errors", []):
-            errors.append(f"{prefix}: {message}")
-
-    return {
-        "mode": str(payload.get("mode") or "route"),
-        "filename": f"mission_icd_v1_fleet_{normalized_fleet[0]['flightPlanNumber']}_{len(records)}ac.json",
-        "record": records,
-        "records": records,
-        "fleet": normalized_fleet,
-        "validation": {
-            "valid": not errors,
-            "errors": errors,
-        },
-        "warnings": warnings,
-    }
+# ICD bundle helpers (_normalize_simulation_fleet, _build_existing_icd_export_bundle,
+# _build_mission_icd_bundle, _extract_records_from_export, _looks_like_icd_record*)
+# 는 모두 MissionService 의 메서드로 이동했음. routes 는
+# server.mission_service.X 로 호출.
 
 
 def _route_absolute_altitude_m(waypoints_with_alt: List[Dict[str, Any]]) -> float:
@@ -623,19 +453,10 @@ def _append_arrival_touchdown(
     }
 
 
-def _extract_records_from_export(result: Dict[str, Any]) -> List[Dict[str, Any]]:
-    records = result.get("records")
-    if isinstance(records, list) and records:
-        return [item for item in records if isinstance(item, dict)]
-    record = result.get("record")
-    if isinstance(record, list):
-        return [item for item in record if isinstance(item, dict)]
-    if isinstance(record, dict):
-        return [record]
-    return []
+# _extract_records_from_export → MissionService.extract_records_from_export
 
 
-# ── 앱 팩토리 ─────────────────────────────────────────────────────────────
+# ── HTTP utilities (CoreServer DB 조회) ──────────────────────────────────
 def _server_http_base() -> str:
     host = str(settings.get("server_http_host") or settings.get("dtam_target_ip") or "127.0.0.1")
     port = int(settings.get("server_http_port") or 8095)
@@ -660,105 +481,11 @@ def _server_get_json(path: str, query: Optional[Dict[str, str]] = None) -> Dict[
     return data
 
 
-def _find_scenario_setup_payload(scenario_file_name: str) -> tuple[Dict[str, Any], Optional[str]]:
-    requested = Path(str(scenario_file_name or "")).name
-    query = {"field": "scenarioFileName", "value": requested} if requested else None
-    data = _server_get_json("/api/db/messages/1003/latest", query)
-    payload = data.get("payload")
-    if not isinstance(payload, dict):
-        raise FileNotFoundError("No ScenarioSetup payload exists on DTAM server.")
-    return payload, str(data.get("path") or "") or None
-
-
-def _scenario_vertiport_names(scenario: Dict[str, Any]) -> List[str]:
-    names: List[str] = []
-    for item in scenario.get("vertiports") or []:
-        if not isinstance(item, dict):
-            continue
-        name = str(item.get("name") or "").strip()
-        if name and name not in names:
-            names.append(name)
-    if route_planner is not None:
-        names = [name for name in names if name in route_planner.ports]
-        if len(names) < 2:
-            for name in route_planner.list_ports():
-                if name not in names:
-                    names.append(name)
-                if len(names) >= 2:
-                    break
-    return names
-
-
-def _auto_plan_count(scenario: Dict[str, Any]) -> int:
-    requested = _coerce_int(scenario.get("totalAircraftCount")) or 1
-    max_count = _coerce_int(settings.get("auto_plan_max_aircraft")) or 1
-    return max(1, min(int(requested), int(max_count)))
-
-
-def _build_auto_mission_payload_from_scenario(scenario: Dict[str, Any]) -> Dict[str, Any]:
-    if route_planner is None:
-        raise RuntimeError("Route planner not loaded.")
-
-    vertiports = _scenario_vertiport_names(scenario)
-    if len(vertiports) < 2:
-        raise RuntimeError("At least two vertiports are required to auto-generate 3001.")
-
-    operation_time = scenario.get("operationTime") if isinstance(scenario.get("operationTime"), dict) else {}
-    std = str(operation_time.get("startTime") or datetime.datetime.now().strftime("%H:%M:%S"))
-    base_number = int(datetime.datetime.now().strftime("%m%d%H%M"))
-    count = _auto_plan_count(scenario)
-    missions: List[Dict[str, Any]] = []
-    fleet: List[Dict[str, Any]] = []
-
-    for index in range(count):
-        departure = vertiports[index % len(vertiports)]
-        arrival = vertiports[(index + 1) % len(vertiports)]
-        if departure == arrival:
-            arrival = vertiports[-1] if departure != vertiports[-1] else vertiports[0]
-
-        route = route_planner.find_route(departure, arrival, include_turn_arcs=True)
-        route_data = _route_payload_response(departure, arrival, route)
-        aircraft_id = f"UAM{index + 1:04d}"
-        flight_plan_number = base_number + index
-        fleet.append({
-            "aircraftId": aircraft_id,
-            "vehicleName": f"UAM{index + 1}",
-            "flightPlanNumber": flight_plan_number,
-        })
-        missions.append({
-            "mode": "route",
-            "departureName": departure,
-            "arrivalName": arrival,
-            "routeData": route_data,
-            "options": {
-                "std": std,
-                "cruiseSpeedMps": float(settings["default_speed_mps"]),
-            },
-        })
-
-    return {
-        "mode": "route",
-        "missions": missions,
-        "fleet": fleet,
-        "options": {
-            "std": std,
-            "cruiseSpeedMps": float(settings["default_speed_mps"]),
-        },
-    }
-
-
-def _auto_3001_pipeline(raw_2001: Dict[str, Any]) -> Dict[str, Any]:
-    """2001 raw payload → ICD export bundle dict.
-
-    server.py 의 module-level helpers (``_find_scenario_setup_payload``,
-    ``_build_auto_mission_payload_from_scenario``, ``_build_mission_icd_bundle``)
-    를 한 줄로 묶어 MissionService 에 주입. MissionService 는 이 결과를
-    받아 검증·송신·요약을 자체 처리한다.
-    """
-    scenario_file_name = str(raw_2001.get("scenarioFileName") or "")
-    scenario, _ = _find_scenario_setup_payload(scenario_file_name)
-    mission_payload = _build_auto_mission_payload_from_scenario(scenario)
-    return _build_mission_icd_bundle(mission_payload)
+# Auto-3001 pipeline (_find_scenario_setup_payload,
+# _build_auto_mission_payload_from_scenario, _scenario_vertiport_names,
+# _auto_plan_count) 는 모두 MissionService 안으로 흡수됨. MissionService 가
+# 생성자 deps (route_planner, settings, route_response_fn, server_http_get_fn)
+# 를 통해 동일 helpers 를 자체 사용한다.
 
 
 def create_app() -> FastAPI:
@@ -798,7 +525,11 @@ def create_app() -> FastAPI:
             mission_service = MissionService(
                 target_ip=str(settings["dtam_target_ip"]),
                 ws_port=int(settings.get("dtam_ws_port", 8096)),
-                auto_3001_pipeline=_auto_3001_pipeline,
+                route_planner=route_planner,
+                settings=settings,
+                resource_csv=MISSION_ICD_RESOURCE_CSV,
+                route_response_fn=_route_payload_response,
+                server_http_get_fn=_server_get_json,
             )
             desc = mission_service.describe()
             print(f"[DTAM MP] DTAM sender ready → {desc['server_url']}")
@@ -897,12 +628,4 @@ def _route_payload_response(
     }
 
 
-def _dtam_status_payload() -> Dict[str, Any]:
-    if mission_service is None:
-        return {
-            "ready": False,
-            "target_ip": settings.get("dtam_target_ip"),
-            "ws_port": settings.get("dtam_ws_port"),
-            "last_error": "sender not initialised",
-        }
-    return mission_service.describe()
+# _dtam_status_payload → routes 가 직접 server.mission_service.describe() 사용
