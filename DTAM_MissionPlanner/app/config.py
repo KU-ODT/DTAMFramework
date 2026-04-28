@@ -30,9 +30,11 @@ WEB_DIR = ROOT_DIR / "app" / "web"
 SERVER_HOST = os.getenv("DTAM_MP_HOST", "0.0.0.0")
 SERVER_PORT = int(os.getenv("DTAM_MP_PORT", "8090"))
 
-# DTAM 3001 송신 기본값 (AM_main.py 기본 listen 포트와 맞춘다)
+# DTAM 통신 기본값 (WebSocket /ws/dtam — DTAM_SimulationState 서버)
 DTAM_TARGET_IP = os.getenv("DTAM_MP_TARGET_IP", "127.0.0.1")
-DTAM_TARGET_PORT = int(os.getenv("DTAM_MP_TARGET_PORT", "17000"))  # UDP base; TCP = +1
+DTAM_WS_PORT   = int(os.getenv("DTAM_MP_WS_PORT", "8096"))
+# ── legacy (UDP/TCP 시절) — 더 이상 사용하지 않지만 backward-compat 위해 유지 ──
+DTAM_TARGET_PORT = int(os.getenv("DTAM_MP_TARGET_PORT", "17000"))
 DTAM_MY_IP = os.getenv("DTAM_MP_MY_IP", "0.0.0.0")
 DTAM_MY_PORT = int(os.getenv("DTAM_MP_MY_PORT", "17010"))
 

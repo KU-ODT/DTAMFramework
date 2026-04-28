@@ -15,12 +15,14 @@ from fastapi.staticfiles import StaticFiles
 from DTAM_CoreServer.app.model.config import ServerConfig
 from DTAM_CoreServer.app.model.message import PHASE_INFO, phase_tag
 from .config import WEB_DIR
-from .service.hub import ServerHub
+from .services.hub import ServerHub
 from .database.file_db import DtamFileDb
-from .service.engine import SimulationEngine
-from .router import ws_dtam, ws_events, push, state
-from .router import db as db_router
-from .router import sequence as sequence_router
+from .services.engine import SimulationEngine
+from .routes import ws_dtam, ws_events, push, state
+from .routes import db as db_router
+from .routes import sequence as sequence_router
+from .routes import ws_docs as ws_docs_router
+from .routes import camera as camera_router
 
 logger = logging.getLogger("sim_state.server")
 
@@ -33,7 +35,10 @@ def _build_tags_metadata():
             "description": f"**{info['name_en']}** — {info['description']}",
         })
     tags.extend([
-        {"name": "상태 관리", "description": "State 및 시스템 관리"},
+        {"name": "📊 서버 상태", "description": "모듈 / 트래픽 / 모듈 endpoint / heartbeat 조회·수정"},
+        {"name": "💾 데이터베이스", "description": "파일 DB 통계, 메시지별 최근 페이로드, DB 폴더 열기"},
+        {"name": "📹 카메라", "description": "4101 이 적재한 vehicle 카메라 프레임을 MJPEG 으로 스트림"},
+        {"name": "📡 WebSocket 문서", "description": "/ws/dtam 프로토콜 별도 HTML 문서 (Swagger 가 WS 를 직접 테스트 불가)"},
     ])
     return tags
 
@@ -41,7 +46,20 @@ def create_app(config: ServerConfig, db_root: str) -> FastAPI:
     app = FastAPI(
         title="DTAM Simulation State Server",
         version="2.0.0",
-        description="시뮬레이션 인게임 통신/데이터 관리 서버",
+        description=(
+            "## DTAM Simulation State (data plane)\n\n"
+            "시뮬레이션 세션의 데이터·통신·DB 를 담당합니다.\n\n"
+            "### 통신 방식\n"
+            "- **WebSocket `/ws/dtam`** — 모듈 ↔ 서버 ICD 메시지 송수신 ([프로토콜 문서](/docs/websocket))\n"
+            "- **WebSocket `/ws/events`** — 라이브 모니터 GUI 실시간 트래픽 stream\n"
+            "- **REST `POST /api/msg/{mid}`** — 운영자/스크립트 단발 ICD 송신 (이 페이지에서 직접 테스트 가능)\n"
+            "- **REST `GET  /api/state` / `/api/modules` / `/api/db/*`** — 단발 조회\n"
+            "- **REST `POST /api/heartbeat`** — 강제 heartbeat 주입\n\n"
+            "### 라이브 모니터\n"
+            "[`/`](/) 페이지에서 시퀀스 다이어그램 위로 흐르는 메시지를 실시간 확인.\n\n"
+            "### Phase 기반 메시지 흐름\n"
+            "각 메시지는 시퀀스 다이어그램의 Phase 별로 그룹화. `POST /api/msg/{mid}` 로 송신.\n"
+        ),
         openapi_tags=_build_tags_metadata(),
     )
 
@@ -67,6 +85,8 @@ def create_app(config: ServerConfig, db_root: str) -> FastAPI:
     app.include_router(state.router)
     app.include_router(db_router.router)
     app.include_router(sequence_router.router)
+    app.include_router(ws_docs_router.router)
+    app.include_router(camera_router.router)
 
     # 라이브 모니터 웹 UI (same-origin)
     if (WEB_DIR / "css").is_dir():

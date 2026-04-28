@@ -1,57 +1,113 @@
-"""DtamModule — 클라이언트 모듈이 SimulationState 서버에 참여하기 위한 1-stop facade.
+"""DtamModule — 클라이언트 모듈의 1-stop facade.
 
-각 클라이언트 모듈(AirMobility, MissionPlanner, OperationsConsole, Visualization)
-이 반복적으로 작성하던 다음 보일러플레이트를 SDK 한 곳에 가둡니다:
+각 모듈(AirMobility, MissionPlanner, OperationsConsole, Visualization) 이
+DtamModule 을 **상속** 하고, 콜백은 ``@on_receive("3001")`` 데코레이터로
+선언합니다. 등록·재연결·heartbeat·dataclass 직렬화는 SDK 가 모두 흡수.
 
-  - WebSocket 연결/재연결 (DtamWsClient 위임)
-  - identity 자동 채움 (KNOWN_MODULES[role].source)
-  - 0002 Module Status heartbeat 1Hz 송신 thread
-  - alias → mid 자동 변환 (catalog.resolve)
-  - 송수신 통계 (tx_count, rx_count, last_error)
+표준 사용 예 (DTAMAirMobility)::
 
-사용 예 (DTAMAirMobility)::
-
-    from dtam_client import DtamModule, Role
-
-    mod = DtamModule.start(
-        role=Role.VEHICLE,
-        server_url="ws://127.0.0.1:8096/ws/dtam",
-        heartbeat=True,
+    from dtam_client import DtamModule, Role, on_receive
+    from dtam_client.schema import (
+        Msg3001_ScheduledFlight,
+        Msg0003_CommonTimeInfo,
+        Msg4001_VehicleStatus,
     )
-    mod.on("scheduled_flight",     on_3001)
-    mod.on("common_time_info",     on_0003)
-    mod.on("dtam_execute",         on_2002)
-    mod.on("strategic_separation", on_3002)
-    mod.on("tactical_separation",  on_3003)
 
-    mod.send("vehicle_status", payload)        # 4001 (alias)
-    mod.send("4001", payload)                  # 동일
+    class VehicleService(DtamModule):
+        role = Role.VEHICLE                    # ← 클래스 속성으로 한 번 선언
 
-    mod.close()
+        def __init__(self, server_url="ws://127.0.0.1:8096/ws/dtam"):
+            super().__init__(server_url=server_url)
+            self._plans = {}
+
+        @on_receive("3001")
+        def handle_plan(self, plan: Msg3001_ScheduledFlight):
+            self._plans[plan.aircraftId] = plan
+
+        @on_receive("0003")
+        def handle_time(self, msg: Msg0003_CommonTimeInfo):
+            self._sim_time_s = parse_iso(msg.simTime)
+
+        # 송신은 dataclass 인스턴스를 그대로 send().
+        def push_status(self, vehicles: dict):
+            return self.send(Msg4001_VehicleStatus(timestamp="...", vehicles=vehicles))
+
+
+설계 결정:
+  - 데코레이터는 ``@on_receive("MID")`` 1종 (mid 문자열만 받음, alias 거부).
+  - send() 는 dataclass 인스턴스를 받아 mid 자동 추론.
+  - 마이그레이션 호환: STRICT_DATACLASS=False (기본) 동안에는 dict 도 받지만
+    DeprecationWarning 발생. 모든 모듈 마이그레이션 후 ``set_strict_dataclass(True)`` 로 전환.
 """
 from __future__ import annotations
 
+import dataclasses as _dc
+import inspect
 import logging
 import threading
 import time
+import warnings
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional, Type
 
 from ._ws_client import DtamWsClient
-from .catalog import CATALOG, MessageSpec, resolve, try_resolve
+from .catalog import CATALOG, MessageSpec, resolve as resolve_message
 from .identity import KNOWN_MODULES, ModuleIdentity, Role, identity_of
+from .schema import mid_for_dataclass, parse_payload, to_dict as _icd_to_dict
 
 logger = logging.getLogger(__name__)
 
 
 HEARTBEAT_PERIOD_S = 1.0
+DECORATOR_TAG = "__dtam_on_receive_mid__"
+
+# ── 마이그레이션 모드 ────────────────────────────────────────
+# 권장: 이 토글은 **켜지 않아도 됩니다.** dataclass 송신이 표준이고, dict
+# 송신은 ``send_legacy(...)`` / ``send(mid, dict)`` 시 DeprecationWarning 으로
+# 알려집니다. ICD wire 와 dataclass 가 ``to_wire`` / ``from_wire`` 로 이미 정렬
+# 되어 있어 양쪽 경로 모두 동일한 wire 모양을 만듭니다.
+#
+# ``set_strict_dataclass(True)`` 를 켜면 dict 호출이 모두 ``TypeError`` 가 됩니다.
+# SDK 를 외부 사용자에게 배포하거나 dict 사용을 절대 금지하고 싶을 때만 사용.
+_STRICT_DATACLASS = False
 
 
-def _iso_ts() -> str:
-    now = datetime.now(timezone.utc)
-    return now.strftime("%Y-%m-%dT%H:%M:%S.") + f"{now.microsecond // 1000:03d}Z"
+def set_strict_dataclass(strict: bool) -> None:
+    """dict 송신 거부 모드 토글 (선택 사항).
 
+    True 면 ``send(mid, dict)`` / ``send_legacy()`` 가 ``TypeError`` 발생.
+    기본은 False (lenient + DeprecationWarning) — 권장 설정.
+    """
+    global _STRICT_DATACLASS
+    _STRICT_DATACLASS = bool(strict)
+
+
+def is_strict_dataclass() -> bool:
+    return _STRICT_DATACLASS
+
+
+# ── @on_receive("MID") 데코레이터 ─────────────────────────────
+
+def on_receive(mid: str) -> Callable:
+    """DtamModule subclass 의 메서드에 mid 를 부착.
+
+    ``DtamModule.__init__`` 가 클래스를 스캔해 자동 등록합니다.
+
+    사용::
+
+        @on_receive("3001")
+        def handle_plan(self, plan: Msg3001_ScheduledFlight):
+            ...
+    """
+    spec = resolve_message(mid)  # 즉시 검증 — 잘못된 mid 면 import 시점 에러
+    def deco(method: Callable) -> Callable:
+        setattr(method, DECORATOR_TAG, spec.mid)
+        return method
+    return deco
+
+
+# ── 통계 dataclass ───────────────────────────────────────────
 
 @dataclass
 class ModuleStats:
@@ -75,30 +131,52 @@ class ModuleStats:
         }
 
 
-class DtamModule:
-    """DtamWsClient 위에 얹는 클라이언트-측 facade.
+def _iso_ts() -> str:
+    now = datetime.now(timezone.utc)
+    return now.strftime("%Y-%m-%dT%H:%M:%S.") + f"{now.microsecond // 1000:03d}Z"
 
-    - 콜백은 mid 또는 alias 로 등록 가능 (``on("4001", ...)`` ≡ ``on("vehicle_status", ...)``).
-    - ``send`` / ``send_async`` 도 alias 허용. async 는 thread-pool 없이 fire-and-forget.
-    - heartbeat=True 면 1Hz 로 0002 자동 송신 (source = identity.source).
+
+# ── DtamModule ────────────────────────────────────────────────
+
+class DtamModule:
+    """클라이언트 service 베이스 클래스.
+
+    서브클래스는:
+      1. 클래스 속성 ``role`` 에 자기 역할 (Role enum 또는 문자열) 지정.
+      2. ``@on_receive("MID")`` 가 붙은 메서드를 자유롭게 정의.
+      3. ``__init__`` 에서 ``super().__init__(server_url=...)`` 호출.
+
+    그러면 SDK 가:
+      - DtamWsClient 를 시작하고 register
+      - 데코레이트된 메서드들을 mid → 메서드 로 자동 등록
+      - 0002 heartbeat 1Hz thread 시작
+      - 통계 (tx/rx count) 추적
     """
+
+    # 서브클래스가 오버라이드해야 함. 안 해도 되지만 그러면 KNOWN_MODULES 자동 채움 X.
+    role: Role | str | None = None
 
     def __init__(
         self,
         *,
-        identity: ModuleIdentity,
         server_url: str,
+        role: Role | str | None = None,
         heartbeat: bool = True,
         reconnect_delay: float = 3.0,
     ) -> None:
+        # composition API: __init__ 인자로 role 을 직접 받을 수도 있음.
+        if role is not None and self.__class__.role is None:
+            self.role = role
+        identity = self._resolve_identity()
         self.identity = identity
         self.server_url = server_url
+        self.stats = ModuleStats()
+        self._lock = threading.RLock()
         self._heartbeat_enabled = bool(heartbeat)
         self._heartbeat_stop = threading.Event()
         self._heartbeat_thread: Optional[threading.Thread] = None
-        self._callbacks: Dict[str, Callable[[Dict[str, Any]], None]] = {}
-        self._lock = threading.RLock()
-        self.stats = ModuleStats()
+        # composition 패턴용 — runtime 등록한 콜백
+        self._runtime_callbacks: Dict[str, Callable] = {}
 
         self._ws = DtamWsClient(
             url=server_url,
@@ -107,7 +185,15 @@ class DtamModule:
             reconnect_delay=reconnect_delay,
         )
 
-    # ── 라이프사이클 ────────────────────────────────────────────
+        # @on_receive 자동 등록 (subclass 패턴)
+        self._auto_register_handlers()
+
+        # 연결 + heartbeat 즉시 시작 (백그라운드)
+        self._ws.connect(block=False)
+        if self._heartbeat_enabled:
+            self._start_heartbeat()
+
+    # ── composition API: 런타임 등록/시작 ─────────────────────
     @classmethod
     def start(
         cls,
@@ -117,105 +203,158 @@ class DtamModule:
         heartbeat: bool = True,
         reconnect_delay: float = 3.0,
     ) -> "DtamModule":
-        """모듈을 만들고 즉시 connect + (옵션) heartbeat 까지 시작."""
-        identity = identity_of(role)
-        mod = cls(
-            identity=identity,
+        """클래스 상속 없이 한 번 호출로 모듈을 띄우는 편의 생성자.
+
+        예) ``mod = DtamModule.start(role=Role.VEHICLE, server_url="ws://...")``
+        """
+        return cls(
             server_url=server_url,
+            role=role,
             heartbeat=heartbeat,
             reconnect_delay=reconnect_delay,
         )
-        mod.connect()
-        return mod
 
-    def connect(self) -> None:
-        """서버에 연결 + 등록을 백그라운드로 시작."""
-        self._ws.connect(block=False)
-        if self._heartbeat_enabled and self._heartbeat_thread is None:
-            self._heartbeat_stop.clear()
-            self._heartbeat_thread = threading.Thread(
-                target=self._heartbeat_loop,
-                name=f"dtam-hb-{self.identity.role.value}",
-                daemon=True,
+    def on(self, mid_or_alias: str, callback: Callable[[Any], None]) -> None:
+        """런타임에 수신 콜백 등록 (composition 패턴).
+
+        ``@on_receive`` 데코레이터의 런타임 대안. 같은 mid 에 두 번 호출하면
+        뒤의 호출이 앞을 덮어씁니다.
+
+        예) ``mod.on("scheduled_flight", self._on_scheduled_flight)``
+        """
+        spec = resolve_message(mid_or_alias)
+        self._runtime_callbacks[spec.mid] = callback
+        self._ws.on(spec.mid, self._make_dispatcher(spec.mid, callback))
+
+    # ── 서브클래스 identity 결정 ──────────────────────────────
+    def _resolve_identity(self) -> ModuleIdentity:
+        role = self.role
+        if role is None:
+            raise TypeError(
+                f"{type(self).__name__} must declare a class attribute `role` "
+                "(e.g., `role = Role.VEHICLE`)."
             )
-            self._heartbeat_thread.start()
+        return identity_of(role)
 
-    def close(self) -> None:
-        self._heartbeat_stop.set()
-        thread = self._heartbeat_thread
-        self._heartbeat_thread = None
-        if thread and thread.is_alive():
-            thread.join(timeout=2.0)
-        self._ws.disconnect()
+    # ── @on_receive 자동 등록 ─────────────────────────────────
+    def _auto_register_handlers(self) -> None:
+        seen: Dict[str, str] = {}    # mid → method name (중복 검사)
+        for name, method in inspect.getmembers(self, predicate=callable):
+            mid = getattr(method, DECORATOR_TAG, None)
+            if not mid:
+                continue
+            if mid in seen:
+                raise TypeError(
+                    f"{type(self).__name__}: duplicate @on_receive({mid!r}) on "
+                    f"both {seen[mid]} and {name}. Each mid can have only one handler."
+                )
+            seen[mid] = name
+            self._ws.on(mid, self._make_dispatcher(mid, method))
 
-    @property
-    def connected(self) -> bool:
-        return bool(self._ws.connected)
-
-    @property
-    def registered(self) -> bool:
-        return bool(self._ws.registered)
-
-    @property
-    def subscriptions(self) -> list[str]:
-        return list(self._ws.subscriptions)
+    def _make_dispatcher(self, mid: str, method: Callable) -> Callable[[Dict[str, Any]], None]:
+        """수신 dict → dataclass 인스턴스로 parse 후 사용자 메서드 호출."""
+        def _dispatch(payload_dict: Dict[str, Any]) -> None:
+            with self._lock:
+                self.stats.rx_count += 1
+                self.stats.rx_per_mid[mid] = self.stats.rx_per_mid.get(mid, 0) + 1
+            try:
+                parsed = parse_payload(mid, payload_dict)
+                method(parsed)
+            except Exception as exc:
+                logger.exception(
+                    "%s: handler for mid %s raised: %s",
+                    type(self).__name__, mid, exc,
+                )
+                with self._lock:
+                    self.stats.last_error = (
+                        f"@on_receive({mid}) raised: {type(exc).__name__}: {exc}"
+                    )
+        return _dispatch
 
     # ── 송신 ──────────────────────────────────────────────────
-    def send(
-        self,
-        message: str | int,
-        payload: Dict[str, Any],
-        *,
-        image_bytes: bytes = b"",
-    ) -> bool:
-        """alias 또는 mid 로 메시지 송신. 성공 여부 반환."""
-        spec = resolve(message)
-        ok = self._ws.send(spec.mid, payload, image_bytes=image_bytes)
+    def send(self, message: Any, payload: Optional[Dict[str, Any]] = None) -> bool:
+        """ICD 메시지 송신. 두 가지 호출 시그니처:
+
+        1. ``send(Msg4001_VehicleStatus(...))`` — dataclass 인스턴스 (정식)
+        2. ``send("4001", {...})`` 또는 ``send("vehicle_status", {...})``
+           — mid/alias + dict (마이그레이션 호환, lenient 모드 한정)
+
+        STRICT 모드에서는 (1) 만 허용.
+        """
+        # ── 1) dataclass 경로 ─────────────────────────────────
+        if _dc.is_dataclass(message) and not isinstance(message, type):
+            if payload is not None:
+                raise TypeError(
+                    "send(dataclass_instance) — second arg must be omitted."
+                )
+            mid = mid_for_dataclass(type(message))
+            if mid is None:
+                raise TypeError(
+                    f"send(): dataclass {type(message).__name__} is not a registered "
+                    f"ICD message. Use one of dtam_client.schema.MsgXXXX_*."
+                )
+            # _icd_to_dict 가 to_wire() 메서드 우선 사용 → 4001 처럼 wire 모양이
+            # dataclass 와 다른 메시지도 ICD 호환 wire dict 생성.
+            return self._dispatch_send(mid, _icd_to_dict(message))
+
+        # ── 2) (mid, dict) 경로: 마이그레이션 호환 ──────────────
+        if isinstance(message, str) and isinstance(payload, dict):
+            if _STRICT_DATACLASS:
+                raise TypeError(
+                    "DtamModule.send(): strict mode 에서는 dataclass 만 허용. "
+                    f"send({message!r}, dict) 호출됨."
+                )
+            warnings.warn(
+                f"DtamModule.send({message!r}, dict) is deprecated; pass a "
+                f"dataclass instance from dtam_client.schema instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            spec = resolve_message(message)
+            return self._dispatch_send(spec.mid, payload)
+
+        # ── 그 외: 형식 오류 ──────────────────────────────────
+        raise TypeError(
+            "DtamModule.send(): expected dataclass instance OR (mid, dict). "
+            f"Got message={type(message).__name__}, payload={type(payload).__name__}."
+        )
+
+    def send_legacy(self, mid: str, payload: Dict[str, Any]) -> bool:
+        """마이그레이션용 dict 송신. STRICT 모드에서는 거부."""
+        if _STRICT_DATACLASS:
+            raise TypeError(
+                "send_legacy() is disabled in strict mode. Convert to dataclass."
+            )
+        warnings.warn(
+            "send_legacy(mid, dict) is deprecated; use send(dataclass_instance).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        spec = resolve_message(mid)
+        return self._dispatch_send(spec.mid, payload)
+
+    def _dispatch_send(self, mid: str, payload_dict: Dict[str, Any]) -> bool:
+        ok = self._ws.send(mid, payload_dict)
         with self._lock:
             if ok:
                 self.stats.tx_count += 1
-                self.stats.tx_per_mid[spec.mid] = self.stats.tx_per_mid.get(spec.mid, 0) + 1
+                self.stats.tx_per_mid[mid] = self.stats.tx_per_mid.get(mid, 0) + 1
             else:
-                self.stats.last_error = f"send({spec.mid}) failed"
+                self.stats.last_error = f"send({mid}) failed"
         return ok
 
-    # send_async는 WS의 send가 이미 non-blocking에 가깝지만, 의미적으로 fire-and-forget을 의도.
-    send_async = send
-
-    # ── 수신 콜백 ────────────────────────────────────────────────
-    def on(self, message: str | int, callback: Optional[Callable[[Dict[str, Any]], None]] = None):
-        """콜백 등록. 데코레이터로도 사용 가능.
-
-        ``mod.on("4001", cb)`` 또는 ``@mod.on("vehicle_status")`` 둘 다 가능.
-        """
-        spec = resolve(message)
-
-        def register(cb: Callable[[Dict[str, Any]], None]) -> Callable:
-            self._callbacks[spec.mid] = cb
-            self._ws.on(spec.mid, lambda payload, _cb=cb, _mid=spec.mid: self._dispatch(_mid, payload, _cb))
-            return cb
-
-        if callback is None:
-            return register
-        return register(callback)
-
-    def off(self, message: str | int) -> None:
-        spec = resolve(message)
-        self._callbacks.pop(spec.mid, None)
-        self._ws.on(spec.mid, lambda _payload: None)
-
-    def _dispatch(self, mid: str, payload: Any, cb: Callable) -> None:
-        with self._lock:
-            self.stats.rx_count += 1
-            self.stats.rx_per_mid[mid] = self.stats.rx_per_mid.get(mid, 0) + 1
-        try:
-            cb(payload)
-        except Exception as exc:
-            logger.exception("DtamModule callback for %s failed: %s", mid, exc)
-            with self._lock:
-                self.stats.last_error = f"on({mid}) raised: {type(exc).__name__}: {exc}"
-
     # ── 0002 heartbeat ─────────────────────────────────────────
+    def _start_heartbeat(self) -> None:
+        if self._heartbeat_thread is not None:
+            return
+        self._heartbeat_stop.clear()
+        self._heartbeat_thread = threading.Thread(
+            target=self._heartbeat_loop,
+            name=f"dtam-hb-{self.identity.role.value}",
+            daemon=True,
+        )
+        self._heartbeat_thread.start()
+
     def _heartbeat_loop(self) -> None:
         while not self._heartbeat_stop.is_set():
             ok = False
@@ -237,7 +376,28 @@ class DtamModule:
             if self._heartbeat_stop.wait(HEARTBEAT_PERIOD_S):
                 break
 
-    # ── 진단/상태 ──────────────────────────────────────────────
+    # ── 라이프사이클 ───────────────────────────────────────────
+    def close(self) -> None:
+        self._heartbeat_stop.set()
+        thread = self._heartbeat_thread
+        self._heartbeat_thread = None
+        if thread and thread.is_alive():
+            thread.join(timeout=2.0)
+        self._ws.disconnect()
+
+    # ── 진단 ──────────────────────────────────────────────────
+    @property
+    def connected(self) -> bool:
+        return bool(self._ws.connected)
+
+    @property
+    def registered(self) -> bool:
+        return bool(self._ws.registered)
+
+    @property
+    def subscriptions(self) -> List[str]:
+        return list(self._ws.subscriptions)
+
     def status(self) -> Dict[str, Any]:
         return {
             "role": self.identity.role.value,
@@ -252,9 +412,16 @@ class DtamModule:
 
     def __repr__(self) -> str:
         return (
-            f"DtamModule(role={self.identity.role.value!r}, "
+            f"{type(self).__name__}(role={self.identity.role.value!r}, "
             f"connected={self.connected}, registered={self.registered})"
         )
 
 
-__all__ = ["DtamModule", "ModuleStats", "HEARTBEAT_PERIOD_S"]
+__all__ = [
+    "DtamModule",
+    "ModuleStats",
+    "on_receive",
+    "set_strict_dataclass",
+    "is_strict_dataclass",
+    "HEARTBEAT_PERIOD_S",
+]

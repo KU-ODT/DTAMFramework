@@ -1,0 +1,13 @@
+"""API route for loading data module overview data."""
+
+from fastapi import APIRouter
+
+from app.schemas.module import ModuleOverview
+from app.services.dashboard_service import get_module_overview
+
+router = APIRouter()
+
+
+@router.get("/overview", response_model=ModuleOverview)
+async def get_data_overview() -> ModuleOverview:
+    return get_module_overview("data")

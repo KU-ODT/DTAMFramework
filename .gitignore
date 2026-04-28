@@ -23,3 +23,24 @@
 reference/**/log/
 _tmp_*.png
 DTAMVisualizationModule/**/cesium-request-cache.sqlite
+
+# pip / setuptools 산출물
+**/*.egg-info/
+
+# Claude Code / IDE 로컬 설정
+.claude/
+**/.vscode/
+**/.idea/
+
+# Unreal Engine 사용자별 / 일시 데이터
+DTAMVisualizationModule/**/Saved/Crashes/
+DTAMVisualizationModule/**/Saved/Logs/
+DTAMVisualizationModule/**/Saved/Config/Windows/GameUserSettings.ini
+DTAMVisualizationModule/**/Saved/Config/CrashReportClient/
+
+# DTAM 서버 런타임 산출물
+DB/ServerStart_*/
+
+# DTAM SDK 빌드 산출물
+DTAM_SDK/build/
+DTAM_SDK/dist/

@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>DTAM Simulation State Monitor</title>
-  <link rel="stylesheet" href="/css/main.css?v=2.1.0" />
+  <link rel="stylesheet" href="/css/main.css?v=2.2.0" />
 </head>
 <body>
   <header class="topbar">
@@ -17,12 +17,12 @@
     </div>
     <div class="topbar-stats">
       <div class="stat">
-        <div class="stat-label">UDP</div>
-        <div class="stat-value" id="stat-udp">--</div>
+        <div class="stat-label">WS</div>
+        <div class="stat-value" id="stat-ws">--</div>
       </div>
       <div class="stat">
-        <div class="stat-label">TCP</div>
-        <div class="stat-value" id="stat-tcp">--</div>
+        <div class="stat-label">Connected</div>
+        <div class="stat-value" id="stat-connected">--</div>
       </div>
       <div class="stat">
         <div class="stat-label">DB Session</div>
@@ -87,7 +87,7 @@
           <tr>
             <th>MID</th>
             <th>Name</th>
-            <th>Proto</th>
+            <th>Phase</th>
             <th>Direction</th>
             <th>RX</th>
             <th>TX</th>
@@ -111,6 +111,6 @@
     <div class="drawer-body" id="drawer-body"></div>
   </aside>
 
-  <script src="/js/app.js?v=2.1.0"></script>
+  <script src="/js/app.js?v=2.2.0"></script>
 </body>
 </html>

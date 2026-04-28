@@ -1,15 +1,15 @@
-"""Run the DTAM Server Emulator.
+"""Run the DTAM Core Server (control plane).
 
 기본 동작:
- - UDP/TCP 리스너가 17000/17001 에서 모든 ICD 메시지를 수신
- - sequence_diagram.json 규칙에 따라 DB 저장 + 타 모듈로 포워딩
- - 0003 Common Time Info 를 1 Hz 로 vehicle / visual 에 주기 전송
- - FastAPI 기반 GUI 를 ``http://127.0.0.1:{gui_port}`` 로 제공
+ - HTTP REST control plane 을 ``http://127.0.0.1:{gui_port}`` 로 호스팅
+   (ICD 문서, 시퀀스 다이어그램 메타, 모듈 프로세스 start/stop)
+ - 부팅 시 자식 프로세스로 ``DTAM_SimulationState`` (port 8096) 자동 기동
+   ─ 데이터 plane (WebSocket ``/ws/dtam``, 트래픽 forwarding, DB, 라이브 모니터)
 
 사용 예::
 
     python DSE_main.py
-    python DSE_main.py --udp-port 17000 --gui-port 8095
+    python DSE_main.py --gui-port 8095
     python DSE_main.py --db-root D:/DTAMFramework/DB
     python DSE_main.py --config custom_config.json --no-browser
 """
@@ -74,15 +74,16 @@ def open_browser(url: str) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="DTAM Server Emulator")
+    parser = argparse.ArgumentParser(description="DTAM Core Server (control plane)")
     parser.add_argument("--config", default=None, help="config.json 경로 (기본: DTAM_CoreServer/config.json)")
     parser.add_argument("--gui-host", default=None)
-    parser.add_argument("--gui-port", type=int, default=None)
-    parser.add_argument("--udp-port", type=int, default=None, help="서버 UDP base (TCP = +1)")
-    parser.add_argument("--bind-ip", default=None, help="DTAM 수신 bind IP (0.0.0.0 권장)")
+    parser.add_argument("--gui-port", type=int, default=None, help="HTTP REST/GUI 포트 (기본 8095)")
+    parser.add_argument("--bind-ip", default=None, help="HTTP bind IP (0.0.0.0 권장)")
     parser.add_argument("--db-root", default=None, help=f"DB 루트 폴더 (기본: {DEFAULT_DB_ROOT})")
     parser.add_argument("--no-browser", action="store_true")
     parser.add_argument("--log-level", default="info")
+    # ── legacy (UDP/TCP 시절) 인자 — 무시되지만 backward-compat 위해 받음
+    parser.add_argument("--udp-port", type=int, default=None, help=argparse.SUPPRESS)
     return parser.parse_args()
 
 

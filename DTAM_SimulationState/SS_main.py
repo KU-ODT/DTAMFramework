@@ -1,9 +1,10 @@
 """DTAM Simulation State Server 진입점.
 
-새로운 아키텍처에서 이 서버는 시뮬레이션 세션을 전담하는 "인게임 서버"입니다.
-- UDP/TCP 리스너 및 WebSocket 통신 허브 가동
+이 서버는 시뮬레이션 세션을 전담하는 "data plane 서버" 입니다.
+- WebSocket 통신 허브 (``/ws/dtam``) — 모든 ICD 메시지 송수신
 - 1002 명령 수신 시 자체 엔진 기동 (0003 주기적 송신)
-- 모든 통신 트래픽을 로컬 SQLite DB에 기록
+- 모든 통신 트래픽을 파일 DB 에 기록
+- 라이브 모니터 웹 UI (``/`` + ``/ws/events``) 호스팅
 """
 from __future__ import annotations
 
@@ -24,26 +25,23 @@ from DTAM_SimulationState.app.server import create_app
 from DTAM_CoreServer.app.model.config import load_config
 from DTAM_SimulationState.app.config import DEFAULT_DB_ROOT
 
+
 def main():
-    parser = argparse.ArgumentParser(description="DTAM Simulation State Engine")
-    parser.add_argument("--config", default="config.json", help="Core config file (for module list)")
+    parser = argparse.ArgumentParser(description="DTAM Simulation State Server")
+    parser.add_argument("--config", default="config.json", help="Core config file (모듈 목록 등)")
     parser.add_argument("--db-root", default=str(DEFAULT_DB_ROOT), help="Database directory")
-    parser.add_argument("--host", default="0.0.0.0", help="HTTP Server Host")
-    parser.add_argument("--port", type=int, default=8096, help="HTTP Server Port")
-    parser.add_argument("--udp-port", type=int, default=17000, help="DTAM logical UDP port")
+    parser.add_argument("--host", default="0.0.0.0", help="HTTP/WebSocket bind host")
+    parser.add_argument("--port", type=int, default=8096, help="HTTP/WebSocket port (default 8096)")
+    # ── legacy (UDP/TCP 시절) 인자 — 무시되지만 backward-compat 위해 받음
+    parser.add_argument("--udp-port", type=int, default=17000, help=argparse.SUPPRESS)
     args = parser.parse_args()
 
-    # Load configuration from DTAM_CoreServer/config.json
-    # We reuse the core config for module definitions, but we could split it later
     config_path = FRAMEWORK_ROOT / "DTAM_CoreServer" / args.config
     cfg = load_config(config_path)
-    
-    # Override server port to ensure it captures module traffic
-    cfg.server.udp_port = args.udp_port
 
     app = create_app(cfg, args.db_root)
-    
     uvicorn.run(app, host=args.host, port=args.port)
+
 
 if __name__ == "__main__":
     main()

@@ -19,7 +19,6 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 
 from .model.config import FRAMEWORK_ROOT, ServerConfig
-from .model.message import PHASE_INFO, phase_tag
 
 logger = logging.getLogger(__name__)
 
@@ -28,48 +27,40 @@ SIMULATION_STATE_URL = "http://127.0.0.1:8096/"
 
 
 def _build_tags_metadata():
-    """Phase 기반 + 기능별 Swagger UI 태그 메타데이터."""
-    tags = []
-    for phase_num in sorted(PHASE_INFO.keys()):
-        info = PHASE_INFO[phase_num]
-        tags.append({
-            "name": phase_tag(phase_num),
-            "description": f"**{info['name_en']}** — {info['description']}",
-        })
-    tags.extend([
+    """CoreServer 는 control plane 만 호스팅하므로 관련 태그만."""
+    return [
         {"name": "🚀 프로세스 관리", "description": "모듈 프로세스(Mission, Vehicle, Visual) 시작/종료 제어"},
         {"name": "📋 ICD 문서", "description": "ICD 마크다운 문서 및 Phase 정보 조회"},
-        {"name": "📊 서버 상태", "description": "서버, 모듈 상태 스냅샷 및 모듈 endpoint 관리"},
-        {"name": "💾 데이터베이스", "description": "DB 통계, 메시지 조회, 폴더 열기"},
-        {"name": "📹 카메라", "description": "MJPEG 카메라 스트림 및 활성 카메라 목록"},
-        {"name": "📡 WebSocket 문서", "description": "WebSocket 프로토콜 문서 (Swagger에서 WS는 직접 테스트 불가)"},
-    ])
-    return tags
+        {"name": "📊 서버 상태", "description": "시퀀스 다이어그램 메타 등 정적 자료"},
+    ]
 
 
 def create_app(config: ServerConfig) -> FastAPI:
     app = FastAPI(
-        title="DTAM Server",
+        title="DTAM Core Server (control plane)",
         version="2.0.0",
         description=(
-            "## DTAM 시뮬레이션 서버 API\n\n"
-            "Digital Twin-based Air Mobility 시뮬레이션 서버입니다.\n\n"
-            "### 통신 방식\n"
-            "- **REST API** — 이 문서의 모든 엔드포인트\n"
-            "- **WebSocket `/ws/dtam`** — 모듈 통신 ([문서 보기](/docs/websocket))\n"
-            "- **WebSocket `/ws/events`** — GUI 실시간 이벤트\n"
-            "- **MJPEG `/stream/camera/{id}`** — 카메라 영상 스트림\n\n"
-            "### Phase 기반 메시지 흐름\n"
-            "각 메시지는 시퀀스 다이어그램의 Phase에 따라 그룹화됩니다.\n"
-            "`POST /api/msg/{mid}` 엔드포인트로 메시지를 전송할 수 있습니다.\n"
+            "## DTAM Core Server\n\n"
+            "Cloud control plane. ICD 문서, 시퀀스 다이어그램, 모듈 프로세스 라이프사이클을 담당합니다.\n\n"
+            "### 책임 분리\n"
+            "- **CoreServer (이 서비스, port 8095)** — REST 만. ICD/Phase 문서, 프로세스 start/stop, "
+            "  부팅 시 SimulationState (data plane) 자식 프로세스 spawn.\n"
+            "- **SimulationState (port 8096)** — 데이터 plane. 모든 ICD 메시지 송수신 (`/ws/dtam`), "
+            "  라이브 모니터 GUI, 파일 DB. [SimulationState Swagger](http://127.0.0.1:8096/docs) · "
+            "  [WebSocket 프로토콜 문서](http://127.0.0.1:8096/docs/websocket) · "
+            "  [라이브 모니터](http://127.0.0.1:8096/)\n\n"
+            "### 이 서비스의 endpoint 분류\n"
+            "- `GET  /api/icd*` — ICD 문서/Phase 메타\n"
+            "- `GET  /api/sequence-diagram` — 시퀀스 다이어그램 JSON\n"
+            "- `POST /api/v1/process/{role}/{start|stop}` — 모듈 프로세스 라이프사이클\n"
         ),
         openapi_tags=_build_tags_metadata(),
     )
 
     # ── 라우터 등록 ──────────────────────────────────────────
-    from .router.icd import router as icd_router
-    from .router.sequence import router as sequence_router
-    from .router.process import router as process_router, _process_heartbeat_loop
+    from .routes.icd import router as icd_router
+    from .routes.sequence import router as sequence_router
+    from .routes.process import router as process_router, _process_heartbeat_loop
 
     app.include_router(icd_router)
     app.include_router(sequence_router)
@@ -87,7 +78,7 @@ def create_app(config: ServerConfig) -> FastAPI:
         state_script = FRAMEWORK_ROOT / "DTAM_SimulationState" / "SS_main.py"
         try:
             state_process = subprocess.Popen(
-                [sys.executable, str(state_script), "--udp-port", "17000"],
+                [sys.executable, str(state_script)],
                 creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0
             )
             logger.info("Started Simulation State Server (SS_main.py) in background.")

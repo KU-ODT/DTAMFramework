@@ -43,9 +43,7 @@ def sample_module_setting_info(**overrides: Any) -> Dict[str, Any]:
         {
             "Timestamp": ISO_TS,
             "ModuleName": "SampleModule",
-            "IP": "127.0.0.1",
-            "UDPPort": 17000,
-            "TCPPort": 17001,
+            "Role": "vehicle",
         },
         overrides,
     )

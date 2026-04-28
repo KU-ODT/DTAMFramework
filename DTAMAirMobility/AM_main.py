@@ -3,13 +3,14 @@
 기본 동작:
  - FastAPI 앱을 ``http://127.0.0.1:{PORT}`` 로 기동
  - 브라우저를 새 창(가능하면 전체화면)으로 띄움
- - ``--target-ip/--target-port/--my-port`` 로 DTAM 4001 송신 대상 지정
+ - ``--target-ip/--ws-port`` 로 DTAM SimulationState 서버 endpoint 지정
+   (4001 등 모든 ICD 메시지는 WebSocket ``/ws/dtam`` 단일 채널로 송수신)
  - ``--plan`` 으로 비행계획 JSON 을 즉시 등록
 
 사용 예::
 
     python AM_main.py
-    python AM_main.py --target-ip 203.252.1.10 --target-port 17000 --port 8100
+    python AM_main.py --target-ip 203.252.1.10 --ws-port 8096 --port 8100
     python AM_main.py --plan ./mission1.json --plan ./mission2.json --clock wall
     python AM_main.py --no-browser
 """
@@ -37,8 +38,8 @@ for extra in (str(FRAMEWORK_ROOT), str(DTAM_SDK_ROOT)):
         sys.path.insert(0, extra)
 
 from dtam_client.ports import find_available_tcp_port  # noqa: E402
-from DTAMAirMobility.backend.app import create_app  # noqa: E402
-from DTAMAirMobility.service.integrated_service import (  # noqa: E402
+from DTAMAirMobility.app.server import create_app  # noqa: E402
+from DTAMAirMobility.app.services.integrated_service import (  # noqa: E402
     ClockMode,
     IntegratedAirMobilityService,
 )
@@ -99,10 +100,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--windowed", action="store_true", help="Open non-fullscreen window.")
     parser.add_argument("--log-level", default="info")
 
-    # DTAM 송신 설정
-    parser.add_argument("--target-ip", default="127.0.0.1", help="DTAM 4001 target IP")
-    parser.add_argument("--target-port", type=int, default=17000, help="DTAM 4001 target UDP port")
-    parser.add_argument("--my-port", type=int, default=17030, help="Local UDP port")
+    # DTAM 통신 설정 (WebSocket /ws/dtam)
+    parser.add_argument("--target-ip", default="127.0.0.1",
+                        help="DTAM SimulationState server host")
+    parser.add_argument("--ws-port", type=int, default=8096,
+                        help="DTAM SimulationState WebSocket/HTTP port (default 8096)")
+    # ── legacy (UDP/TCP 시절) 인자 — 무시되지만 backward-compat 위해 유지
+    parser.add_argument("--target-port", type=int, default=17000,
+                        help=argparse.SUPPRESS)
+    parser.add_argument("--my-port", type=int, default=17030,
+                        help=argparse.SUPPRESS)
 
     # 즉시 등록할 비행계획
     parser.add_argument("--plan", action="append", default=[],
@@ -131,8 +138,7 @@ def _load_plans(service: IntegratedAirMobilityService, paths: List[str]) -> None
 def build_app(args: argparse.Namespace):
     service = IntegratedAirMobilityService(
         target_ip=args.target_ip,
-        target_port=int(args.target_port),
-        my_port=int(args.my_port),
+        ws_port=int(args.ws_port),
     )
     _load_plans(service, args.plan)
     service.set_clock_mode(ClockMode(args.clock))
@@ -157,7 +163,7 @@ def main() -> None:
     url = f"http://{args.host}:{args.port}"
     print(f"[DTAMAirMobility] GUI : {url}")
     print(f"[DTAMAirMobility] root: {ROOT}")
-    print(f"[DTAMAirMobility] DTAM target: {args.target_ip}:{args.target_port}  my_port={args.my_port}")
+    print(f"[DTAMAirMobility] DTAM server: ws://{args.target_ip}:{args.ws_port}/ws/dtam")
 
     if not args.no_browser:
         threading.Timer(

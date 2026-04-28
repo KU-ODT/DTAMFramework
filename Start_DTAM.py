@@ -32,13 +32,12 @@ def main() -> int:
     args = parse_args()
     python_exe = args.python
 
-    print("[DTAM] Starting 2-Tier Architecture...")
+    print("[DTAM] Starting 2-Tier Architecture (WebSocket /ws/dtam)...")
 
     # 1. Start Core Server (which auto-starts Simulation State)
     server_cmd = [
         python_exe,
         "DSE_main.py",
-        "--udp-port", "16000"
     ]
     launch_console_window(
         "DTAM Core Server (Lobby)",

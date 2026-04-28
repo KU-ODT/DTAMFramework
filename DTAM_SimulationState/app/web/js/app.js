@@ -30,8 +30,8 @@
 
   const els = {
     brandSub: document.getElementById('brand-subtitle'),
-    statUdp: document.getElementById('stat-udp'),
-    statTcp: document.getElementById('stat-tcp'),
+    statWs: document.getElementById('stat-ws'),
+    statConnected: document.getElementById('stat-connected'),
     statSession: document.getElementById('stat-session'),
     statUptime: document.getElementById('stat-uptime'),
     modulesGrid: document.getElementById('modules-grid'),
@@ -96,16 +96,25 @@
   function renderSnapshot(snapshot) {
     state.snapshot = snapshot;
     const srv = snapshot.server || {};
-    els.statUdp.textContent = `${srv.bind_ip}:${srv.udp_port}`;
-    els.statTcp.textContent = `${srv.bind_ip}:${srv.tcp_port}`;
+    // 서버는 WebSocket 단일 채널 (/ws/dtam) — 0.0.0.0 은 사용자가 접속 가능한 호스트가 아니므로
+    // 현재 페이지의 location.hostname 을 우선 사용. ws_port 가 snapshot 에 있으면 그대로.
+    const wsHost = (srv.bind_ip && srv.bind_ip !== '0.0.0.0') ? srv.bind_ip : location.hostname;
+    const wsPort = srv.ws_port || location.port || '8096';
+    els.statWs.textContent = `${wsHost}:${wsPort}/ws/dtam`;
+
+    const reg = snapshot.registry || {};
+    const modules = reg.modules || [];
+    const connectedCount = modules.filter((m) => m.connected).length;
+    els.statConnected.textContent = `${connectedCount} / ${modules.length}`;
+
     els.statSession.textContent = (snapshot.db && snapshot.db.session_id) || '--';
     els.statUptime.textContent = humanUptime(snapshot.uptime_s || 0);
     els.brandSub.textContent = snapshot.db && snapshot.db.session_dir
       ? `DB: ${snapshot.db.session_dir}`
       : 'Hub standby';
 
-    renderModules(snapshot.registry || {});
-    renderCounters(snapshot.registry || {});
+    renderModules(reg);
+    renderCounters(reg);
     renderTrafficInit(snapshot.traffic || []);
   }
 
@@ -130,7 +139,7 @@
             <span>${m.connected ? 'connected' : (m.last_heartbeat_ts ? 'stale' : 'waiting')}</span>
           </div>
         </div>
-        <div class="module-endpoint">${escapeHtml(m.ip)}:${m.udp_port} (TCP ${m.tcp_port})</div>
+        <div class="module-endpoint">${escapeHtml(m.last_source || m.expected_source || m.role)} · ${escapeHtml(m.ip)}</div>
         <div class="module-metrics">
           <div class="metric"><div class="metric-label">RX</div><div class="metric-value">${m.rx_count || 0}</div></div>
           <div class="metric"><div class="metric-label">TX</div><div class="metric-value">${m.tx_count || 0}</div></div>
@@ -178,7 +187,7 @@
         <tr>
           <td class="counter-mid">${mid}</td>
           <td>${escapeHtml(meta.name || g.name || '')}</td>
-          <td class="counter-proto">${(meta.proto || '').toUpperCase()}</td>
+          <td class="counter-proto">${meta.phase !== undefined ? `P${meta.phase}` : '—'}</td>
           <td class="counter-proto">${escapeHtml(meta.direction || '')}${forward}</td>
           <td>${g.rx_count || 0}</td>
           <td>${g.tx_count || 0}</td>
@@ -247,22 +256,18 @@
     const connected = module.connected;
     const endpointHtml = `
       <div class="drawer-section">
-        <div class="drawer-section-title">Endpoint</div>
+        <div class="drawer-section-title">Identity</div>
+        <div class="drawer-sub" style="margin-bottom:8px">
+          모듈은 서버에 WebSocket 으로 접속합니다. IP/expected_source 만 의미가 있고
+          포트는 서버 측이 8096 으로 고정.
+        </div>
         <div class="drawer-fields">
           <div class="drawer-field">
-            <label>IP</label>
+            <label>IP <span class="drawer-sub">(legacy 표시용)</span></label>
             <input id="drw-ip" value="${escapeAttr(module.ip)}" />
           </div>
           <div class="drawer-field">
-            <label>UDP port</label>
-            <input id="drw-udp" type="number" value="${module.udp_port}" />
-          </div>
-          <div class="drawer-field">
-            <label>TCP port</label>
-            <input id="drw-tcp" type="number" value="${module.tcp_port}" />
-          </div>
-          <div class="drawer-field">
-            <label>Expected source</label>
+            <label>Expected source <span class="drawer-sub">(0002 source 매칭값)</span></label>
             <input id="drw-src" value="${escapeAttr(module.expected_source || '')}" />
           </div>
         </div>
@@ -324,8 +329,6 @@
     saveBtn.addEventListener('click', async () => {
       const payload = {
         ip: document.getElementById('drw-ip').value.trim(),
-        udp_port: parseInt(document.getElementById('drw-udp').value, 10),
-        tcp_port: parseInt(document.getElementById('drw-tcp').value, 10),
         expected_source: document.getElementById('drw-src').value.trim(),
       };
       const status = document.getElementById('drw-save-status');

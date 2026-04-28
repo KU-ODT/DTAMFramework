@@ -38,6 +38,7 @@ from .config import (
     DTAM_MY_PORT,
     DTAM_TARGET_IP,
     DTAM_TARGET_PORT,
+    DTAM_WS_PORT,
     MBTILES_PATH,
     WEB_DIR,
 )
@@ -67,9 +68,12 @@ dtam_sender: Optional[DtamSender] = None
 MISSION_ICD_RESOURCE_CSV = DATA_DIR / "resources_vp.csv"
 settings: Dict[str, Any] = {
     "dtam_target_ip": DTAM_TARGET_IP,
+    "dtam_ws_port": DTAM_WS_PORT,
+    # ── legacy (UDP/TCP) ── 무시되지만 dashboard/REST 표시값으로 보존
     "dtam_target_port": DTAM_TARGET_PORT,
     "dtam_my_ip": DTAM_MY_IP,
     "dtam_my_port": DTAM_MY_PORT,
+    # ──────────────────
     "server_http_host": os.getenv("DTAM_MP_SERVER_HTTP_HOST", DTAM_TARGET_IP),
     "server_http_port": int(os.getenv("DTAM_MP_SERVER_HTTP_PORT", "8095")),
     "default_speed_mps": 30.0,
@@ -819,13 +823,11 @@ def create_app() -> FastAPI:
         try:
             dtam_sender = DtamSender(
                 target_ip=str(settings["dtam_target_ip"]),
-                target_port=int(settings["dtam_target_port"]),
-                my_ip=str(settings["dtam_my_ip"]),
-                my_port=int(settings["dtam_my_port"]),
+                ws_port=int(settings.get("dtam_ws_port", 8096)),
                 on_flight_plan_request=_handle_flight_plan_request,
             )
             desc = dtam_sender.describe()
-            print(f"[DTAM MP] DTAM sender ready → {desc['target_ip']}:{desc['target_tcp_port']}")
+            print(f"[DTAM MP] DTAM sender ready → {desc['server_url']}")
         except Exception as exc:
             print(f"[DTAM MP] DTAM sender unavailable: {exc}")
 

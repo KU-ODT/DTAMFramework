@@ -14,7 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 FRAMEWORK_ROOT = ROOT.parent
 DTAM_SDK_ROOT = FRAMEWORK_ROOT / "DTAM_SDK"
-APP_IMPORT = "backend.app.main:app"
+APP_IMPORT = "app.server:app"
 
 if str(DTAM_SDK_ROOT) not in sys.path:
     sys.path.insert(0, str(DTAM_SDK_ROOT))
@@ -62,10 +62,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="DTAM Operations Console")
     parser.add_argument("--host", default="127.0.0.1", help="Host address to bind.")
     parser.add_argument("--port", type=int, default=8000, help="Port to listen on.")
-    parser.add_argument("--target-ip", default="127.0.0.1", help="DTAM server target IP for ICD sends.")
-    parser.add_argument("--target-port", type=int, default=17000, help="DTAM server target UDP port for ICD sends.")
+    parser.add_argument("--target-ip", default="127.0.0.1",
+                        help="DTAM SimulationState server host (for WS heartbeat + REST ICD sends).")
     parser.add_argument("--reload", action="store_true", help="Enable Uvicorn auto-reload.")
     parser.add_argument("--no-browser", action="store_true", help="Do not open a browser window.")
+    # ── legacy (UDP) — 무시되지만 backward-compat 위해 받음
+    parser.add_argument("--target-port", type=int, default=17000, help=argparse.SUPPRESS)
     return parser.parse_args()
 
 
@@ -77,7 +79,6 @@ def main() -> None:
         sys.path.insert(0, str(ROOT))
 
     os.environ["DTAM_TARGET_IP"] = str(args.target_ip)
-    os.environ["DTAM_TARGET_PORT"] = str(args.target_port)
 
     requested_port = int(args.port)
     args.port = find_available_tcp_port(args.host, requested_port)

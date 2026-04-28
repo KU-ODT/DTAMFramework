@@ -3,17 +3,18 @@
 기본 동작:
  - FastAPI 앱을 ``http://127.0.0.1:{PORT}`` 로 기동
  - 브라우저를 새 창으로 띄움 (--no-browser 로 생략)
- - DTAM 3001 (Scheduled Flight) 송신 대상을 ``--target-ip/--target-port`` 로 지정
- - ``--my-port`` 로 본 모듈이 사용할 UDP 베이스 포트 지정 (TCP = +1)
+ - DTAM SimulationState 서버 (WebSocket ``/ws/dtam``) 에 ``--target-ip``,
+   ``--ws-port`` 로 접속. 3001 (Scheduled Flight) / 3002 / 3003 등 ICD 메시지를
+   이 단일 채널로 송수신한다.
 
 사용 예::
 
     python MP_main.py
-    python MP_main.py --target-ip 127.0.0.1 --target-port 17000 --port 8090
+    python MP_main.py --target-ip 127.0.0.1 --ws-port 8096 --port 8090
     python MP_main.py --host 0.0.0.0 --port 8090 --no-browser
 
-DTAM Mission Planner 가 3001 을 TCP 로 송출하면 DTAMAirMobility
-(AM_main.py) 가 이를 수신해 비행 데이터를 생성한다.
+서버는 3001 을 vehicle 모듈 (DTAMAirMobility) 에 forwarding 하여 비행 데이터
+생성으로 이어진다.
 """
 from __future__ import annotations
 
@@ -96,19 +97,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fullscreen", action="store_true", help="Open browser fullscreen.")
     parser.add_argument("--log-level", default="info")
 
-    # DTAM 3001 송신 대상
+    # DTAM 통신 (WebSocket /ws/dtam)
     parser.add_argument("--target-ip", default=None,
-                        help="DTAM target IP for 3001 (default from env or 127.0.0.1)")
-    parser.add_argument("--target-port", type=int, default=None,
-                        help="DTAM target UDP base port (TCP = +1). Default 17000.")
-    parser.add_argument("--my-ip", default=None,
-                        help="Local bind IP (default 0.0.0.0)")
-    parser.add_argument("--my-port", type=int, default=None,
-                        help="Local UDP base port (TCP = +1). Default 17010.")
+                        help="DTAM SimulationState server host (default from env or 127.0.0.1)")
+    parser.add_argument("--ws-port", type=int, default=None,
+                        help="DTAM SimulationState WebSocket/HTTP port (default 8096)")
     parser.add_argument("--server-http-host", default=None,
-                        help="DTAM Server Emulator HTTP host for central DB lookup.")
+                        help="DTAM CoreServer HTTP host for central DB lookup.")
     parser.add_argument("--server-http-port", type=int, default=None,
-                        help="DTAM Server Emulator HTTP port for central DB lookup.")
+                        help="DTAM CoreServer HTTP port for central DB lookup.")
+    # ── legacy (UDP/TCP 시절) 인자 — 무시되지만 backward-compat 위해 받음
+    parser.add_argument("--target-port", type=int, default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--my-ip", default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--my-port", type=int, default=None, help=argparse.SUPPRESS)
     return parser.parse_args()
 
 
@@ -116,16 +117,19 @@ def _apply_dtam_overrides(args: argparse.Namespace) -> None:
     """CLI 옵션으로 DTAM 기본 target/my endpoint 를 덮어쓴다."""
     if args.target_ip:
         settings["dtam_target_ip"] = str(args.target_ip)
+    if args.ws_port is not None:
+        settings["dtam_ws_port"] = int(args.ws_port)
+    if args.server_http_host:
+        settings["server_http_host"] = str(args.server_http_host)
+    if args.server_http_port is not None:
+        settings["server_http_port"] = int(args.server_http_port)
+    # legacy
     if args.target_port is not None:
         settings["dtam_target_port"] = int(args.target_port)
     if args.my_ip:
         settings["dtam_my_ip"] = str(args.my_ip)
     if args.my_port is not None:
         settings["dtam_my_port"] = int(args.my_port)
-    if args.server_http_host:
-        settings["server_http_host"] = str(args.server_http_host)
-    if args.server_http_port is not None:
-        settings["server_http_port"] = int(args.server_http_port)
 
 
 def main() -> None:
@@ -144,13 +148,11 @@ def main() -> None:
         print(f"[DTAM MP] port {requested_port} is busy; using {args.port}.")
 
     url = f"http://{args.host}:{args.port}"
+    ws_port = settings.get("dtam_ws_port", 8096)
     print(f"[DTAM MP] GUI    : {url}")
     print(f"[DTAM MP] root   : {ROOT}")
-    print(f"[DTAM MP] server DB API: http://{settings['server_http_host']}:{settings['server_http_port']}")
-    print(f"[DTAM MP] DTAM → {settings['dtam_target_ip']}:{settings['dtam_target_port']} "
-          f"(TCP {int(settings['dtam_target_port']) + 1})")
-    print(f"[DTAM MP] my     : {settings['dtam_my_ip']}:{settings['dtam_my_port']} "
-          f"(TCP {int(settings['dtam_my_port']) + 1})")
+    print(f"[DTAM MP] CoreServer DB API: http://{settings['server_http_host']}:{settings['server_http_port']}")
+    print(f"[DTAM MP] DTAM   : ws://{settings['dtam_target_ip']}:{ws_port}/ws/dtam")
 
     if not args.no_browser:
         threading.Timer(
