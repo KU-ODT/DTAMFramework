@@ -52,19 +52,13 @@ def _server_ip() -> str:
     return os.environ.get("DTAM_TARGET_IP") or "127.0.0.1"
 
 
-# ── WebSocket 통신 layer (DtamModule 서브클래스) ─────────────
-def _import_dtam_sdk():
-    _ensure_sdk_on_path()
-    from dtam_client import DtamModule, Role  # type: ignore
-    return DtamModule, Role
-
-
+# ── WebSocket 통신 layer (MonitoringModule 서브클래스) ───────
 class MonitoringComm:
-    """OpsConsole DTAM 통신 layer (lazy DtamModule 서브클래스).
+    """OpsConsole DTAM 통신 layer (lazy MonitoringModule 서브클래스).
 
-    DtamModule 은 SDK path 가 sys.path 에 들어간 뒤에야 import 가능하므로,
-    실제 서브클래스 정의는 :func:`_build_class` 안에서 처리. ``MonitoringComm()``
-    호출 시 lazily 생성·반환.
+    SDK path 가 sys.path 에 들어간 뒤에야 ``MonitoringModule`` import 가
+    가능하므로, 실제 서브클래스 정의는 :func:`_build_class` 안에서 처리.
+    ``MonitoringComm()`` 호출 시 lazily 생성·반환.
     """
 
     def __new__(cls, **kwargs):
@@ -73,12 +67,14 @@ class MonitoringComm:
 
 
 def _build_class():
-    """SDK 가 sys.path 에 올라간 뒤 정의되는 실제 DtamModule 서브클래스."""
-    DtamModule, Role = _import_dtam_sdk()
-    from dtam_client import on_receive  # noqa: F401 — 향후 핸들러용
+    """SDK 가 sys.path 에 올라간 뒤 정의되는 실제 MonitoringModule 서브클래스."""
+    _ensure_sdk_on_path()
+    from dtam_client import MonitoringModule  # type: ignore
 
-    class _MonitoringComm(DtamModule):
-        role = Role.MONITORING
+    class _MonitoringComm(MonitoringModule):
+        # MonitoringModule 베이스가 5개 mid (0001/0002/2002/4001/4101) 의
+        # 빈 stub 을 제공. 현재는 heartbeat 전용이므로 override 없음 —
+        # 향후 운영자 화면이 4001/4101 등을 받아 표시할 때 메서드 추가.
 
         def __init__(self, *, target_ip: Optional[str] = None,
                      ws_port: int = STATE_WS_PORT) -> None:
@@ -87,9 +83,6 @@ def _build_class():
                 server_url=f"ws://{ip}:{ws_port}/ws/dtam",
                 heartbeat=True,
             )
-
-        # 향후 monitoring 이 받기로 한 forwarding (FORWARD_RULES 상 2002/4001/4101 도
-        # 가능) 핸들러 자리 — 현재는 heartbeat 전용.
 
     return _MonitoringComm
 

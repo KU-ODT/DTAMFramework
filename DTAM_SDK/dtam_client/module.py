@@ -42,7 +42,6 @@ DtamModule 을 **상속** 하고, 콜백은 ``@on_receive("3001")`` 데코레이
 from __future__ import annotations
 
 import dataclasses as _dc
-import inspect
 import logging
 import threading
 import time
@@ -240,18 +239,38 @@ class DtamModule:
 
     # ── @on_receive 자동 등록 ─────────────────────────────────
     def _auto_register_handlers(self) -> None:
-        seen: Dict[str, str] = {}    # mid → method name (중복 검사)
-        for name, method in inspect.getmembers(self, predicate=callable):
-            mid = getattr(method, DECORATOR_TAG, None)
-            if not mid:
-                continue
-            if mid in seen:
-                raise TypeError(
-                    f"{type(self).__name__}: duplicate @on_receive({mid!r}) on "
-                    f"both {seen[mid]} and {name}. Each mid can have only one handler."
-                )
-            seen[mid] = name
-            self._ws.on(mid, self._make_dispatcher(mid, method))
+        """클래스 MRO 를 따라 @on_receive 데코레이터를 찾고, 각 mid 별로
+        가장 derived 한 구현을 등록한다.
+
+        서브클래스가 데코레이터 없이 메서드를 override 해도 정상 동작 —
+        base class 의 데코레이터로 mid 가 결정되고, ``getattr(self, name)`` 이
+        MRO 를 따라 가장 derived 한 bound method 를 반환한다. 이 패턴 덕에
+        역할별 base class (``MissionModule``, ``VehicleModule`` 등) 가
+        빈 핸들러 stub 을 미리 데코레이트해두고 모듈 작성자는 override 만
+        하면 된다.
+        """
+        seen_mids: Dict[str, str] = {}    # mid → method name
+        handled_names: set = set()        # 이미 처리한 메서드 이름
+
+        for klass in type(self).__mro__:
+            if klass is object:
+                break
+            for name, method in vars(klass).items():
+                if name in handled_names:
+                    continue
+                mid = getattr(method, DECORATOR_TAG, None)
+                if not mid:
+                    continue
+                handled_names.add(name)
+                if mid in seen_mids:
+                    raise TypeError(
+                        f"{type(self).__name__}: duplicate @on_receive({mid!r}) on "
+                        f"both {seen_mids[mid]} and {name}. Each mid can have only one handler."
+                    )
+                seen_mids[mid] = name
+                # 가장 derived 한 bound method (subclass override 가 있다면 그쪽).
+                bound_method = getattr(self, name)
+                self._ws.on(mid, self._make_dispatcher(mid, bound_method))
 
     def _make_dispatcher(self, mid: str, method: Callable) -> Callable[[Dict[str, Any]], None]:
         """수신 dict → dataclass 인스턴스로 parse 후 사용자 메서드 호출."""

@@ -52,6 +52,12 @@ from .module import (
     set_strict_dataclass,
     is_strict_dataclass,
 )
+from .role_modules import (
+    MissionModule,
+    VehicleModule,
+    MonitoringModule,
+    VisualModule,
+)
 from .rest import DtamRest, DtamRestError
 from ._ws_client import DtamWsClient   # advanced users (DtamModule 내부에서 사용)
 
@@ -97,6 +103,10 @@ __all__ = [
     "on_receive",
     "set_strict_dataclass",
     "is_strict_dataclass",
+    "MissionModule",
+    "VehicleModule",
+    "MonitoringModule",
+    "VisualModule",
     "DtamRest",
     "DtamRestError",
     "DtamWsClient",

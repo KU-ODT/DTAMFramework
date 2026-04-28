@@ -25,7 +25,7 @@ _SDK_ROOT = Path(__file__).resolve().parents[2] / "DTAM_SDK"
 if _SDK_ROOT.is_dir() and str(_SDK_ROOT) not in sys.path:
     sys.path.insert(0, str(_SDK_ROOT))
 
-from dtam_client import DtamModule, Role, on_receive  # type: ignore
+from dtam_client import MissionModule  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -79,16 +79,13 @@ def _quick_validate(record: Dict[str, Any]) -> List[str]:
     return errors
 
 
-class MissionComm(DtamModule):
+class MissionComm(MissionModule):
     """Mission Planner DTAM 통신 layer.
 
-    - role = Role.MISSION (KNOWN_MODULES 에서 source/display_name 자동 결정)
-    - 2001 / 2002 수신: ``@on_receive`` 로 자동 등록
-    - 3001 송신: ``send_scheduled_flight*`` 도메인 메서드
-    - 0002 heartbeat 1Hz: DtamModule 가 자동 송신
+    ``MissionModule`` 베이스가 ``role = Role.MISSION`` + 2001/2002 의 빈
+    ``@on_receive`` stub 을 제공. 이 클래스는 그 위에 도메인 처리 (자동
+    3001 트리거 + 통계) 를 얹는다.
     """
-
-    role = Role.MISSION
 
     def __init__(
         self,
@@ -115,9 +112,8 @@ class MissionComm(DtamModule):
             heartbeat=True,
         )
 
-    # ── 수신 핸들러 (@on_receive 자동 등록) ─────────────────────
-    @on_receive("2001")
-    def _on_flight_plan_request(self, msg: Any) -> None:
+    # ── 수신 핸들러 (MissionModule 의 빈 stub 을 override) ──────
+    def on_flight_plan_request(self, msg: Any) -> None:
         raw = _result_raw(msg)
         scenario = str(raw.get("scenarioFileName") or "")
         with self._mc_lock:
@@ -149,8 +145,7 @@ class MissionComm(DtamModule):
                 self._last_auto_3001_error = err
             logger.exception("2001 auto 3001 handler failed")
 
-    @on_receive("2002")
-    def _on_dtam_execute(self, msg: Any) -> None:
+    def on_dtam_execute(self, msg: Any) -> None:
         raw = _result_raw(msg)
         folder = str(raw.get("flightPlanFolderName") or "")
         with self._mc_lock:

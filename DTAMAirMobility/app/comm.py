@@ -1,11 +1,14 @@
 """DTAM AirMobility 통신 layer (WebSocket /ws/dtam).
 
-``DtamModule`` 서브클래스 + ``@on_receive("MID")`` 데코레이터 패턴.
+``VehicleModule`` (SDK 베이스) 를 상속해 5개 mid 핸들러만 override.
 ``IntegratedAirMobilityService`` 가 ``self.comm`` 으로 보유 (composition) —
 도메인 로직(시계, 세션, 10Hz tick)은 service 가, 통신은 이 클래스가 담당.
 
-수신 핸들러는 모두 캡슐화돼 있고, 실제 처리는 ``__init__`` 에서 받은 콜백
-함수로 위임. 콜백은 service 인스턴스의 메서드를 그대로 받으면 됨.
+수신 핸들러는 ``__init__`` 에서 받은 콜백 함수로 위임 — 콜백은 service
+인스턴스의 메서드를 그대로 받으면 됨.
+
+처리하지 않는 mid (1002 SimulationSetup) 는 ``VehicleModule`` 베이스의
+빈 stub 이 그대로 유지되어 silent drop 으로 동작.
 
 외부 인터페이스:
   - VehicleComm(target_ip, ws_port, on_scheduled_flight, on_common_time_info,
@@ -25,19 +28,16 @@ _SDK_ROOT = Path(__file__).resolve().parents[2] / "DTAM_SDK"
 if _SDK_ROOT.is_dir() and str(_SDK_ROOT) not in sys.path:
     sys.path.insert(0, str(_SDK_ROOT))
 
-from dtam_client import DtamModule, Role, on_receive  # type: ignore
+from dtam_client import VehicleModule  # type: ignore
 
 
-class VehicleComm(DtamModule):
+class VehicleComm(VehicleModule):
     """Air Mobility 모듈의 DTAM 통신 layer.
 
-    - role = Role.VEHICLE
-    - 수신: ``@on_receive`` 로 5개 mid 자동 등록 (3001/0003/2002/3002/3003)
-    - 송신: ``self.send(...)`` (DtamModule 상속)
-    - heartbeat 0002 1Hz: DtamModule 가 자동 송신
+    ``VehicleModule`` 베이스가 ``role = Role.VEHICLE`` + 6개 mid 의 빈
+    ``@on_receive`` stub 을 제공. 이 클래스는 그 위에 5개를 콜백 위임으로
+    override (1002 는 베이스 stub 유지).
     """
-
-    role = Role.VEHICLE
 
     def __init__(
         self,
@@ -50,8 +50,7 @@ class VehicleComm(DtamModule):
         on_strategic_separation: Optional[Callable[[Any], None]] = None,
         on_tactical_separation: Optional[Callable[[Any], None]] = None,
     ) -> None:
-        # super().__init__ 보다 먼저 — _auto_register_handlers 가 콜백을 호출하지는
-        # 않지만 dispatcher 안에서 self.* 참조하므로 미리 세팅.
+        # super().__init__ 보다 먼저 — dispatcher 안에서 self._cb_* 참조하므로 미리 세팅.
         self._target_ip = str(target_ip)
         self._ws_port = int(ws_port)
         self._cb_scheduled = on_scheduled_flight
@@ -65,33 +64,28 @@ class VehicleComm(DtamModule):
             heartbeat=True,
         )
 
-    # ── @on_receive 자동 등록되는 핸들러들 (실제 처리는 콜백 위임) ─
-    @on_receive("3001")
-    def _on_3001(self, msg: Any) -> None:
+    # ── 5개 핸들러 override (콜백 위임) ─────────────────────────
+    def on_scheduled_flight(self, msg: Any) -> None:
         cb = self._cb_scheduled
         if cb is not None:
             cb(msg)
 
-    @on_receive("0003")
-    def _on_0003(self, msg: Any) -> None:
+    def on_common_time_info(self, msg: Any) -> None:
         cb = self._cb_clock
         if cb is not None:
             cb(msg)
 
-    @on_receive("2002")
-    def _on_2002(self, msg: Any) -> None:
+    def on_dtam_execute(self, msg: Any) -> None:
         cb = self._cb_execute
         if cb is not None:
             cb(msg)
 
-    @on_receive("3002")
-    def _on_3002(self, msg: Any) -> None:
+    def on_strategic_separation(self, msg: Any) -> None:
         cb = self._cb_strategic
         if cb is not None:
             cb(msg)
 
-    @on_receive("3003")
-    def _on_3003(self, msg: Any) -> None:
+    def on_tactical_separation(self, msg: Any) -> None:
         cb = self._cb_tactical
         if cb is not None:
             cb(msg)
