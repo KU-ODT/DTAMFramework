@@ -1,329 +1,313 @@
 # DTAM 모듈 작성 가이드
 
-> 새로운 DTAM 모듈을 처음부터 끝까지 만드는 절차를 담은 문서입니다.
-> SDK API 레퍼런스는 [README_KOR.md](README_KOR.md), 새 ICD 메시지를 추가하는
-> 절차는 [dtam_client/NEW_MESSAGE_PROMPT.md](dtam_client/NEW_MESSAGE_PROMPT.md)
-> 를 참고하세요. 이 문서는 그 둘을 잇는 "모듈 한 채를 새로 만드는 법"입니다.
+> 새로운 DTAM 모듈을 처음부터 끝까지 만드는 절차. SDK API 레퍼런스는
+> [README_KOR.md](README_KOR.md), 새 ICD 메시지를 추가하는 절차는
+> [dtam_client/NEW_MESSAGE_PROMPT.md](dtam_client/NEW_MESSAGE_PROMPT.md) 참고.
 
 ## 0. 사전 지식
 
-- 모든 모듈은 **WebSocket 클라이언트**로서
-  `DTAM_SimulationState` 서버(`ws://<host>:8096/ws/dtam`)에 접속한다.
-  서버가 forwarding 허브이고, 모듈끼리 직접 연결되지 않는다.
-- 모듈은 자기 `Role` 을 정해야 한다 (`mission` / `monitoring` /
-  `vehicle` / `visual` / `sim_state` 중 하나). SDK의 `KNOWN_MODULES` 가
-  단일 권위.
-- 모든 ICD 메시지는 dataclass 인스턴스로 송수신된다. dict를 보낼 일이
-  생기면 그건 잘못된 신호이다 — `set_strict_dataclass(True)` 를 켜고 가자.
+- 모든 모듈은 **WebSocket 클라이언트**로서 `DTAM_SimulationState` 서버
+  (`ws://<host>:8096/ws/dtam`) 에 접속한다. 서버가 forwarding 허브이고
+  모듈끼리는 직접 연결되지 않는다.
+- 모듈은 자기 `Role` 을 정한다 (`mission` / `monitoring` / `vehicle` /
+  `visual` / `sim_state` 중 하나). SDK 의 `KNOWN_MODULES` 가 단일 권위.
+- 모든 ICD 메시지는 dataclass 인스턴스로 송수신.
+- **통신 코드는 SDK 가 다 처리한다** — 모듈 작성자는 "역할별 베이스 클래스"
+  를 상속해 처리할 핸들러만 override 하면 된다.
 
-## 1. 표준 폴더 구조
+## 1. 표준 패턴 — `class XxxService(XxxModule)`
 
-5개 모듈이 공통으로 따르는 layout. 새 모듈도 이 형태를 그대로 복제하면 된다.
+3개 client 모듈 (Mission Planner / Air Mobility / Operations Console) 모두
+완전 동일한 패턴을 따른다.
+
+```python
+# DTAM_MyModule/app/services/my_service.py
+
+from dtam_client import VehicleModule         # 자기 역할의 베이스
+from dtam_client.schema import Msg4001_VehicleStatus
+
+class MyVehicleService(VehicleModule):
+    """역할별 베이스(VehicleModule) 가 6개 mid 의 빈 @on_receive stub 을
+    이미 갖고 있다. 이 클래스는 처리할 mid 만 override + 도메인 메서드만 추가."""
+
+    def __init__(self, *, target_ip="127.0.0.1", ws_port=8096, **domain_deps):
+        # 도메인 상태 초기화
+        self._sessions = {}
+        # ...
+        super().__init__(server_url=f"ws://{target_ip}:{ws_port}/ws/dtam",
+                         heartbeat=True)
+
+    # ─── base stub override (내가 처리할 것만) ─────────────────
+    def on_scheduled_flight(self, plan):
+        """3001 받음 — base 의 빈 stub 을 override."""
+        self._sessions[plan.aircraftId] = plan
+
+    # 1002 SimulationSetup 처리 안 하면 그냥 override 안 하면 됨
+    # (base 의 빈 stub 이 silent drop)
+
+    # ─── 도메인 메서드 자유 추가 ──────────────────────────────
+    def publish_4001(self, payload):
+        return self.send(Msg4001_VehicleStatus(**payload))   # self.send 로 송신
+```
+
+**한 클래스에 모든 게 들어간다:**
+- 통신 (부모 `DtamModule` 상속)
+- 핸들러 (`on_*` override)
+- 도메인 메서드 (자유)
+- 송신 (`self.send(...)`)
+- 통계 (`self.stats`)
+
+`comm.py` 같은 별도 파일 / `Comm` wrapper 클래스 / callback wiring **모두 필요 없음**.
+
+### 역할별 베이스 (SDK 가 제공)
+
+| 역할 | Base | 받는 mid (override 가능) |
+|---|---|---|
+| `mission` | `MissionModule` | 2001, 2002 |
+| `vehicle` | `VehicleModule` | 0003, 1002, 2002, 3001, 3002, 3003 |
+| `monitoring` | `MonitoringModule` | 0001, 0002, 2002, 4001, 4101 |
+| `visual` | `VisualModule` | 0003, 1002, 2002, 4001 |
+
+각 베이스의 메서드 이름은 `on_<alias>` (예: `on_scheduled_flight`, `on_dtam_execute`).
+Override 안 하면 silent drop. import 시점에 `subscriptions_for(role)` 와의
+일치 자동 검증 (drift 발생 시 `AssertionError`).
+
+## 2. 표준 폴더 구조
 
 ```
-MyModule/
-├── MM_main.py                 # CLI/run entrypoint (uvicorn 부팅)
+DTAM_MyModule/
+├── MM_main.py                              # CLI/run entrypoint (uvicorn)
 ├── README.md
 ├── app/
 │   ├── __init__.py
-│   ├── config.py              # 경로·포트·기본값 (ENV 변수로 override)
-│   ├── server.py              # FastAPI app factory + lifespan
-│   ├── comm.py                # DtamModule 서브클래스 (=DTAM 통신 layer)
-│   ├── routes/                # FastAPI APIRouter 들 (ws/REST)
+│   ├── config.py                           # 경로·포트·기본값 (ENV override)
+│   ├── server.py                           # FastAPI factory + lifespan
+│   ├── routes/                             # APIRouter 들 (REST)
 │   │   ├── __init__.py
 │   │   └── ...
-│   ├── services/              # 도메인-독립 서비스 (DB, mbtiles, ...)
-│   └── domain/                # 도메인 로직 (계산·변환·시뮬레이션)
-├── web/                       # 프런트엔드 (templates + static 통합)
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── my_service.py                   # ⬅ XxxService(XxxModule) — 통신 + 도메인
+│   │   └── ...                             # 다른 도메인 서비스
+│   └── domain/                             # 순수 도메인 로직 (계산·변환·dynamics)
+├── web/                                    # 프런트엔드 (선택)
 │   ├── index.html
 │   ├── css/
-│   ├── js/
-│   └── vendor/
-├── data/                      # 모듈 입력/출력 데이터
-└── resources/                 # 큰 바이너리 (mbtiles, dem, png 등)
+│   └── js/
+├── data/                                   # 모듈 입력/출력 데이터
+└── resources/                              # 큰 바이너리 (mbtiles, dem 등)
 ```
 
 핵심 원칙:
 
-1. **`backend/` · `frontend/` 분리 금지.** 5개 모듈을 한 줄로 정렬하기 위해
-   `app/` (Python) + `web/` (자산) + `resources/` (바이너리) 로 통일했다.
-2. **`comm.py`** 는 항상 `app/` 바로 아래에 둔다. DTAM 통신 layer 가
-   어디 있는지를 다른 모듈과 동일하게 찾을 수 있어야 한다.
-3. **`MM_main.py`** 의 prefix는 모듈 약칭. (MP, AM, OC, SS, DSE 패턴)
+1. **`backend/` · `frontend/` 분리 금지.** 5개 모듈 통일을 위해 `app/`
+   (Python) + `web/` (자산) + `resources/` (바이너리).
+2. **DTAM 통신 service 는 `app/services/<module>_service.py`** 에 둔다.
+   `app/comm.py` 는 더 이상 사용하지 않는다.
+3. **`MM_main.py`** 의 prefix 는 모듈 약칭 (MP, AM, OC, SS, DSE 패턴).
 
-## 2. Step-by-step
+## 3. Step-by-step
 
-### 2.1 폴더 만들기
+### 3.1 Role 결정 + (필요 시) SDK 등록
 
-```
-MyModule/
-  MM_main.py
-  app/__init__.py
-  app/config.py
-  app/server.py
-  app/comm.py
-  app/routes/__init__.py
-  web/index.html
-  data/
-  resources/
-```
+새 역할이 필요하면 [`DTAM_SDK/dtam_client/identity.py`](dtam_client/identity.py)
+의 `Role` enum 과 `KNOWN_MODULES` 에 추가, 그리고
+[`policy.py`](dtam_client/policy.py) 의 `FORWARD_RULES` 에 어떤 mid 를 받을지
+선언, 마지막으로 [`role_modules.py`](dtam_client/role_modules.py) 에
+`MyNewRoleModule` 베이스 클래스 추가 (subscriptions_for(role) 와 일치하는
+빈 stub 들). 기존 5개 역할로 충분하면 이 단계 생략.
 
-### 2.2 `Role` 등록
-
-`DTAM_SDK/dtam_client/identity.py` 의 `Role` enum 과 `KNOWN_MODULES` 에
-새 역할/source를 추가한다. 기존 5개 역할로 충분하면 그대로 사용.
+### 3.2 `app/config.py`
 
 ```python
-# identity.py 발췌
-class Role(str, Enum):
-    ...
-    MY_NEW_ROLE = "my_new_role"
-
-KNOWN_MODULES[Role.MY_NEW_ROLE] = ModuleIdentity(
-    Role.MY_NEW_ROLE, "MyModule", "My Module"
-)
-```
-
-`source` 문자열(`"MyModule"`)은 0002 `Module Status` 의 `source` 필드에
-실어 보내는 값이다. 서버는 이걸 보고 어느 role 인지 판별한다.
-
-### 2.3 Forwarding 규칙 등록
-
-`DTAM_SDK/dtam_client/policy.py` 의 `FORWARD_RULES` 에 "내 모듈이 어떤
-mid를 받아야 하고 / 보내야 하는지" 를 적는다.
-
-```python
-FORWARD_RULES["3001"] = {
-    "from": Role.MISSION,
-    "to":   [Role.VEHICLE, Role.SIM_STATE, Role.MY_NEW_ROLE],  # 내 새 role을 추가
-}
-```
-
-`subscriptions_for(Role.MY_NEW_ROLE)` 가 알아서 mid 목록을 뽑아 SDK 가
-auto-subscribe 해준다.
-
-### 2.4 `app/config.py`
-
-ENV 변수로 override 가능한 형태로 기본값을 둔다. 다른 모듈의 config.py
-를 그대로 복제 후 prefix만 바꾸면 된다.
-
-```python
-from __future__ import annotations
 import os
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 FRAMEWORK_ROOT = ROOT_DIR.parent
 
-RESOURCES_DIR = Path(os.getenv("DTAM_MM_RESOURCES", ROOT_DIR / "resources"))
-DATA_DIR      = Path(os.getenv("DTAM_MM_DATA",      ROOT_DIR / "data"))
-WEB_DIR       = ROOT_DIR / "web"
-
 SERVER_HOST = os.getenv("DTAM_MM_HOST", "0.0.0.0")
-SERVER_PORT = int(os.getenv("DTAM_MM_PORT", "8200"))   # 모듈마다 고유 포트
+SERVER_PORT = int(os.getenv("DTAM_MM_PORT", "8200"))
 
-# DTAM 통신 (WebSocket)
 DTAM_TARGET_IP = os.getenv("DTAM_MM_TARGET_IP", "127.0.0.1")
 DTAM_WS_PORT   = int(os.getenv("DTAM_MM_WS_PORT", "8096"))
-
-APP_TITLE = "My Module"
 ```
 
-### 2.5 `app/comm.py` — DTAM 통신 layer
+### 3.3 `app/services/<module>_service.py`
 
-`DtamModule` 을 서브클래싱하고 받을 메시지에 `@on_receive("MID")` 데코레이터.
+표준 패턴 그대로 작성 (위 §1 의 예시). 처리할 mid 만 override.
+
+#### 도메인 도메인이 클 때
+
+도메인이 무거우면 (시뮬레이션 엔진, 세션 매니저 등) 별도 서비스 파일로
+분리하고 `MyService` 의 `__init__` 에 의존성으로 주입.
 
 ```python
-from __future__ import annotations
-import logging
-from dtam_client import DtamModule, Role, on_receive
-from dtam_client.schema import (
-    Msg3001_ScheduledFlight,
-    Msg0003_CommonTimeInfo,
-)
+# app/services/session_manager.py
+class SessionManager:
+    """순수 도메인 — DTAM/SDK 모름."""
+    ...
 
-logger = logging.getLogger(__name__)
-
-
-class MyModuleComm(DtamModule):
-    role = Role.MY_NEW_ROLE          # 또는 기존 Role 중 하나
-
-    def __init__(self, server_url: str):
-        super().__init__(
-            server_url=server_url,
-            heartbeat=True,           # 0002 Module Status 1Hz 자동
-        )
-
-    @on_receive("3001")
-    def on_scheduled_flight(self, plan: Msg3001_ScheduledFlight) -> None:
-        logger.info("got plan %s", plan.aircraftId)
-        # ... 도메인 로직 ...
-
-    @on_receive("0003")
-    def on_clock(self, clock: Msg0003_CommonTimeInfo) -> None:
-        # ... 시간 동기화 ...
-        ...
+# app/services/my_service.py
+class MyVehicleService(VehicleModule):
+    def __init__(self, *, target_ip, ws_port, sessions: SessionManager):
+        self._sessions = sessions
+        super().__init__(...)
+    
+    def on_scheduled_flight(self, plan):
+        self._sessions.add_plan(plan)
 ```
 
-내부 도메인 로직(`app/services/...`, `app/domain/...`)을 직접 import하지
-말고, 통신 layer는 *얇게* 유지하자. 데이터를 받은 뒤 도메인 객체로
-forwarding 하는 정도면 충분하다.
+#### 도메인이 다른 service 와 공유될 때 (예: route_planner)
 
-### 2.6 `app/server.py` — FastAPI factory
+생성자에 명시 주입:
 
 ```python
-from __future__ import annotations
+class MissionService(MissionModule):
+    def __init__(self, *, target_ip, ws_port,
+                 route_planner, settings, ...):
+        self.route_planner = route_planner
+        self.settings = settings
+        super().__init__(...)
+```
+
+### 3.4 `app/server.py` (FastAPI factory + lifespan)
+
+```python
 from contextlib import asynccontextmanager
-from typing import Optional
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 
-from .config import WEB_DIR, DTAM_TARGET_IP, DTAM_WS_PORT, APP_TITLE
-from .comm import MyModuleComm
+from .services.my_service import MyVehicleService
+from .services.session_manager import SessionManager
+from .config import DTAM_TARGET_IP, DTAM_WS_PORT
 
-# 모듈 전역 싱글턴
-comm: Optional[MyModuleComm] = None
-
+# 모듈 전역 (또는 app.state 사용)
+service: Optional[MyVehicleService] = None
 
 def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI):
-        global comm
-        url = f"ws://{DTAM_TARGET_IP}:{DTAM_WS_PORT}/ws/dtam"
-        comm = MyModuleComm(server_url=url)
+        global service
+        sessions = SessionManager()
+        service = MyVehicleService(
+            target_ip=DTAM_TARGET_IP,
+            ws_port=DTAM_WS_PORT,
+            sessions=sessions,
+        )
         yield
-        if comm is not None:
-            comm.close()
+        if service is not None:
+            service.close()
 
-    app = FastAPI(title=APP_TITLE, lifespan=lifespan)
-    app.mount("/static", StaticFiles(directory=str(WEB_DIR)), name="static")
-
+    app = FastAPI(title="My Module", lifespan=lifespan)
+    
     # routes 등록
-    from .routes import index, status   # 예시
-    app.include_router(index.router)
-    app.include_router(status.router)
+    from .routes import status as status_routes
+    app.include_router(status_routes.router)
+    
     return app
 ```
 
-### 2.7 `MM_main.py` — uvicorn 진입점
+### 3.5 `app/routes/*.py` — REST 엔드포인트
+
+각 파일이 한 책임. `service.X` 메서드 호출만.
 
 ```python
-from __future__ import annotations
-import argparse, logging, os, sys
+# app/routes/status.py
+from fastapi import APIRouter
+from .. import server
+
+router = APIRouter(prefix="/api")
+
+@router.get("/status")
+async def get_status():
+    if server.service is None:
+        return {"ready": False}
+    return server.service.describe()         # service 의 describe()
+```
+
+### 3.6 `MM_main.py` — uvicorn 진입점
+
+```python
+import argparse, os, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 FRAMEWORK_ROOT = ROOT.parent
-DTAM_SDK_ROOT  = FRAMEWORK_ROOT / "DTAM_SDK"
+DTAM_SDK_ROOT = FRAMEWORK_ROOT / "DTAM_SDK"
 for extra in (str(FRAMEWORK_ROOT), str(DTAM_SDK_ROOT)):
     if extra not in sys.path:
         sys.path.insert(0, extra)
 
-from dtam_client.ports import find_available_tcp_port  # noqa: E402
-from MyModule.app.server import create_app             # noqa: E402
+from dtam_client.ports import find_available_tcp_port
+from DTAM_MyModule.app.server import create_app
 
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="My DTAM Module")
+def main():
+    parser = argparse.ArgumentParser()
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8200)
-    parser.add_argument("--target-ip", default="127.0.0.1",
-                        help="DTAM SimulationState 서버 IP")
-    parser.add_argument("--ws-port", type=int, default=8096,
-                        help="DTAM SimulationState WebSocket 포트")
-    parser.add_argument("--log-level", default="info")
+    parser.add_argument("--target-ip", default="127.0.0.1")
+    parser.add_argument("--ws-port", type=int, default=8096)
     args = parser.parse_args()
-
+    
     os.environ["DTAM_MM_TARGET_IP"] = args.target_ip
     os.environ["DTAM_MM_WS_PORT"]   = str(args.ws_port)
-
     args.port = find_available_tcp_port(args.host, args.port)
-
-    logging.basicConfig(level=getattr(logging, args.log_level.upper()))
+    
     import uvicorn
-    uvicorn.run(create_app(), host=args.host, port=args.port,
-                log_level=args.log_level.lower())
-
+    uvicorn.run(create_app(), host=args.host, port=args.port)
 
 if __name__ == "__main__":
     main()
 ```
 
-### 2.8 routes / web / data / resources
-
-- `routes/` 는 FastAPI APIRouter 단위로 잘게 쪼갠다 (e.g. `index.py`,
-  `status.py`, `dtam.py`, `tiles.py`).
-- `web/index.html` 에서 SDK 가 발행하는 mid를 받아 표시할 거면
-  `/static/...` 으로 마운트해 사용한다.
-- `data/` 는 기본 입력 / 산출물. `resources/` 는 큰 바이너리 (mbtiles,
-  png, dem 등) — `.gitignore` 으로 untrack 한다.
-
-## 3. 메시지를 보낼 때
+## 4. 메시지 송신
 
 ```python
 from dtam_client.schema import Msg4001_VehicleStatus
 
-self.send(Msg4001_VehicleStatus(
-    timestamp="2026-04-28T00:00:00.000Z",
-    vehicles={"UAM0001": {...}},
+# Service 메서드 안에서
+result = self.send(Msg4001_VehicleStatus(
+    timestamp="...", vehicles={"UAM01": {...}}
 ))
 ```
 
-- `send(message)` 는 dataclass 우선이다. SDK가 `mid`를 알아서 찾고,
-  4001처럼 wire 모양이 다른 메시지는 `to_wire()` 어댑터로 직렬화한다.
-- 검증 실패 / 연결 끊김 / register 미완료 시 `False` 가 반환된다 —
-  caller 에서 처리 또는 stats에서 모니터링.
-- dict로 보내고 싶으면 `send_legacy(mid, dict)` (DeprecationWarning).
-  strict 모드(`set_strict_dataclass(True)`)에서는 `TypeError`.
-
-## 4. 서버에 새 메시지를 흘려보내야 할 때
-
-→ [dtam_client/NEW_MESSAGE_PROMPT.md](dtam_client/NEW_MESSAGE_PROMPT.md) 의
-5단계를 따른다 (catalog 등록, dataclass 추가, policy 갱신, ICD markdown,
-sample 추가).
+- `self.send(message)` 는 dataclass 우선이다. SDK 가 mid 를 알아서 찾고,
+  4001 처럼 wire 모양이 다른 메시지는 `to_wire()` 어댑터로 직렬화.
+- 검증 실패 / 연결 끊김 / register 미완료 시 `False` 반환. 호출자가 처리.
 
 ## 5. 흔한 실수 / 체크리스트
 
-- [ ] **`role` 을 안 정함** → `DtamModule` 서브클래스에 `role = Role.X`
-      를 반드시 클래스 변수로 둔다. 안 두면 register 할 때 서버가 거부.
-- [ ] **`server_url` 에 `/ws/dtam` 누락** → 정확히
-      `ws://<host>:<port>/ws/dtam` 이어야 한다.
-- [ ] **`heartbeat=False` 로 두고 받기만 함** → 서버는 일정 시간
-      heartbeat 가 안 오면 모듈을 disconnected 로 마킹한다.
-      `heartbeat=True` 가 기본값.
-- [ ] **`@on_receive` 인자에 alias 사용** → mid (`"3001"`) 를 쓴다.
-      alias (`"scheduled_flight"`) 는 명시적 `module.on(...)` 콜에서만 쓴다.
-- [ ] **dict로 보내려고 함** → dataclass 만들기 귀찮아도 그냥 만든다.
-      strict 모드 켜두면 잊어버릴 일도 없다.
-- [ ] **legacy UDP/TCP 흔적 (`udp_port`, `target_port`, `my_port`)** →
-      현재 시스템에 더 이상 없다. 새 모듈에서 도입하지 말 것.
-- [ ] **`comm.py` 에 도메인 로직 섞기** → 통신 layer 는 얇게. 도메인은
-      `services/` / `domain/` 으로.
+- [ ] **`role` 클래스 속성 누락** — 베이스 (`VehicleModule` 등) 가 이미 정의해둠.
+      별도로 `role = Role.X` 적을 필요 없음 (오히려 적으면 베이스 검증과 충돌
+      가능).
+- [ ] **`server_url` 에 `/ws/dtam` 누락** — `ws://<host>:<port>/ws/dtam`.
+- [ ] **메서드 이름이 alias 와 안 맞음** — base 의 메서드 이름 (`on_<alias>`)
+      을 그대로 쓴다. `_on_3001` 같은 옛 이름은 dispatcher 가 못 찾는다.
+- [ ] **`self.send(dict)` 사용** — strict 모드 켜두고 dataclass 만 쓴다.
+- [ ] **legacy UDP/TCP 흔적** — 현재 시스템에 없다. 새 모듈에서 도입 금지.
+- [ ] **별도 `comm.py` 만들기** — 통신 layer 와 도메인을 한 클래스에 통합 한다
+      (XxxService(XxxModule)). 옛 가이드의 comm 분리 패턴은 폐기됐다.
 
 ## 6. 통합 테스트 체크포인트
 
-새 모듈이 잘 붙었는지 확인하는 순서:
+1. SimulationState 서버 띄우기 (`python DTAM_SimulationState/SS_main.py`)
+2. 새 모듈 띄우기 (`python DTAM_MyModule/MM_main.py`)
+3. 라이브 모니터 (`http://127.0.0.1:8096/`) 에서 내 role 이 connected 로 잡히는지
+4. 받기로 한 mid 를 다른 모듈에서 보내고 콘솔/UI 도달 확인
+5. 보낸 mid 가 SimulationState 의 DB (`DTAM_SimulationState/data/DB/<session>/`)
+   에 기록됐는지
 
-1. SimulationState 서버를 띄운다 (`python DTAM_SimulationState/SS_main.py`)
-2. 새 모듈을 띄운다 (`python MyModule/MM_main.py`)
-3. 라이브 모니터(`http://127.0.0.1:8096/`)에서 내 role이 connected 로
-   잡히는지 확인 (heartbeat 1Hz 들어오면 됨)
-4. 내가 받기로 한 mid를 다른 모듈에서 보내고 콘솔/UI에 도달했는지 확인
-5. 내가 보낸 mid가 SimulationState 의 DB(`DB/<session>/`) 에 기록됐는지
-   확인 (자동 forwarding 결과)
+## 7. 참고할 만한 기존 모듈
 
-## 7. 참고 모듈
+3 모듈이 모두 같은 패턴이라 어느 거 베껴도 OK.
 
-다섯 모듈이 모두 같은 layout 을 따른다 — 가장 가까운 형태를 골라서
-복제하면 된다.
+| 모듈 | 추천 사유 |
+|---|---|
+| [DTAMOperationsConsole](../../DTAMOperationsConsole/) | 가장 단순 (heartbeat 만, override 0개). 새 모듈 시작용 minimal template. |
+| [DTAM_MissionPlanner](../../DTAM_MissionPlanner/) | 도메인이 풍부하고 핸들러가 자체 helpers 사용. 도메인 ↔ 통신 통합의 모범. |
+| [DTAMAirMobility](../../DTAMAirMobility/) | 가장 무거운 도메인 (10Hz tick, sessions, dynamics). 큰 모듈을 어떻게 클래스 1개로 묶는지의 예. |
 
-| 모듈                       | 추천 사유                                         |
-|----------------------------|---------------------------------------------------|
-| `DTAMAirMobility`          | 송신 위주(4001 10Hz), 도메인 시뮬레이터 포함       |
-| `DTAM_MissionPlanner`      | 송수신 양방향, 라우트가 풍부, 지도 UI 포함          |
-| `DTAMOperationsConsole`    | 모니터링 위주, 라우트 기반 + 풍부한 web/js 구조     |
-| `DTAM_SimulationState`     | 서버측이라 약간 다름 — 모듈 reference 로는 비추천    |
-| `DTAM_CoreServer`          | Control plane(REST 위주) — 일반 모듈과 형태 다름    |
+## 8. 새 ICD 메시지 추가
 
-가장 일반적인 모듈을 만들 거면 `DTAMAirMobility` 또는
-`DTAM_MissionPlanner` 를 베끼는 것을 권장한다.
+별도 문서 [dtam_client/NEW_MESSAGE_PROMPT.md](dtam_client/NEW_MESSAGE_PROMPT.md) 참조.
+모듈 한 채를 만드는 것과 메시지를 추가하는 것은 다른 작업이다.

@@ -25,31 +25,28 @@ import math
 import re
 import threading
 import time
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional
 
-from ..domain.dynamics.core.flight_dynamics import DynamicsEngine
-from ..domain.dynamics.core.flight_profile import build_kinematics
-from ..domain.dynamics.core.path_builder import build_segment_profiles
-from ..domain.dynamics.core.types import (
-    FlightPlan,
-    FlightTrajectoryPoint,
-    SimulationConfig,
-)
-from ..domain.dynamics.core.wind_model import WindModel
+from ..domain.dynamics.core.types import FlightPlan, SimulationConfig
 from ..domain.dynamics.io.icd_parser import parse_flight_plans, parse_flight_plan
 
 from dtam_client import VehicleModule  # type: ignore  # SDK 가 sys.path 에 있어야 함
 
 from .msg4001 import (
-    VehiclePublishContext,
     build_4001_message,
     build_vehicle_payload,
     iso_timestamp,
 )
-from ..domain.transform.coord_transform import LocalNEDFrame
+from .types import (
+    ClockMode,
+    FleetStatus,
+    VehicleState,
+    VehicleStatus,  # IntegratedAirMobilityService.status() 의 반환 typing 위해 노출
+    parse_hhmmss_to_s as _parse_hhmmss_to_s,
+    s_to_hhmmss as _s_to_hhmmss,
+)
+from .vehicle_session import VehicleSession
 
 logger = logging.getLogger(__name__)
 
@@ -58,208 +55,9 @@ PUBLISH_HZ = 10.0
 PUBLISH_PERIOD_S = 1.0 / PUBLISH_HZ
 
 
-class ClockMode(str, Enum):
-    EXTERNAL = "external"   # 외부에서 feed_time_* 호출
-    WALL = "wall"           # 내부 실시간 시계
-    MANUAL = "manual"       # step_once(t) 를 직접 호출
-
-
-class VehicleState(str, Enum):
-    WAITING = "waiting"     # etot 이전 (또는 plan 방금 등록)
-    ACTIVE = "active"       # engine 실행 중, 4001 송출 중
-    COMPLETED = "completed" # 궤적 끝
-    ERROR = "error"
-
-
-@dataclass
-class VehicleStatus:
-    vehicle_id: str
-    flight_plan_number: int
-    state: VehicleState
-    etot_s: float
-    elapsed_s: float
-    total_duration_s: float
-    last_point: Optional[Dict[str, Any]] = None
-    last_error: str = ""
-
-
-@dataclass
-class FleetStatus:
-    clock_mode: str
-    running: bool
-    publisher_connected: bool
-    publisher_error: str
-    sim_time_s: float
-    sim_time_hms: str
-    vehicles: List[VehicleStatus] = field(default_factory=list)
-    rx_3001_count: int = 0      # 수신한 3001 메시지 누적
-    rx_0003_count: int = 0      # 수신한 0003 메시지 누적
-    last_rx_3001: str = ""       # 가장 최근 3001 간략 정보
-    last_rx_0003: str = ""       # 가장 최근 0003 simTime
-    rx_2002_count: int = 0
-    rx_3002_count: int = 0
-    rx_3003_count: int = 0
-    last_rx_2002: str = ""
-    last_rx_3002: str = ""
-    last_rx_3003: str = ""
-    last_heartbeat_error: str = ""
-
-
-def _parse_hhmmss_to_s(text: str) -> float:
-    parts = str(text).split(":")
-    if len(parts) != 3:
-        raise ValueError(f"expected HH:MM:SS, got {text!r}")
-    h, m, s = parts
-    return float(int(h) * 3600 + int(m) * 60 + float(s))
-
-
-def _s_to_hhmmss(total_s: float) -> str:
-    total = max(0.0, float(total_s))
-    h = int(total // 3600) % 24
-    m = int((total % 3600) // 60)
-    s = int(total) % 60
-    return f"{h:02d}:{m:02d}:{s:02d}"
-
-
-def _departure_origin_frame(plan: FlightPlan) -> LocalNEDFrame:
-    """첫 세그먼트의 start_lla 를 NED 원점으로 사용."""
-    if plan.en_route:
-        start = plan.en_route[0].start_lla
-        return LocalNEDFrame(origin_lat=start.lat, origin_lon=start.lon, origin_alt_m=start.alt)
-    return LocalNEDFrame(origin_lat=0.0, origin_lon=0.0, origin_alt_m=0.0)
-
-
-class VehicleSession:
-    """한 비행체의 엔진 + 컨텍스트 + 상태를 관리."""
-
-    def __init__(
-        self,
-        plan: FlightPlan,
-        *,
-        config: SimulationConfig,
-        wind_seed: int = 20260121,
-        month: int = 4,
-    ) -> None:
-        self.plan = plan
-        self.config = config
-        self.wind_seed = int(wind_seed)
-        self.month = int(month)
-
-        self.state: VehicleState = VehicleState.WAITING
-        self.last_error: str = ""
-        self.last_point: Optional[FlightTrajectoryPoint] = None
-        self.last_payload: Optional[Dict[str, Any]] = None
-        self.elapsed_s: float = 0.0
-        self.engine: Optional[DynamicsEngine] = None
-        self.origin_frame: LocalNEDFrame = _departure_origin_frame(plan)
-        self.context: VehiclePublishContext = VehiclePublishContext(
-            vehicle_id=plan.aircraft_id,
-            flight_plan_number=int(plan.flight_plan_number),
-            origin_frame=self.origin_frame,
-            departure_vertiport=str(plan.departure.vertiport),
-            departure_gate=str(plan.departure.dep_gate_number),
-            arrival_vertiport=str(plan.arrival.vertiport),
-            arrival_gate=str(plan.arrival.arr_gate_number),
-        )
-
-        try:
-            self.etot_s: float = _parse_hhmmss_to_s(plan.departure.etot)
-        except Exception as exc:
-            self.etot_s = 0.0
-            self.last_error = f"etot parse failed: {exc}"
-            self.state = VehicleState.ERROR
-
-    @property
-    def aircraft_id(self) -> str:
-        return self.plan.aircraft_id
-
-    @property
-    def flight_plan_number(self) -> int:
-        return int(self.plan.flight_plan_number)
-
-    def _ensure_engine(self) -> None:
-        if self.engine is not None:
-            return
-        try:
-            seg_profiles, proj = build_segment_profiles(self.plan, self.config)
-            kinematics = build_kinematics(seg_profiles, self.config)
-            wind: Optional[WindModel] = None
-            if self.config.wind_enabled:
-                parts = self.plan.departure.etot.split(":")
-                start_hour = int(parts[0]) + int(parts[1]) / 60.0
-                wind = WindModel(
-                    seed=self.wind_seed,
-                    time_speed=self.config.wind_time_speed,
-                    preset=self.config.wind_preset,
-                    start_local_hour=start_hour,
-                )
-            self.engine = DynamicsEngine(
-                segments=seg_profiles,
-                kinematics=kinematics,
-                proj=proj,
-                config=self.config,
-                wind_model=wind,
-                start_clock=self.plan.departure.etot,
-                month=self.month,
-            )
-        except Exception as exc:
-            self.state = VehicleState.ERROR
-            self.last_error = f"engine init failed: {type(exc).__name__}: {exc}"
-            logger.exception("engine init failed for %s", self.aircraft_id)
-
-    def advance(self, sim_time_s: float) -> Optional[FlightTrajectoryPoint]:
-        """sim_time_s 가 etot 이상이면 engine.tick() 을 1회 전진시킨다."""
-        if self.state == VehicleState.COMPLETED:
-            return None
-        if self.state == VehicleState.ERROR:
-            return None
-        if sim_time_s + 1e-6 < self.etot_s:
-            return None
-
-        self._ensure_engine()
-        if self.engine is None:
-            return None
-
-        if self.state == VehicleState.WAITING:
-            self.state = VehicleState.ACTIVE
-
-        point = self.engine.tick()
-        if point is None:
-            self.state = VehicleState.COMPLETED
-            return None
-        self.last_point = point
-        self.elapsed_s = float(getattr(self.engine, "current_time", point.time_s))
-        if bool(getattr(self.engine, "is_finished", False)):
-            self.state = VehicleState.COMPLETED
-        return point
-
-    def status(self) -> VehicleStatus:
-        total = 0.0
-        if self.engine is not None:
-            total = float(getattr(self.engine, "total_time_s", 0.0))
-        last_pt_dict: Optional[Dict[str, Any]] = None
-        if self.last_payload is not None:
-            pos = self.last_payload.get("position") or {}
-            gps = self.last_payload.get("gps") or {}
-            last_pt_dict = {
-                "lat": gps.get("latitude"),
-                "lon": gps.get("longitude"),
-                "alt_m": gps.get("altitude"),
-                "north": pos.get("north"),
-                "east": pos.get("east"),
-                "down": pos.get("down"),
-                "waypoint_id": self.last_payload.get("currentWaypointId"),
-            }
-        return VehicleStatus(
-            vehicle_id=self.aircraft_id,
-            flight_plan_number=self.flight_plan_number,
-            state=self.state,
-            etot_s=float(self.etot_s),
-            elapsed_s=float(self.elapsed_s),
-            total_duration_s=float(total),
-            last_point=last_pt_dict,
-            last_error=self.last_error,
-        )
+# ClockMode / VehicleState / VehicleStatus / FleetStatus → services/types.py
+# VehicleSession (+ _departure_origin_frame, parse_hhmmss_to_s, s_to_hhmmss) →
+#   services/vehicle_session.py 및 services/types.py
 
 
 class IntegratedAirMobilityService(VehicleModule):
