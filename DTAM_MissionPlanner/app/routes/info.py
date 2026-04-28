@@ -4,6 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
+from .. import server
 from ..config import (
     DEFAULT_CENTER_LAT,
     DEFAULT_CENTER_LON,
@@ -11,14 +12,14 @@ from ..config import (
     DEM_MAX_ZOOM,
     DEM_TILE_SIZE,
 )
-from .. import server
+from ..state import state
 
 router = APIRouter()
 
 
 @router.get("/api/config")
 async def get_config() -> JSONResponse:
-    info = server.mbtiles.info if server.mbtiles else None
+    info = state.mbtiles.info if state.mbtiles else None
     bounds = list(info.bounds) if info and info.bounds else None
     return JSONResponse({
         "center": [DEFAULT_CENTER_LON, DEFAULT_CENTER_LAT],
@@ -29,7 +30,7 @@ async def get_config() -> JSONResponse:
         "tileUrl": "/tiles/{z}/{x}/{y}.pbf",
         "demUrl": "/dem/{z}/{x}/{y}.png",
         "dem": {
-            "enabled": bool(server.dem_provider and server.dem_provider.available),
+            "enabled": bool(state.dem_provider and state.dem_provider.available),
             "tileUrl": "/dem/{z}/{x}/{y}.png",
             "tileSize": DEM_TILE_SIZE,
             "maxZoom": DEM_MAX_ZOOM,
@@ -42,8 +43,8 @@ async def get_config() -> JSONResponse:
             "buildingZoomThreshold": 13.5,
         },
         "dtam": (
-            server.mission_service.describe()
-            if server.mission_service is not None
+            state.mission_service.describe()
+            if state.mission_service is not None
             else {"ready": False, "last_error": "service not initialised"}
         ),
     })
@@ -51,10 +52,10 @@ async def get_config() -> JSONResponse:
 
 @router.get("/api/vertiports")
 async def get_vertiports() -> JSONResponse:
-    if server.route_planner is None:
+    if state.route_planner is None:
         return JSONResponse([])
     result = []
-    for port in server.route_planner.ports.values():
+    for port in state.route_planner.ports.values():
         result.append({
             "name": port.name,
             "lat": port.lat,
@@ -72,10 +73,10 @@ async def get_vertiports() -> JSONResponse:
 
 @router.get("/api/waypoints")
 async def get_waypoints() -> JSONResponse:
-    if server.route_planner is None:
+    if state.route_planner is None:
         return JSONResponse([])
     result = []
-    for wp in server.route_planner.waypoints.values():
+    for wp in state.route_planner.waypoints.values():
         result.append({
             "name": wp.name,
             "lat": wp.lat,
@@ -90,7 +91,7 @@ async def get_waypoints() -> JSONResponse:
 
 @router.get("/api/elevation")
 async def get_elevation(lon: float, lat: float) -> JSONResponse:
-    available = bool(server.dem_provider and getattr(server.dem_provider, "available", False))
+    available = bool(state.dem_provider and getattr(state.dem_provider, "available", False))
     ground_m = server._sample_ground_optional_m(lon, lat) if available else None
     return JSONResponse({
         "lon": lon,

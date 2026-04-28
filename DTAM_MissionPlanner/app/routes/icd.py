@@ -1,19 +1,21 @@
 """ICD 3001 export / save / open-folder 라우트."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
 from .. import server
+from ..deps import get_mission_service
+from ..services.mission_service import MissionService
 
 router = APIRouter(prefix="/api/mission/icd")
 
 
 @router.post("/export")
-async def export_mission_icd(request: Request) -> JSONResponse:
-    svc = server.mission_service
-    if svc is None:
-        return JSONResponse({"error": "MissionService not ready"}, status_code=500)
+async def export_mission_icd(
+    request: Request,
+    svc: MissionService = Depends(get_mission_service),
+) -> JSONResponse:
     body = await request.json()
     try:
         if svc.looks_like_icd_record(body) or svc.looks_like_icd_record_list(body):
@@ -26,10 +28,10 @@ async def export_mission_icd(request: Request) -> JSONResponse:
 
 
 @router.post("/save")
-async def save_mission_icd(request: Request) -> JSONResponse:
-    svc = server.mission_service
-    if svc is None:
-        return JSONResponse({"error": "DTAM sender not ready"}, status_code=500)
+async def save_mission_icd(
+    request: Request,
+    svc: MissionService = Depends(get_mission_service),
+) -> JSONResponse:
     body = await request.json()
     try:
         if svc.looks_like_icd_record(body) or svc.looks_like_icd_record_list(body):

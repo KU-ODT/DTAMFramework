@@ -4,16 +4,16 @@ from __future__ import annotations
 from fastapi import APIRouter
 from fastapi.responses import Response
 
-from .. import server   # 공유 싱글턴 (mbtiles, dem_provider) 접근
+from ..state import state
 
 router = APIRouter()
 
 
 @router.get("/tiles/{z}/{x}/{y}.pbf")
 async def get_tile(z: int, x: int, y: int) -> Response:
-    if server.mbtiles is None:
+    if state.mbtiles is None:
         return Response(status_code=404)
-    data = server.mbtiles.get_tile(z, x, y)
+    data = state.mbtiles.get_tile(z, x, y)
     if data is None:
         return Response(status_code=204)
     headers = {
@@ -28,9 +28,9 @@ async def get_tile(z: int, x: int, y: int) -> Response:
 
 @router.get("/dem/{z}/{x}/{y}.png")
 async def get_dem_tile(z: int, x: int, y: int) -> Response:
-    if server.dem_provider is None or not server.dem_provider.available:
+    if state.dem_provider is None or not state.dem_provider.available:
         return Response(status_code=404)
-    data = server.dem_provider.get_tile(z, x, y)
+    data = state.dem_provider.get_tile(z, x, y)
     if data is None:
         return Response(status_code=204)
     return Response(

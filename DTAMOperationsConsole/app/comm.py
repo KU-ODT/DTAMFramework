@@ -1,14 +1,16 @@
-"""Operations Console DTAM 통신 layer.
+"""Operations Console REST facade for DTAM.
 
-WebSocket (heartbeat / 수신) 은 ``MonitoringComm(DtamModule)`` 클래스로,
-ICD 단발 송신 / 서버 조회 / 프로세스 제어는 REST facade 함수들로 분리.
+WebSocket lifecycle (``MonitoringService``) lives in ``app.lifespan`` —
+attached to ``app.state.monitoring_service`` and accessed via
+``app.deps.get_monitoring_service`` (FastAPI ``Depends``). 이 파일은 REST
+facade 만 담당:
 
-- WS: ``MonitoringComm`` — 0002 heartbeat 자동 + 향후 @on_receive 핸들러 자리
-- REST: ``send_icd_command`` (POST /api/msg/{mid}), ``get_registry_snapshot``,
-  ``control_module_process``
+- ``send_icd_command``        — POST /api/msg/{mid} (State Server)
+- ``get_registry_snapshot``   — GET  /api/state    (State Server)
+- ``control_module_process``  — POST /api/v1/process/{role}/{action} (Core)
 
 DTAM 자체는 WebSocket 단일 채널. REST 는 운영자가 Swagger UI 에서 단발
-명령을 보낼 때 쓰는 facade 일 뿐.
+명령을 보낼 때 쓰는 facade 일 뿐이다.
 """
 
 from __future__ import annotations
@@ -50,33 +52,6 @@ def _ensure_sdk_on_path() -> Path:
 
 def _server_ip() -> str:
     return os.environ.get("DTAM_TARGET_IP") or "127.0.0.1"
-
-
-# ── WebSocket service (다른 모듈들과 동일한 XxxService(XxxModule) 패턴) ──
-_service: Any = None  # MonitoringService 인스턴스
-
-
-def start_module_status_heartbeat() -> None:
-    """0002 module status 1Hz 자동 송신을 시작."""
-    global _service
-    if _service is not None:
-        return
-    _ensure_sdk_on_path()
-    from app.services.monitoring_service import MonitoringService  # type: ignore
-
-    _service = MonitoringService(target_ip=_server_ip(), ws_port=STATE_WS_PORT)
-
-
-def stop_module_status_heartbeat() -> None:
-    global _service
-    svc = _service
-    _service = None
-    if svc is None:
-        return
-    try:
-        svc.close()
-    except Exception:
-        pass
 
 
 # ── REST facade (Swagger UI 에서 운영자가 직접 호출) ──────────

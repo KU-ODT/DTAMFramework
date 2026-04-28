@@ -21,22 +21,35 @@ if str(dtam_sdk_root) not in sys.path:
 
 from app.routes_init_setup import api_router
 from app.config import settings
-from app.comm import (
-    start_module_status_heartbeat,
-    stop_module_status_heartbeat,
-)
 from app.routes.web import web_router
 from dtam_client.ports import find_available_tcp_port
 
 
+def _server_ip() -> str:
+    import os
+    return os.environ.get("DTAM_TARGET_IP") or "127.0.0.1"
+
+
 @asynccontextmanager
-async def lifespan(_: FastAPI):
+async def lifespan(app: FastAPI):
     settings.ensure_directories()
-    start_module_status_heartbeat()
+    # MonitoringService (0002 heartbeat 1Hz) 시작 — app.state 에 보관
+    from app.services.monitoring_service import MonitoringService
+
+    app.state.monitoring_service = MonitoringService(
+        target_ip=_server_ip(),
+        ws_port=8096,
+    )
     try:
         yield
     finally:
-        stop_module_status_heartbeat()
+        svc = getattr(app.state, "monitoring_service", None)
+        app.state.monitoring_service = None
+        if svc is not None:
+            try:
+                svc.close()
+            except Exception:
+                pass
 
 
 app = FastAPI(

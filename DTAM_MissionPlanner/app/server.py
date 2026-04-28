@@ -10,7 +10,6 @@ import asyncio
 import csv
 import json
 import math
-import os
 import re
 import subprocess
 from functools import lru_cache
@@ -32,8 +31,6 @@ from .config import (
     DEFAULT_CENTER_LAT,
     DEFAULT_CENTER_LON,
     DEFAULT_START_ZOOM,
-    DTAM_TARGET_IP,
-    DTAM_WS_PORT,
     MBTILES_PATH,
     WEB_DIR,
 )
@@ -48,24 +45,14 @@ from .domain.converter_tool import (
 from .services.mission_service import MissionService
 from .services.mbtiles import MBTiles
 from .services.route_planner import RoutePlanner
+from .state import state
 
-
-# ── 모듈 전역 싱글턴 (startup 이벤트에서 초기화) ────────────────────────────
-mbtiles: Optional[MBTiles] = None
-route_planner: Optional[RoutePlanner] = None
-dem_provider: Any = None
-mission_service: Optional[MissionService] = None
 
 MISSION_ICD_RESOURCE_CSV = DATA_DIR / "resources_vp.csv"
-settings: Dict[str, Any] = {
-    "dtam_target_ip": DTAM_TARGET_IP,
-    "dtam_ws_port": DTAM_WS_PORT,
-    "server_http_host": os.getenv("DTAM_MP_SERVER_HTTP_HOST", DTAM_TARGET_IP),
-    "server_http_port": int(os.getenv("DTAM_MP_SERVER_HTTP_PORT", "8095")),
-    "default_speed_mps": 30.0,
-    "default_altitude_m": 300.0,
-    "auto_plan_max_aircraft": int(os.getenv("DTAM_MP_AUTO_PLAN_MAX_AIRCRAFT", "8")),
-}
+# 런타임 상태 (mbtiles, route_planner, dem_provider, mission_service, settings) 는
+# app.state 모듈의 ``state`` 컨테이너 (싱글턴) 에 보관. helpers 와 routes 모두
+# 이 컨테이너를 단일 소스로 읽는다 — ``global`` 키워드 사용 없음.
+settings = state.settings  # 후방 호환 (기존 helpers 가 ``settings[...]`` 으로 읽는 코드)
 
 
 # ── 공통 유틸 (odt_mp 서버에서 그대로 가져옴) ──────────────────────────────
@@ -103,10 +90,11 @@ def _densify_route_points(
 
 
 def _sample_ground_optional_m(lon: float, lat: float) -> Optional[float]:
-    if dem_provider is None or not getattr(dem_provider, "available", False):
+    dem = state.dem_provider
+    if dem is None or not getattr(dem, "available", False):
         return None
     try:
-        value = dem_provider.sample_elevation(lon, lat)
+        value = dem.sample_elevation(lon, lat)
     except Exception:
         value = None
     return float(value) if value is not None else None
@@ -138,7 +126,7 @@ def _route_absolute_altitude_m(waypoints_with_alt: List[Dict[str, Any]]) -> floa
         for item in waypoints_with_alt
         if float(item.get("alt_m", 0) or 0) > 0
     ]
-    return max(settings["default_altitude_m"], max(waypoint_alts, default=0.0))
+    return max(state.settings["default_altitude_m"], max(waypoint_alts, default=0.0))
 
 
 def _build_route_point_payload(
@@ -458,8 +446,9 @@ def _append_arrival_touchdown(
 
 # ── HTTP utilities (CoreServer DB 조회) ──────────────────────────────────
 def _server_http_base() -> str:
-    host = str(settings.get("server_http_host") or settings.get("dtam_target_ip") or "127.0.0.1")
-    port = int(settings.get("server_http_port") or 8095)
+    s = state.settings
+    host = str(s.get("server_http_host") or s.get("dtam_target_ip") or "127.0.0.1")
+    port = int(s.get("server_http_port") or 8095)
     return f"http://{host}:{port}"
 
 
@@ -493,11 +482,11 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     async def startup() -> None:
-        global mbtiles, route_planner, dem_provider, mission_service
+        # 모든 런타임 상태는 ``state`` 컨테이너의 attribute 를 mutate — global 키워드 불필요.
         if MBTILES_PATH.exists():
-            mbtiles = MBTiles(MBTILES_PATH)
-            print(f"[DTAM MP] MBTiles loaded: {mbtiles.info.name} "
-                  f"(z{mbtiles.info.min_zoom}-{mbtiles.info.max_zoom})")
+            state.mbtiles = MBTiles(MBTILES_PATH)
+            print(f"[DTAM MP] MBTiles loaded: {state.mbtiles.info.name} "
+                  f"(z{state.mbtiles.info.min_zoom}-{state.mbtiles.info.max_zoom})")
         else:
             print(f"[DTAM MP] Warning: MBTiles not found at {MBTILES_PATH}")
 
@@ -505,43 +494,42 @@ def create_app() -> FastAPI:
         wp_csv = DATA_DIR / "waypoint_default.csv"
         if vp_csv.exists() and wp_csv.exists():
             try:
-                route_planner = RoutePlanner.from_csv(vp_csv, wp_csv)
+                state.route_planner = RoutePlanner.from_csv(vp_csv, wp_csv)
                 print(f"[DTAM MP] RoutePlanner loaded: "
-                      f"{len(route_planner.ports)} ports, "
-                      f"{len(route_planner.waypoints)} waypoints")
+                      f"{len(state.route_planner.ports)} ports, "
+                      f"{len(state.route_planner.waypoints)} waypoints")
             except Exception as exc:
                 print(f"[DTAM MP] RoutePlanner error: {exc}")
 
-
         try:
             from .services.dem import load_dem_provider
-            dem_provider = load_dem_provider(DEM_DIR, DEM_TILE_SIZE, DEM_MAX_ZOOM)
-            if dem_provider.available:
+            state.dem_provider = load_dem_provider(DEM_DIR, DEM_TILE_SIZE, DEM_MAX_ZOOM)
+            if state.dem_provider.available:
                 print("[DTAM MP] DEM provider loaded")
         except Exception as exc:
             print(f"[DTAM MP] DEM provider unavailable: {exc}")
 
         try:
-            mission_service = MissionService(
-                target_ip=str(settings["dtam_target_ip"]),
-                ws_port=int(settings.get("dtam_ws_port", 8096)),
-                route_planner=route_planner,
-                settings=settings,
+            state.mission_service = MissionService(
+                target_ip=str(state.settings["dtam_target_ip"]),
+                ws_port=int(state.settings.get("dtam_ws_port", 8096)),
+                route_planner=state.route_planner,
+                settings=state.settings,
                 resource_csv=MISSION_ICD_RESOURCE_CSV,
                 route_response_fn=_route_payload_response,
                 server_http_get_fn=_server_get_json,
             )
-            desc = mission_service.describe()
+            desc = state.mission_service.describe()
             print(f"[DTAM MP] DTAM sender ready → {desc['server_url']}")
         except Exception as exc:
             print(f"[DTAM MP] DTAM sender unavailable: {exc}")
 
     @app.on_event("shutdown")
     async def shutdown() -> None:
-        if mbtiles:
-            mbtiles.close()
-        if mission_service is not None:
-            mission_service.close()
+        if state.mbtiles:
+            state.mbtiles.close()
+        if state.mission_service is not None:
+            state.mission_service.close()
 
     # ── 라우터 등록 (도메인별로 routes/*.py 에 분리) ─────────────
     from .routes import (
@@ -581,12 +569,13 @@ def _route_payload_response(
     end: Any,
     result: Any,
 ) -> Dict[str, Any]:
+    rp = state.route_planner
     waypoints_with_alt: List[Dict[str, Any]] = []
     for name in result.path:
-        if route_planner is None:
+        if rp is None:
             break
-        if name in route_planner.ports:
-            p = route_planner.ports[name]
+        if name in rp.ports:
+            p = rp.ports[name]
             waypoints_with_alt.append(_build_route_waypoint(
                 name=name,
                 lat=p.lat,
@@ -595,8 +584,8 @@ def _route_payload_response(
                 alt_m=0.0,
                 waypoint_type="vertiport",
             ))
-        elif name in route_planner.waypoints:
-            w = route_planner.waypoints[name]
+        elif name in rp.waypoints:
+            w = rp.waypoints[name]
             payload = _build_route_waypoint(
                 name=name,
                 lat=w.lat,
@@ -609,7 +598,7 @@ def _route_payload_response(
             waypoints_with_alt.append(payload)
     route_alt_m = _route_absolute_altitude_m(waypoints_with_alt)
     route_payload = _append_arrival_touchdown(
-        route_planner=route_planner,  # type: ignore[arg-type]
+        route_planner=rp,  # type: ignore[arg-type]
         departure_name=str(start),
         arrival_name=str(end),
         waypoints_with_alt=waypoints_with_alt,

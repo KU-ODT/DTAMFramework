@@ -4,14 +4,14 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from .. import server
+from ..state import state
 
 router = APIRouter(prefix="/api/settings")
 
 
 @router.get("")
 async def get_settings() -> JSONResponse:
-    return JSONResponse(server.settings)
+    return JSONResponse(state.settings)
 
 
 @router.put("")
@@ -26,10 +26,10 @@ async def update_settings(request: Request) -> JSONResponse:
         if key in body:
             if key.startswith("dtam_"):
                 reconfigure_dtam = True
-            server.settings[key] = body[key]
-    if reconfigure_dtam and server.mission_service is not None:
-        server.mission_service.reconfigure(
-            target_ip=str(server.settings["dtam_target_ip"]),
-            ws_port=int(server.settings["dtam_ws_port"]),
+            state.settings[key] = body[key]
+    if reconfigure_dtam and state.mission_service is not None:
+        state.mission_service.reconfigure(
+            target_ip=str(state.settings["dtam_target_ip"]),
+            ws_port=int(state.settings["dtam_ws_port"]),
         )
-    return JSONResponse(server.settings)
+    return JSONResponse(state.settings)

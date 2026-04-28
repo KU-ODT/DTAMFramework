@@ -1,18 +1,18 @@
 """FastAPI app factory — DTAMAirMobility dashboard."""
 from __future__ import annotations
 
-import json
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import Body, FastAPI, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import Body, Depends, FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
+from .deps import get_service
 from .services.integrated_service import ClockMode, IntegratedAirMobilityService
 
 logger = logging.getLogger(__name__)
@@ -63,19 +63,24 @@ def _status_to_dict(service: IntegratedAirMobilityService) -> Dict[str, Any]:
 
 
 def create_app(service: Optional[IntegratedAirMobilityService] = None) -> FastAPI:
-    """Create the FastAPI app. `service` 가 None 이면 기본값으로 새로 생성."""
-    svc = service or IntegratedAirMobilityService(
-        target_ip="127.0.0.1",
-        ws_port=8096,
-    )
+    """Create the FastAPI app. ``service`` 가 None 이면 기본값으로 새로 생성."""
 
     @asynccontextmanager
-    async def lifespan(_: FastAPI):
-        yield
+    async def lifespan(app: FastAPI):
+        app.state.service = service or IntegratedAirMobilityService(
+            target_ip="127.0.0.1",
+            ws_port=8096,
+        )
         try:
-            svc.close()
-        except Exception:
-            pass
+            yield
+        finally:
+            svc = getattr(app.state, "service", None)
+            app.state.service = None
+            if svc is not None:
+                try:
+                    svc.close()
+                except Exception:
+                    pass
 
     app = FastAPI(
         title="DTAMAirMobility",
@@ -83,7 +88,6 @@ def create_app(service: Optional[IntegratedAirMobilityService] = None) -> FastAP
         version="0.1.0",
         lifespan=lifespan,
     )
-    app.state.service = svc
 
     templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 
@@ -96,11 +100,16 @@ def create_app(service: Optional[IntegratedAirMobilityService] = None) -> FastAP
             return templates.TemplateResponse("index.html", {"request": request})
 
     @app.get("/api/status")
-    async def api_status() -> Dict[str, Any]:
+    async def api_status(
+        svc: IntegratedAirMobilityService = Depends(get_service),
+    ) -> Dict[str, Any]:
         return _status_to_dict(svc)
 
     @app.post("/api/publisher")
-    async def api_publisher(body: Dict[str, Any] = Body(default_factory=dict)) -> Dict[str, Any]:
+    async def api_publisher(
+        body: Dict[str, Any] = Body(default_factory=dict),
+        svc: IntegratedAirMobilityService = Depends(get_service),
+    ) -> Dict[str, Any]:
         svc.reconfigure_publisher(
             target_ip=body.get("target_ip"),
             ws_port=int(body["ws_port"]) if body.get("ws_port") is not None else None,
@@ -108,7 +117,10 @@ def create_app(service: Optional[IntegratedAirMobilityService] = None) -> FastAP
         return _status_to_dict(svc)
 
     @app.post("/api/plans")
-    async def api_add_plan(body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    async def api_add_plan(
+        body: Dict[str, Any] = Body(...),
+        svc: IntegratedAirMobilityService = Depends(get_service),
+    ) -> Dict[str, Any]:
         """body 는 비행계획 JSON (단일 object 또는 list)."""
         try:
             ids = svc.add_plans_from_json(body)
@@ -117,7 +129,10 @@ def create_app(service: Optional[IntegratedAirMobilityService] = None) -> FastAP
         return {"added": ids, "status": _status_to_dict(svc)}
 
     @app.post("/api/plans/batch")
-    async def api_add_plans_batch(body: List[Dict[str, Any]] = Body(...)) -> Dict[str, Any]:
+    async def api_add_plans_batch(
+        body: List[Dict[str, Any]] = Body(...),
+        svc: IntegratedAirMobilityService = Depends(get_service),
+    ) -> Dict[str, Any]:
         """브라우저에서 파일을 읽어 여러 플랜을 한번에 등록."""
         added_all: List[str] = []
         errors: List[str] = []
@@ -129,19 +144,27 @@ def create_app(service: Optional[IntegratedAirMobilityService] = None) -> FastAP
         return {"added": added_all, "errors": errors, "status": _status_to_dict(svc)}
 
     @app.delete("/api/plans/{vehicle_id}")
-    async def api_remove_plan(vehicle_id: str) -> Dict[str, Any]:
+    async def api_remove_plan(
+        vehicle_id: str,
+        svc: IntegratedAirMobilityService = Depends(get_service),
+    ) -> Dict[str, Any]:
         ok = svc.remove_plan(vehicle_id)
         if not ok:
             raise HTTPException(status_code=404, detail=f"unknown vehicle: {vehicle_id}")
         return _status_to_dict(svc)
 
     @app.delete("/api/plans")
-    async def api_clear_plans() -> Dict[str, Any]:
+    async def api_clear_plans(
+        svc: IntegratedAirMobilityService = Depends(get_service),
+    ) -> Dict[str, Any]:
         svc.clear_plans()
         return _status_to_dict(svc)
 
     @app.post("/api/clock/mode")
-    async def api_clock_mode(body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    async def api_clock_mode(
+        body: Dict[str, Any] = Body(...),
+        svc: IntegratedAirMobilityService = Depends(get_service),
+    ) -> Dict[str, Any]:
         mode = body.get("mode")
         try:
             svc.set_clock_mode(ClockMode(str(mode)))
@@ -150,7 +173,10 @@ def create_app(service: Optional[IntegratedAirMobilityService] = None) -> FastAP
         return _status_to_dict(svc)
 
     @app.post("/api/clock/feed")
-    async def api_feed_time(body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    async def api_feed_time(
+        body: Dict[str, Any] = Body(...),
+        svc: IntegratedAirMobilityService = Depends(get_service),
+    ) -> Dict[str, Any]:
         hms = body.get("hms")
         sec = body.get("seconds")
         try:
@@ -165,7 +191,10 @@ def create_app(service: Optional[IntegratedAirMobilityService] = None) -> FastAP
         return _status_to_dict(svc)
 
     @app.post("/api/clock/step")
-    async def api_step_once(body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    async def api_step_once(
+        body: Dict[str, Any] = Body(...),
+        svc: IntegratedAirMobilityService = Depends(get_service),
+    ) -> Dict[str, Any]:
         hms = body.get("hms")
         sec = body.get("seconds")
         try:
@@ -182,7 +211,10 @@ def create_app(service: Optional[IntegratedAirMobilityService] = None) -> FastAP
         return _status_to_dict(svc)
 
     @app.post("/api/service/start")
-    async def api_start(body: Dict[str, Any] = Body(default_factory=dict)) -> Dict[str, Any]:
+    async def api_start(
+        body: Dict[str, Any] = Body(default_factory=dict),
+        svc: IntegratedAirMobilityService = Depends(get_service),
+    ) -> Dict[str, Any]:
         mode = body.get("mode")
         if mode:
             try:
@@ -193,7 +225,9 @@ def create_app(service: Optional[IntegratedAirMobilityService] = None) -> FastAP
         return _status_to_dict(svc)
 
     @app.post("/api/service/stop")
-    async def api_stop() -> Dict[str, Any]:
+    async def api_stop(
+        svc: IntegratedAirMobilityService = Depends(get_service),
+    ) -> Dict[str, Any]:
         svc.stop()
         return _status_to_dict(svc)
 
