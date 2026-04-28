@@ -75,25 +75,53 @@ class MyVehicleService(VehicleModule):
 Override 안 하면 silent drop. import 시점에 `subscriptions_for(role)` 와의
 일치 자동 검증 (drift 발생 시 `AssertionError`).
 
-### 서브클래스 `@on_receive` 데코레이터 — 가독성용 (선택, 권장)
+### 핸들러 작성 — 3가지 방식 모두 지원
 
-베이스가 mid 매핑을 이미 보유하므로 서브클래스에서 데코레이터를 다시
-적지 않아도 동작한다. 하지만 가독성을 위해 권장한다 — 이 함수가
-어떤 mid 를 처리하는지 함수 정의 위에 바로 보임.
+서브클래스 작성자는 다음 3가지 중 마음에 드는 걸 쓸 수 있다.
+
+#### A. 같은 이름으로 override (데코레이터 생략) — 가장 짧음
 
 ```python
 class MissionService(MissionModule):
-    @on_receive("2001")        # ← 가독성용 (생략 가능)
+    def on_flight_plan_request(self, msg):       # 베이스의 stub 을 override
+        ...
+```
+
+베이스가 이미 `@on_receive("2001")` 매핑을 보유 → 자동 라우팅.
+
+#### B. 같은 이름으로 override + 데코레이터 명시 — 가독성 ★ 권장
+
+```python
+class MissionService(MissionModule):
+    @on_receive("2001")                          # 어떤 mid 인지 한눈에
     def on_flight_plan_request(self, msg):
         ...
 ```
 
-규칙:
-- 서브클래스 데코레이터의 mid 는 **반드시 베이스의 mid 와 일치**.
-  불일치 시 인스턴스 생성 시점에 `TypeError` (잘못된 mid 가 silent
-  하게 등록되는 footgun 방지).
-- mid 와 메서드 이름 모두 베이스를 따른다 — 다른 이름을 쓰면 라우팅
-  되지 않음 (베이스 stub 이 그대로 활성).
+베이스 mid 와 일치 검증됨 (불일치 시 `TypeError`).
+
+#### C. 자유로운 이름 + 데코레이터 — 도메인 친화 이름
+
+```python
+class MissionService(MissionModule):
+    @on_receive("2001")
+    def handle_flight_plan_request_from_ops(self, msg):   # 마음대로 짓기
+        ...
+```
+
+이 경우 베이스의 `on_flight_plan_request` stub 은 dormant (호출 안 됨).
+가장 derived 한 데코레이트 메서드가 mid 의 owner.
+
+#### 공통 규칙
+
+- 한 mid 는 한 메서드만 owner 가능 — 같은 클래스 안에서 두 메서드가
+  같은 mid 면 `TypeError`.
+- 같은 메서드 이름이 베이스와 서브클래스 양쪽에서 데코레이트돼 있고
+  mid 가 다르면 `TypeError` (footgun 방지).
+- 라우팅되는 mid 는 결국 role 의 `FORWARD_RULES` 에 의해 결정됨 —
+  서브클래스가 다른 mid 를 데코레이트해도 서버가 forward 안 하면 호출
+  자체가 없다 (역할 추가/변경은 SDK 의 role base 와 FORWARD_RULES 갱신
+  후 반영).
 
 ## 2. 표준 폴더 구조
 

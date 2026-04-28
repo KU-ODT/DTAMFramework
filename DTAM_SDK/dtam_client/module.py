@@ -239,55 +239,59 @@ class DtamModule:
 
     # ── @on_receive 자동 등록 ─────────────────────────────────
     def _auto_register_handlers(self) -> None:
-        """클래스 MRO 를 따라 @on_receive 데코레이터를 찾고, 각 mid 별로
-        가장 derived 한 구현을 등록한다.
+        """클래스 MRO 를 따라 ``@on_receive`` 데코레이터를 찾아 mid → method
+        매핑을 만들고 dispatch 한다.
 
-        규칙:
-          1. 서브클래스가 데코레이터 없이 메서드를 override 해도 정상 동작 —
-             base 의 데코레이터로 mid 가 결정되고, ``getattr(self, name)`` 이
-             MRO 를 따라 가장 derived 한 bound method 를 반환한다.
-          2. 가독성을 위해 서브클래스가 같은 메서드에 ``@on_receive`` 를 다시
-             적어도 OK — 단, base 의 mid 와 **반드시 일치** 해야 한다. 일치
-             하지 않으면 ``TypeError`` (실수로 잘못된 mid 가 silent 하게
-             등록되는 footgun 방지).
-          3. 한 mid 는 한 메서드만 처리 가능. 두 메서드가 같은 mid 를 들고
-             있으면 ``TypeError``.
+        규칙 (MRO 를 subclass → base 순서로 워크):
+          1. 같은 이름으로 데코레이터 없이 override — base 의 mid 매핑이
+             그대로 적용, ``getattr(self, name)`` 이 derived 메서드를 반환.
+          2. 같은 이름으로 ``@on_receive`` 를 다시 적어도 OK — 가독성용. 단
+             base 와 **mid 가 일치** 해야 한다. 불일치 시 ``TypeError``.
+          3. **자유로운 이름** + ``@on_receive("MID")`` 도 OK — 가장 derived
+             한 쪽이 mid 의 owner 가 되고, base stub 은 dormant (호출 안됨).
+             예: ``MissionService`` 가 ``on_flight_plan_request`` 대신
+             ``handle_2001`` 로 짓고 ``@on_receive("2001")`` 만 달면 됨.
+          4. **같은 클래스 안에서** 두 메서드가 같은 mid 면 ``TypeError``.
+          5. 같은 이름이 derived 와 base 양쪽에서 데코레이트돼 있고 mid 가
+             다르면 ``TypeError`` (footgun 방지).
 
-        역할별 base class (``MissionModule`` 등) 의 stub 들이 ``FORWARD_RULES``
-        와 import 시점에 검증되므로, 서브클래스의 override 이름이 base 와
-        다르면 라우팅되지 않음에 주의 (그건 의도된 동작 — role 변경에 해당).
+        역할별 base class (``MissionModule`` 등) 의 stub 집합은
+        ``_validate_role_base`` 가 import 시점에 ``FORWARD_RULES`` 와 일치하는지
+        검증한다. 서브클래스가 추가 mid 를 받고 싶다면 다른 role base 를
+        써야 한다 (FORWARD_RULES 가 그 mid 를 forward 해주지 않으면 호출
+        자체가 안 됨).
         """
-        # 1차 패스: MRO 를 subclass → base 순으로 돌면서 method-name → mid
-        # 매핑을 모은다. 가장 derived 가 우선, base 의 stub 과 mid 가 다르면
-        # 즉시 에러.
-        method_to_mid: Dict[str, str] = {}
+        mid_to_name: Dict[str, str] = {}    # mid → 가장 derived 한 method name
+        name_to_mid: Dict[str, str] = {}    # name → mid (mismatch 검사용)
+
         for klass in type(self).__mro__:
             if klass is object:
                 break
+            per_class: Dict[str, str] = {}   # mid → name (이 클래스 내부만)
             for name, method in vars(klass).items():
                 mid = getattr(method, DECORATOR_TAG, None)
                 if not mid:
                     continue
-                if name in method_to_mid:
-                    if method_to_mid[name] != mid:
-                        raise TypeError(
-                            f"{type(self).__name__}.{name}: subclass declares "
-                            f"@on_receive({method_to_mid[name]!r}) but base declares "
-                            f"@on_receive({mid!r}). Mids must match — fix the "
-                            f"subclass decorator or remove it (base's is enough)."
-                        )
-                    continue  # 같은 mid 의 redundant decorator — OK
-                method_to_mid[name] = mid
+                # 같은 클래스 안에서의 mid 중복
+                if mid in per_class:
+                    raise TypeError(
+                        f"{klass.__name__}: duplicate @on_receive({mid!r}) on "
+                        f"both {per_class[mid]} and {name}. Each mid can have only one handler."
+                    )
+                per_class[mid] = name
+                # 같은 이름이 MRO 위·아래에 데코레이트돼 있으면 mid 일치 강제
+                if name in name_to_mid and name_to_mid[name] != mid:
+                    raise TypeError(
+                        f"{type(self).__name__}.{name}: subclass declares "
+                        f"@on_receive({name_to_mid[name]!r}) but base declares "
+                        f"@on_receive({mid!r}). Mids must match — fix the "
+                        f"subclass decorator or remove it (base's is enough)."
+                    )
+                name_to_mid.setdefault(name, mid)
+                # 가장 derived 가 mid 의 owner 가 됨 (이미 등록된 mid 는 skip)
+                mid_to_name.setdefault(mid, name)
 
-        # 2차 패스: 등록. mid 중복 검사 + 가장 derived 한 bound method 사용.
-        seen_mids: Dict[str, str] = {}
-        for name, mid in method_to_mid.items():
-            if mid in seen_mids:
-                raise TypeError(
-                    f"{type(self).__name__}: duplicate @on_receive({mid!r}) on "
-                    f"both {seen_mids[mid]} and {name}. Each mid can have only one handler."
-                )
-            seen_mids[mid] = name
+        for mid, name in mid_to_name.items():
             bound_method = getattr(self, name)
             self._ws.on(mid, self._make_dispatcher(mid, bound_method))
 
