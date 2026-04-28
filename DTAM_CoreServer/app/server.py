@@ -51,19 +51,17 @@ def create_app(config: ServerConfig) -> FastAPI:
             "  [라이브 모니터](http://127.0.0.1:8096/)\n\n"
             "### 이 서비스의 endpoint 분류\n"
             "- `GET  /api/icd*` — ICD 문서/Phase 메타\n"
-            "- `GET  /api/sequence-diagram` — 시퀀스 다이어그램 JSON\n"
             "- `POST /api/v1/process/{role}/{start|stop}` — 모듈 프로세스 라이프사이클\n"
+            "  (시퀀스 다이어그램은 SimulationState `/docs/sequence` 에 있음)\n"
         ),
         openapi_tags=_build_tags_metadata(),
     )
 
     # ── 라우터 등록 ──────────────────────────────────────────
     from .routes.icd import router as icd_router
-    from .routes.sequence import router as sequence_router
     from .routes.process import router as process_router, _process_heartbeat_loop
 
     app.include_router(icd_router)
-    app.include_router(sequence_router)
     app.include_router(process_router, prefix="/api/v1/process")
 
     # 임시 편의 기능: 백그라운드에서 State Server를 자동으로 켜기
@@ -140,7 +138,7 @@ _ADMIN_INDEX_HTML = """<!DOCTYPE html>
     <div class="row"><div class="label">ICD 문서 목록</div>
       <div><a href="/api/icd">/api/icd</a></div></div>
     <div class="row"><div class="label">시퀀스 다이어그램</div>
-      <div><a href="http://127.0.0.1:8096/api/sequence-diagram?lang=ko" target="_blank">8096/api/sequence-diagram</a></div></div>
+      <div><a href="http://127.0.0.1:8096/docs/sequence" target="_blank">8096/docs/sequence</a> (Phase 별 메시지 흐름)</div></div>
 
     <div class="links">
       <a href="/api/v1/process/mission/start" onclick="event.preventDefault(); fetch(this.href,{method:'POST'}).then(r=>r.json()).then(d=>alert(JSON.stringify(d)))">▶ Start mission</a>
