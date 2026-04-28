@@ -1,9 +1,0 @@
-{
-  "timestamp": "2026-04-22T10:48:35.746Z",
-  "operationMode": "single",
-  "singleFlight": {
-    "vehicleSimType": {
-      "dynamics": "simple"
-    }
-  }
-}

@@ -3,7 +3,6 @@ from .model.config import *  # noqa: F401,F403
 from .model.message import *  # noqa: F401,F403
 from .model.config import (  # noqa: F401 — DSE_main.py 에서 직접 import
     DEFAULT_CONFIG_FILE,
-    DEFAULT_DB_ROOT,
     DTAM_SDK_ROOT,
     FRAMEWORK_ROOT,
     ModuleEndpoint,

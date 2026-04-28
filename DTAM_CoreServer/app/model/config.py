@@ -7,7 +7,6 @@ ServerConfig, ModuleEndpoint 등 데이터 클래스 + load_config().
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -18,7 +17,6 @@ from .message import MODULE_ROLES
 ROOT_DIR = Path(__file__).resolve().parents[2]          # DTAM_CoreServer/
 FRAMEWORK_ROOT = ROOT_DIR.parent                         # DTAMFramework/
 DTAM_SDK_ROOT = FRAMEWORK_ROOT / "DTAM_SDK"
-DEFAULT_DB_ROOT = FRAMEWORK_ROOT / "DB"
 ICD_DIR = DTAM_SDK_ROOT / "dtam_client" / "icd"
 # (라이브 모니터 web 자산은 DTAM_SimulationState/app/web/ 으로 이전됨)
 
@@ -42,7 +40,6 @@ class ServerConfig:
     server: ServerEndpoint = field(default_factory=ServerEndpoint)
     gui_host: str = "127.0.0.1"
     gui_port: int = 8095
-    db_root: Path = field(default_factory=lambda: DEFAULT_DB_ROOT)
     heartbeat_timeout_s: float = 3.5
     modules: List[ModuleEndpoint] = field(default_factory=list)
 
@@ -51,7 +48,6 @@ class ServerConfig:
             "server": asdict(self.server),
             "gui_host": self.gui_host,
             "gui_port": self.gui_port,
-            "db_root": str(self.db_root),
             "heartbeat_timeout_s": self.heartbeat_timeout_s,
             "modules": [asdict(m) for m in self.modules],
         }
@@ -83,18 +79,6 @@ def load_config(path: Optional[Path] = None) -> ServerConfig:
     gui_host = str(raw.get("gui_host", "127.0.0.1"))
     gui_port = int(raw.get("gui_port", 8095))
 
-    db_root_env = os.environ.get("DTAM_DSE_DB_ROOT")
-    if db_root_env:
-        db_root = Path(db_root_env)
-    else:
-        raw_db = raw.get("db_root")
-        if raw_db:
-            db_root = Path(raw_db)
-            if not db_root.is_absolute():
-                db_root = (cfg_path.parent / db_root).resolve()
-        else:
-            db_root = DEFAULT_DB_ROOT
-
     heartbeat_timeout_s = float(raw.get("heartbeat_timeout_s", 3.5))
 
     modules: List[ModuleEndpoint] = []
@@ -116,6 +100,6 @@ def load_config(path: Optional[Path] = None) -> ServerConfig:
 
     return ServerConfig(
         server=srv, gui_host=gui_host, gui_port=gui_port,
-        db_root=db_root, heartbeat_timeout_s=heartbeat_timeout_s,
+        heartbeat_timeout_s=heartbeat_timeout_s,
         modules=modules,
     )

@@ -38,8 +38,8 @@ DTAMVisualizationModule/**/Saved/Logs/
 DTAMVisualizationModule/**/Saved/Config/Windows/GameUserSettings.ini
 DTAMVisualizationModule/**/Saved/Config/CrashReportClient/
 
-# DTAM 서버 런타임 산출물
-DB/ServerStart_*/
+# DTAM 서버 런타임 산출물 (DB 가 어디에 있든 ServerStart_* 폴더 ignore)
+**/DB/ServerStart_*/
 
 # DTAM SDK 빌드 산출물
 DTAM_SDK/build/

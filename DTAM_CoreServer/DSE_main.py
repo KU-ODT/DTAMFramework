@@ -10,8 +10,10 @@
 
     python DSE_main.py
     python DSE_main.py --gui-port 8095
-    python DSE_main.py --db-root D:/DTAMFramework/DB
     python DSE_main.py --config custom_config.json --no-browser
+
+DB 는 SimulationState 가 관리한다 (``DTAM_SimulationState/data/DB/``).
+Core 는 control plane 만 담당하므로 DB 경로 인자가 없다.
 """
 from __future__ import annotations
 
@@ -37,7 +39,6 @@ for extra in (str(FRAMEWORK_ROOT), str(DTAM_SDK_ROOT)):
 from dtam_client.ports import find_available_tcp_port  # noqa: E402
 from DTAM_CoreServer.app.config import (  # noqa: E402
     DEFAULT_CONFIG_FILE,
-    DEFAULT_DB_ROOT,
     load_config,
 )
 from DTAM_CoreServer.app.server import create_app  # noqa: E402
@@ -79,7 +80,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--gui-host", default=None)
     parser.add_argument("--gui-port", type=int, default=None, help="HTTP REST/GUI 포트 (기본 8095)")
     parser.add_argument("--bind-ip", default=None, help="HTTP bind IP (0.0.0.0 권장)")
-    parser.add_argument("--db-root", default=None, help=f"DB 루트 폴더 (기본: {DEFAULT_DB_ROOT})")
     parser.add_argument("--no-browser", action="store_true")
     parser.add_argument("--log-level", default="info")
     return parser.parse_args()
@@ -102,10 +102,6 @@ def main() -> None:
         cfg.gui_host = args.gui_host
     if args.gui_port is not None:
         cfg.gui_port = int(args.gui_port)
-    if args.db_root:
-        cfg.db_root = Path(args.db_root)
-
-    cfg.db_root.mkdir(parents=True, exist_ok=True)
 
     os.chdir(ROOT)
 
@@ -117,9 +113,8 @@ def main() -> None:
 
     url = f"http://{cfg.gui_host}:{cfg.gui_port}"
     print(f"[DSE] GUI    : {url}")
-    print(f"[DSE] DB root: {cfg.db_root}")
     for m in cfg.modules:
-        print(f"[DSE]   [{m.role:<10s}] {m.display_name:<20s}  {m.ip}  src='{m.expected_source}'")
+        print(f"[DSE]   [{m.role:<10s}] {m.display_name:<20s}  src='{m.expected_source}'")
 
     if not args.no_browser:
         threading.Timer(1.2, lambda: open_browser(url)).start()
