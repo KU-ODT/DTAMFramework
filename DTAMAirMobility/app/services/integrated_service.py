@@ -21,12 +21,11 @@ DTAM 4001 메시지로 송출한다.
 from __future__ import annotations
 
 import logging
-import math
 import re
 import threading
 import time
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from ..domain.dynamics.core.types import FlightPlan, SimulationConfig
 from ..domain.dynamics.io.icd_parser import parse_flight_plans, parse_flight_plan
@@ -42,7 +41,7 @@ from .types import (
     ClockMode,
     FleetStatus,
     VehicleState,
-    VehicleStatus,  # IntegratedAirMobilityService.status() 의 반환 typing 위해 노출
+    VehicleStatus,  # services/__init__.py 가 re-export — 직접 사용 X
     parse_hhmmss_to_s as _parse_hhmmss_to_s,
     s_to_hhmmss as _s_to_hhmmss,
 )
@@ -110,7 +109,6 @@ class IntegratedAirMobilityService(VehicleModule):
         self._ext_event = threading.Event()
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
-        self.on_publish: Optional[Callable[[Dict[str, Any]], None]] = None
 
         # 수신 통계/기록
         self._rx_3001_count: int = 0
@@ -123,9 +121,6 @@ class IntegratedAirMobilityService(VehicleModule):
         self._last_rx_2002: str = ""
         self._last_rx_3002: str = ""
         self._last_rx_3003: str = ""
-        # heartbeat 는 DtamModule(heartbeat=True) 가 자동 송신.
-        # _last_heartbeat_error 는 호환을 위해 보존하되 DtamModule.stats 에서 채움.
-        self._last_heartbeat_error: str = ""
         # 계획 버전 추적 (planVersion 이 낮으면 무시)
         self._plan_versions: Dict[str, int] = {}
 
@@ -176,13 +171,13 @@ class IntegratedAirMobilityService(VehicleModule):
         target_ip: Optional[str] = None,
         ws_port: Optional[int] = None,
     ) -> None:
-        """WebSocket 서버 endpoint 재설정."""
+        """WebSocket 서버 endpoint 재설정 — 기존 핸들러 등록은 보존."""
         if target_ip is not None:
             self.target_ip = str(target_ip)
         if ws_port is not None:
             self.ws_port = int(ws_port)
-        # comm 이 콜백 등록까지 모두 보존한 채로 WS 만 재접속.
-        self.comm.reconfigure_endpoint(target_ip=self.target_ip, ws_port=self.ws_port)
+        new_url = f"ws://{self.target_ip}:{self.ws_port}/ws/dtam"
+        super().reconfigure(server_url=new_url)
 
     # ── 시계 제어 ──────────────────────────────────────────────
 
@@ -201,14 +196,6 @@ class IntegratedAirMobilityService(VehicleModule):
 
     def feed_time_hhmmss(self, hhmmss: str) -> None:
         self.feed_time_seconds(_parse_hhmmss_to_s(hhmmss))
-
-    def set_sim_time(self, sim_time_s: float) -> None:
-        """현재 sim 시간을 강제 설정(재시작/되감기용)."""
-        with self._lock:
-            self._sim_time_s = float(sim_time_s)
-            if self._clock_mode == ClockMode.WALL:
-                self._wall_origin_wall = time.monotonic()
-                self._wall_origin_sim = float(sim_time_s)
 
     def step_once(self, sim_time_s: float) -> Dict[str, Any]:
         """한 tick 만 실행 (MANUAL 모드). 전송된 4001 메시지 반환 (비어있을 수 있음)."""
@@ -362,11 +349,6 @@ class IntegratedAirMobilityService(VehicleModule):
             self.send("vehicle_status", message)     # 부모 DtamModule.send
         except Exception:
             logger.exception("vehicle_status send failed")
-        if self.on_publish is not None:
-            try:
-                self.on_publish(message)
-            except Exception:
-                pass
         return message
 
     # ── 상태 질의 ──────────────────────────────────────────────
@@ -387,7 +369,8 @@ class IntegratedAirMobilityService(VehicleModule):
             last_exec = self._last_rx_2002
             last_strategic = self._last_rx_3002
             last_tactical = self._last_rx_3003
-            heartbeat_error = self._last_heartbeat_error
+        # heartbeat 송신 에러는 부모 DtamModule.stats.last_error 가 채운다.
+        heartbeat_error = self.stats.last_error or ""
         return FleetStatus(
             clock_mode=clock_mode,
             running=running,

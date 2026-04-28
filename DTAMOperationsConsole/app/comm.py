@@ -26,14 +26,8 @@ from app.config import settings
 from app.schemas.icd import IcdSendResponse
 
 
-# OpsConsole 이 REST 로 직접 송신 가능한 ICD 메시지.
-# (시뮬레이션 모드 / 통제 / 시나리오 — 모두 user→server 방향 명령)
-SUPPORTED_ICD_MESSAGES = {"1001", "1002", "1003"}
-MODULE_SOURCE_NAME = "DTAMOperationsConsole"
-
 CORE_HTTP_PORT = 8095
 STATE_HTTP_PORT = 8096
-STATE_WS_PORT = 8096
 
 
 def _sdk_root() -> Path:
