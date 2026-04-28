@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
@@ -100,11 +102,12 @@ def create_app(config: ServerConfig, db_root: str) -> FastAPI:
 
     clients = ws_events.gui_clients
 
-    @app.on_event("startup")
-    async def _startup() -> None:
+    @asynccontextmanager
+    async def _lifespan(_: FastAPI):
+        # ── startup ───────────────────────────────────────────
         loop = asyncio.get_running_loop()
         hub.set_event_loop(loop)
-        
+
         # 허브에서 수신한 메시지를 DB에 기록 및 제어 명령 처리, 그리고 GUI에 브로드캐스트
         def on_event(evt):
             # 1. DB 기록
@@ -180,15 +183,18 @@ def create_app(config: ServerConfig, db_root: str) -> FastAPI:
                 # 자기 자신(sim_state) 하트비트 갱신
                 hub.registry.heartbeat({"source": "DTAM_SimulationState"})
                 await asyncio.sleep(1.0)
-        
+
         asyncio.create_task(_self_heartbeat_loop())
 
-    @app.on_event("shutdown")
-    async def _shutdown() -> None:
-        hub.on_event = None
-        hub.stop()
-        engine.stop_clock()
+        try:
+            yield
+        finally:
+            # ── shutdown ──────────────────────────────────────
+            hub.on_event = None
+            hub.stop()
+            engine.stop_clock()
 
+    app.router.lifespan_context = _lifespan
     return app
 
 __all__ = ["create_app"]

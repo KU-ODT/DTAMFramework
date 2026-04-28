@@ -12,6 +12,7 @@ import json
 import math
 import re
 import subprocess
+from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -477,59 +478,63 @@ def _server_get_json(path: str, query: Optional[Dict[str, str]] = None) -> Dict[
 # 를 통해 동일 helpers 를 자체 사용한다.
 
 
-def create_app() -> FastAPI:
-    app = FastAPI(title="DTAM Mission Planner")
+@asynccontextmanager
+async def _lifespan(_: FastAPI):
+    # ── startup ────────────────────────────────────────────────
+    # 모든 런타임 상태는 ``state`` 컨테이너의 attribute 를 mutate — global 키워드 불필요.
+    if MBTILES_PATH.exists():
+        state.mbtiles = MBTiles(MBTILES_PATH)
+        print(f"[DTAM MP] MBTiles loaded: {state.mbtiles.info.name} "
+              f"(z{state.mbtiles.info.min_zoom}-{state.mbtiles.info.max_zoom})")
+    else:
+        print(f"[DTAM MP] Warning: MBTiles not found at {MBTILES_PATH}")
 
-    @app.on_event("startup")
-    async def startup() -> None:
-        # 모든 런타임 상태는 ``state`` 컨테이너의 attribute 를 mutate — global 키워드 불필요.
-        if MBTILES_PATH.exists():
-            state.mbtiles = MBTiles(MBTILES_PATH)
-            print(f"[DTAM MP] MBTiles loaded: {state.mbtiles.info.name} "
-                  f"(z{state.mbtiles.info.min_zoom}-{state.mbtiles.info.max_zoom})")
-        else:
-            print(f"[DTAM MP] Warning: MBTiles not found at {MBTILES_PATH}")
-
-        vp_csv = DATA_DIR / "vertiport_default.csv"
-        wp_csv = DATA_DIR / "waypoint_default.csv"
-        if vp_csv.exists() and wp_csv.exists():
-            try:
-                state.route_planner = RoutePlanner.from_csv(vp_csv, wp_csv)
-                print(f"[DTAM MP] RoutePlanner loaded: "
-                      f"{len(state.route_planner.ports)} ports, "
-                      f"{len(state.route_planner.waypoints)} waypoints")
-            except Exception as exc:
-                print(f"[DTAM MP] RoutePlanner error: {exc}")
-
+    vp_csv = DATA_DIR / "vertiport_default.csv"
+    wp_csv = DATA_DIR / "waypoint_default.csv"
+    if vp_csv.exists() and wp_csv.exists():
         try:
-            from .services.dem import load_dem_provider
-            state.dem_provider = load_dem_provider(DEM_DIR, DEM_TILE_SIZE, DEM_MAX_ZOOM)
-            if state.dem_provider.available:
-                print("[DTAM MP] DEM provider loaded")
+            state.route_planner = RoutePlanner.from_csv(vp_csv, wp_csv)
+            print(f"[DTAM MP] RoutePlanner loaded: "
+                  f"{len(state.route_planner.ports)} ports, "
+                  f"{len(state.route_planner.waypoints)} waypoints")
         except Exception as exc:
-            print(f"[DTAM MP] DEM provider unavailable: {exc}")
+            print(f"[DTAM MP] RoutePlanner error: {exc}")
 
-        try:
-            state.mission_service = MissionService(
-                target_ip=str(state.settings["dtam_target_ip"]),
-                ws_port=int(state.settings.get("dtam_ws_port", 8096)),
-                route_planner=state.route_planner,
-                settings=state.settings,
-                resource_csv=MISSION_ICD_RESOURCE_CSV,
-                route_response_fn=_route_payload_response,
-                server_http_get_fn=_server_get_json,
-            )
-            desc = state.mission_service.describe()
-            print(f"[DTAM MP] DTAM sender ready → {desc['server_url']}")
-        except Exception as exc:
-            print(f"[DTAM MP] DTAM sender unavailable: {exc}")
+    try:
+        from .services.dem import load_dem_provider
+        state.dem_provider = load_dem_provider(DEM_DIR, DEM_TILE_SIZE, DEM_MAX_ZOOM)
+        if state.dem_provider.available:
+            print("[DTAM MP] DEM provider loaded")
+    except Exception as exc:
+        print(f"[DTAM MP] DEM provider unavailable: {exc}")
 
-    @app.on_event("shutdown")
-    async def shutdown() -> None:
+    try:
+        state.mission_service = MissionService(
+            target_ip=str(state.settings["dtam_target_ip"]),
+            ws_port=int(state.settings.get("dtam_ws_port", 8096)),
+            route_planner=state.route_planner,
+            settings=state.settings,
+            resource_csv=MISSION_ICD_RESOURCE_CSV,
+            route_response_fn=_route_payload_response,
+            server_http_get_fn=_server_get_json,
+        )
+        desc = state.mission_service.describe()
+        print(f"[DTAM MP] DTAM sender ready → {desc['server_url']}")
+    except Exception as exc:
+        print(f"[DTAM MP] DTAM sender unavailable: {exc}")
+
+    try:
+        yield
+    finally:
+        # ── shutdown ──────────────────────────────────────────
         if state.mbtiles:
             state.mbtiles.close()
         if state.mission_service is not None:
             state.mission_service.close()
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(title="DTAM Mission Planner", lifespan=_lifespan)
 
     # ── 라우터 등록 (도메인별로 routes/*.py 에 분리) ─────────────
     from .routes import (

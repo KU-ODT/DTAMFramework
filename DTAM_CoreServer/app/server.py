@@ -14,6 +14,7 @@ import asyncio
 import logging
 import subprocess
 import sys
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
@@ -36,6 +37,39 @@ def _build_tags_metadata():
 
 
 def create_app(config: ServerConfig) -> FastAPI:
+    # 임시 편의 기능: 백그라운드에서 State Server를 자동으로 켜기
+    state_process_holder: dict = {}
+
+    from .routes.process import _process_heartbeat_loop
+
+    @asynccontextmanager
+    async def _lifespan(_: FastAPI):
+        # ── startup ───────────────────────────────────────────
+        # [NEW] 프로세스 하트비트 루프 시작
+        asyncio.create_task(_process_heartbeat_loop())
+        state_script = FRAMEWORK_ROOT / "DTAM_SimulationState" / "SS_main.py"
+        try:
+            state_process_holder["proc"] = subprocess.Popen(
+                [sys.executable, str(state_script)],
+                creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0
+            )
+            logger.info("Started Simulation State Server (SS_main.py) in background.")
+        except Exception as e:
+            logger.error(f"Failed to start State Server: {e}")
+
+        try:
+            yield
+        finally:
+            # ── shutdown ──────────────────────────────────────
+            proc = state_process_holder.get("proc")
+            if proc:
+                logger.info("Stopping Simulation State Server...")
+                proc.terminate()
+                try:
+                    proc.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+
     app = FastAPI(
         title="DTAM Core Server (control plane)",
         version="2.0.0",
@@ -55,43 +89,15 @@ def create_app(config: ServerConfig) -> FastAPI:
             "  (시퀀스 다이어그램은 SimulationState `/docs/sequence` 에 있음)\n"
         ),
         openapi_tags=_build_tags_metadata(),
+        lifespan=_lifespan,
     )
 
     # ── 라우터 등록 ──────────────────────────────────────────
     from .routes.icd import router as icd_router
-    from .routes.process import router as process_router, _process_heartbeat_loop
+    from .routes.process import router as process_router
 
     app.include_router(icd_router)
     app.include_router(process_router, prefix="/api/v1/process")
-
-    # 임시 편의 기능: 백그라운드에서 State Server를 자동으로 켜기
-    state_process = None
-
-    # ── 라이프사이클 ─────────────────────────────────────────
-    @app.on_event("startup")
-    async def _startup() -> None:
-        nonlocal state_process
-        # [NEW] 프로세스 하트비트 루프 시작
-        asyncio.create_task(_process_heartbeat_loop())
-        state_script = FRAMEWORK_ROOT / "DTAM_SimulationState" / "SS_main.py"
-        try:
-            state_process = subprocess.Popen(
-                [sys.executable, str(state_script)],
-                creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0
-            )
-            logger.info("Started Simulation State Server (SS_main.py) in background.")
-        except Exception as e:
-            logger.error(f"Failed to start State Server: {e}")
-
-    @app.on_event("shutdown")
-    async def _shutdown() -> None:
-        if state_process:
-            logger.info("Stopping Simulation State Server...")
-            state_process.terminate()
-            try:
-                state_process.wait(timeout=3)
-            except subprocess.TimeoutExpired:
-                state_process.kill()
 
     # ── 간단 admin 랜딩 ──────────────────────────────────────
     # 라이브 모니터 / 시퀀스 다이어그램은 SimulationState (8096) 가 호스팅합니다.
