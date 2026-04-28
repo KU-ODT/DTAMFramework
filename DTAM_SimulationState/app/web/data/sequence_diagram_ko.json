@@ -80,7 +80,7 @@
       "to": "sim_state",
       "id": "0001",
       "name": "모듈 세팅 정보",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "수신 포트 보고"
     },
     {
@@ -88,7 +88,7 @@
       "to": "sim_state",
       "id": "0001",
       "name": "모듈 세팅 정보",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "수신 포트 보고"
     },
     {
@@ -96,7 +96,7 @@
       "to": "sim_state",
       "id": "0001",
       "name": "모듈 세팅 정보",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "수신 포트 보고"
     },
     {
@@ -104,7 +104,7 @@
       "to": "sim_state",
       "id": "0001",
       "name": "모듈 세팅 정보",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "수신 포트 보고"
     },
     {
@@ -112,7 +112,7 @@
       "to": "monitoring",
       "id": "0001",
       "name": "모듈 세팅 정보 종합",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "종합 전달"
     },
     {
@@ -120,7 +120,7 @@
       "to": "sim_state",
       "id": "0002",
       "name": "모듈 상태",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "초기 보고"
     },
     {
@@ -128,7 +128,7 @@
       "to": "sim_state",
       "id": "0002",
       "name": "모듈 상태",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "초기 보고"
     },
     {
@@ -136,7 +136,7 @@
       "to": "sim_state",
       "id": "0002",
       "name": "모듈 상태",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "초기 보고"
     },
     {
@@ -144,7 +144,7 @@
       "to": "sim_state",
       "id": "0002",
       "name": "모듈 상태",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "초기 보고"
     },
     {
@@ -169,7 +169,7 @@
       "to": "sim_state",
       "id": "1001",
       "name": "시뮬레이션 모드 세팅",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "서버로 전송"
     },
     {
@@ -191,7 +191,7 @@
       "to": "sim_state",
       "id": "1003",
       "name": "시나리오 세팅",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "서버로 전송"
     },
     {
@@ -216,7 +216,7 @@
       "to": "sim_state",
       "id": "2001",
       "name": "비행 계획 요청",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "요청"
     },
     {
@@ -232,7 +232,7 @@
       "to": "mission",
       "id": "2001",
       "name": "비행 계획 요청",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "포워딩"
     },
     {
@@ -256,7 +256,7 @@
       "to": "sim_state",
       "id": "3001",
       "name": "계획 비행 데이터",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "제출"
     },
     {
@@ -272,7 +272,7 @@
       "to": "vehicle",
       "id": "3001",
       "name": "계획 비행 데이터",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "포워딩"
     },
     {
@@ -289,7 +289,7 @@
       "to": "sim_state",
       "id": "2002",
       "name": "DTAM 실행",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "실행"
     },
     {
@@ -305,7 +305,7 @@
       "to": "mission",
       "id": "2002",
       "name": "DTAM 실행",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "포워딩"
     },
     {
@@ -313,7 +313,7 @@
       "to": "monitoring",
       "id": "2002",
       "name": "DTAM 실행",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "포워딩"
     },
     {
@@ -321,7 +321,7 @@
       "to": "vehicle",
       "id": "2002",
       "name": "DTAM 실행",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "포워딩"
     },
     {
@@ -329,7 +329,7 @@
       "to": "visual",
       "id": "2002",
       "name": "DTAM 실행",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "포워딩"
     },
     {
@@ -395,7 +395,7 @@
       "to": "sim_state",
       "id": "1002",
       "name": "시뮬레이션 제어",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "서버로 전송"
     },
     {
@@ -411,7 +411,7 @@
       "to": "vehicle",
       "id": "1002",
       "name": "시뮬레이션 제어",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "포워딩"
     },
     {
@@ -419,7 +419,7 @@
       "to": "visual",
       "id": "1002",
       "name": "시뮬레이션 제어",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "포워딩"
     },
     {
@@ -430,7 +430,7 @@
       "to": "vehicle",
       "id": "0003",
       "name": "공통 시간 정보",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "포워딩"
     },
     {
@@ -438,7 +438,7 @@
       "to": "visual",
       "id": "0003",
       "name": "공통 시간 정보",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "포워딩"
     },
     {
@@ -446,7 +446,7 @@
       "to": "sim_state",
       "id": "4001",
       "name": "비행체 상태",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "주기적"
     },
     {
@@ -462,7 +462,7 @@
       "to": "monitoring",
       "id": "4001",
       "name": "비행체 상태",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "포워딩"
     },
     {
@@ -470,7 +470,7 @@
       "to": "visual",
       "id": "4001",
       "name": "비행체 상태",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "포워딩"
     },
     {
@@ -478,7 +478,7 @@
       "to": "sim_state",
       "id": "4101",
       "name": "카메라 이미지 프레임",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "주기적"
     },
     {
@@ -486,7 +486,7 @@
       "to": "monitoring",
       "id": "4101",
       "name": "카메라 이미지 프레임",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "포워딩"
     },
     {
@@ -497,7 +497,7 @@
       "to": "sim_state",
       "id": "3002",
       "name": "전략적 분리",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "제출"
     },
     {
@@ -513,7 +513,7 @@
       "to": "vehicle",
       "id": "3002",
       "name": "전략적 분리",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "포워딩"
     },
     {
@@ -521,7 +521,7 @@
       "to": "sim_state",
       "id": "3003",
       "name": "전술적 분리",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "제출"
     },
     {
@@ -537,7 +537,7 @@
       "to": "vehicle",
       "id": "3003",
       "name": "전술적 분리",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "포워딩"
     }
   ]

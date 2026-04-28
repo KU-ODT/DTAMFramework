@@ -4,7 +4,7 @@
 |---|---|
 | Message ID | `4101` |
 | Message Name | Camera Image Frame |
-| Transport | TCP or WebSocket |
+| Transport | WebSocket (`/ws/dtam`) |
 | Encoding | JSON header (UTF-8) + binary payload |
 | Rate | Sender discretion |
 

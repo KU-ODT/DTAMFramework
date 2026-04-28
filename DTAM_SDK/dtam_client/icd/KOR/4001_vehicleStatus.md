@@ -4,7 +4,7 @@
 |---|---|
 | Message ID | `4001` |
 | Message Name | 비행체 상태 정보 |
-| 전송 방식 | UDP |
+| 전송 방식 | WebSocket (`/ws/dtam`) |
 | 인코딩 | JSON (UTF-8) |
 | 주기 | 송신측 재량 |
 

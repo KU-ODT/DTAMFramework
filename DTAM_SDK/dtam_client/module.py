@@ -177,6 +177,8 @@ class DtamModule:
         self._heartbeat_thread: Optional[threading.Thread] = None
         # composition 패턴용 — runtime 등록한 콜백
         self._runtime_callbacks: Dict[str, Callable] = {}
+        # reconfigure() 시 동일 값으로 재생성하기 위해 보존
+        self._reconnect_delay = float(reconnect_delay)
 
         self._ws = DtamWsClient(
             url=server_url,
@@ -384,6 +386,34 @@ class DtamModule:
         if thread and thread.is_alive():
             thread.join(timeout=2.0)
         self._ws.disconnect()
+
+    def reconfigure(self, *, server_url: str) -> None:
+        """WebSocket endpoint 재설정 — 기존 연결을 닫고 새 URL 로 다시 띄움.
+
+        ``@on_receive`` 데코레이터 핸들러와 ``self.on(...)`` 으로 등록한 런타임
+        콜백 모두 자동으로 새 연결에 다시 등록되며, heartbeat 도 자동 재기동된다.
+        """
+        if server_url == self.server_url:
+            return
+        # 기존 WS + heartbeat 정리
+        self.close()
+        # 새 _ws 생성 (역할/소스/재연결 간격 그대로)
+        self.server_url = server_url
+        self._ws = DtamWsClient(
+            url=server_url,
+            role=self.identity.role.value,
+            source=self.identity.source,
+            reconnect_delay=self._reconnect_delay,
+        )
+        # 데코레이터 + 런타임 콜백 다시 등록
+        self._auto_register_handlers()
+        for mid, callback in self._runtime_callbacks.items():
+            self._ws.on(mid, self._make_dispatcher(mid, callback))
+        # 다시 연결 + heartbeat
+        self._heartbeat_stop = threading.Event()
+        self._ws.connect(block=False)
+        if self._heartbeat_enabled:
+            self._start_heartbeat()
 
     # ── 진단 ──────────────────────────────────────────────────
     @property

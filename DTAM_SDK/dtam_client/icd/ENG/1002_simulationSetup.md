@@ -4,7 +4,7 @@
 |---|---|
 | Message ID | `1002` |
 | Message Name | Simulation Setup |
-| Transport | UDP |
+| Transport | WebSocket (`/ws/dtam`) |
 | Encoding | JSON (UTF-8) |
 | Rate | Event-based / user action |
 

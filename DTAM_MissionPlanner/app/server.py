@@ -46,7 +46,7 @@ from .domain.converter_tool import (
     get_vertiport_spawn_point,
     load_airsim_settings_summary,
 )
-from .comm import DtamSender
+from .comm import MissionComm
 from .services.mission_icd_export import (
     build_mission_icd_export,
     validate_mission_icd_record,
@@ -59,7 +59,7 @@ from .services.route_planner import RoutePlanner
 mbtiles: Optional[MBTiles] = None
 route_planner: Optional[RoutePlanner] = None
 dem_provider: Any = None
-dtam_sender: Optional[DtamSender] = None
+dtam_sender: Optional[MissionComm] = None
 
 MISSION_ICD_RESOURCE_CSV = DATA_DIR / "resources_vp.csv"
 settings: Dict[str, Any] = {
@@ -747,7 +747,7 @@ def _build_auto_mission_payload_from_scenario(scenario: Dict[str, Any]) -> Dict[
     }
 
 
-def _handle_flight_plan_request(payload: Dict[str, Any], sender: DtamSender) -> Dict[str, Any]:
+def _handle_flight_plan_request(payload: Dict[str, Any], sender: MissionComm) -> Dict[str, Any]:
     scenario_file_name = str(payload.get("scenarioFileName") or "")
     scenario, scenario_path = _find_scenario_setup_payload(scenario_file_name)
     mission_payload = _build_auto_mission_payload_from_scenario(scenario)
@@ -812,7 +812,7 @@ def create_app() -> FastAPI:
             print(f"[DTAM MP] DEM provider unavailable: {exc}")
 
         try:
-            dtam_sender = DtamSender(
+            dtam_sender = MissionComm(
                 target_ip=str(settings["dtam_target_ip"]),
                 ws_port=int(settings.get("dtam_ws_port", 8096)),
                 on_flight_plan_request=_handle_flight_plan_request,

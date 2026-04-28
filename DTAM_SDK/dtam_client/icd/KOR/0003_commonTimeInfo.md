@@ -4,7 +4,7 @@
 |---|---|
 | Message ID | `0003` |
 | Message Name | 공통 시간 정보 |
-| 전송 방식 | UDP |
+| 전송 방식 | WebSocket (`/ws/dtam`) |
 | 인코딩 | JSON (UTF-8) |
 | 주기 | 1 Hz (1초 주기) |
 

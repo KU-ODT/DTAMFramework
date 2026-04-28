@@ -1,39 +1,37 @@
 # DTAMAirMobility
 
 UAM 비행 계획을 읽어 궤적을 10 Hz 로 실시간 생성하고, 좌표 변환(WGS84 → NED)을
-거친 뒤 **DTAM MSG 4001 (Vehicle Status)** 메시지로 UDP 송신하는 모듈.
+거친 뒤 **DTAM MSG 4001 (Vehicle Status)** 메시지를 WebSocket
+(`/ws/dtam`) 으로 SimulationState 서버에 송신하는 모듈.
 
-`odt_mp` 의 `simpleDynamics` 엔진과 `app/airsim/coord_transform.py` 의 NED
-변환 로직을 뽑아와서 **AirSim 및 웹 맵 의존을 제거**하고, DTAM_SDK 를
-파이프라인의 최종 출구로 붙였다. GUI 는 `DTAMOperationsConsole` 과 동일한
-**FastAPI + HTML/JS** 구성.
+`simpleDynamics` 엔진과 NED 좌표 변환 로직을 자체 보유. 통신은 DTAM_SDK 의
+``DtamModule`` 서브클래스 (``VehicleComm``) 를 통해 `ws://...:8096/ws/dtam` 단일
+채널로 송수신.
 
 ## 구성
 
 ```
 DTAMAirMobility/
-├── AM_main.py                # 실행 진입점 (브라우저 열고 FastAPI 기동)
-├── __init__.py
-├── simpleDynamics/           # 비행체 궤적 시뮬레이터 (odt_mp 에서 발췌)
-├── transform/                # WGS84 → local NED 좌표 변환
-│   └── coord_transform.py
-├── publisher/
-│   ├── msg4001.py            # 4001 payload builder
-│   └── publisher.py          # DTAM_SDK wrapper (push_vehicle_status_async)
-├── service/
-│   └── integrated_service.py # 비행계획 + 시계 → 10 Hz 송신 서비스
-├── backend/
-│   └── app.py                # FastAPI app + REST API
-├── frontend/
-│   ├── templates/index.html
-│   └── static/{css,js}
-└── requirements.txt
+├── AM_main.py                              # 실행 진입점 (브라우저 + FastAPI 기동)
+├── app/
+│   ├── server.py                           # FastAPI app factory + REST API
+│   ├── comm.py                             # VehicleComm(DtamModule) — @on_receive 패턴
+│   ├── services/
+│   │   ├── integrated_service.py           # 비행계획 + 시계 → 10 Hz tick → 4001 송신
+│   │   └── msg4001.py                      # 4001 payload builder
+│   └── domain/
+│       ├── dynamics/                       # 비행체 궤적 시뮬레이터
+│       └── transform/coord_transform.py    # WGS84 → local NED 좌표 변환
+└── web/                                    # 프런트 (templates + static 통합)
+    ├── index.html
+    ├── css/style.css
+    └── js/app.js
 ```
 
 ## 동작 흐름
 
 ```
-FlightPlan(JSON) ─▶ VehicleSession (simpleDynamics.DynamicsEngine)
+FlightPlan(JSON) ─▶ VehicleSession (dynamics.DynamicsEngine)
                       │  FlightTrajectoryPoint (lat/lon/alt, speed, heading…)
                       ▼
 Clock (external /    IntegratedAirMobilityService
@@ -42,10 +40,13 @@ Clock (external /    IntegratedAirMobilityService
                       ▼
                 transform.coord_transform  (WGS84 → local NED)
                       ▼
-                publisher.msg4001.build_vehicle_payload  ─▶  build_4001_message
+                services.msg4001.build_vehicle_payload  ─▶  build_4001_message
                       ▼
-                DTAM_SDK.push_vehicle_status_async  (UDP, 10 Hz)
+                comm.VehicleComm.send(...)   (WebSocket /ws/dtam, 10 Hz)
 ```
+
+수신 (3001/0003/2002/3002/3003) 은 ``VehicleComm`` 의 ``@on_receive("MID")``
+데코레이터 메서드가 ``IntegratedAirMobilityService`` 콜백으로 위임한다.
 
 ## DTAM 4001 필드 매핑
 

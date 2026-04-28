@@ -4,7 +4,7 @@
 |---|---|
 | Message ID | `2002` |
 | Message Name | DTAM 실행 |
-| 전송 방식 | TCP |
+| 전송 방식 | WebSocket (`/ws/dtam`) |
 | 인코딩 | JSON (UTF-8) |
 | 주기 | 이벤트성 |
 

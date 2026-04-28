@@ -41,7 +41,7 @@ from ..domain.dynamics.core.types import (
 from ..domain.dynamics.core.wind_model import WindModel
 from ..domain.dynamics.io.icd_parser import parse_flight_plans, parse_flight_plan
 
-from dtam_client import DtamModule, Role  # type: ignore  # SDK가 sys.path 에 있어야 함
+from ..comm import VehicleComm   # WebSocket 통신 layer (DtamModule 서브클래스)
 
 from .msg4001 import (
     VehiclePublishContext,
@@ -288,21 +288,19 @@ class IntegratedAirMobilityService:
         self.month = int(month)
         self._lock = threading.RLock()
 
-        # ── DtamModule 기반 통신 (WebSocket /ws/dtam) ─────────────
+        # ── VehicleComm 기반 통신 (WebSocket /ws/dtam) ─────────────
         self.target_ip = str(target_ip)
         self.ws_port = int(ws_port)
         self._async_send = bool(async_send)
-        server_url = f"ws://{self.target_ip}:{self.ws_port}/ws/dtam"
-        self.module = DtamModule.start(
-            role=Role.VEHICLE,
-            server_url=server_url,
-            heartbeat=True,                   # 0002 1Hz 자동 송신
+        self.comm = VehicleComm(
+            target_ip=self.target_ip,
+            ws_port=self.ws_port,
+            on_scheduled_flight=self._on_scheduled_flight,
+            on_common_time_info=self._on_common_time_info,
+            on_dtam_execute=self._on_dtam_execute,
+            on_strategic_separation=self._on_strategic_separation,
+            on_tactical_separation=self._on_tactical_separation,
         )
-        self.module.on("scheduled_flight",     self._on_scheduled_flight)
-        self.module.on("common_time_info",     self._on_common_time_info)
-        self.module.on("dtam_execute",         self._on_dtam_execute)
-        self.module.on("strategic_separation", self._on_strategic_separation)
-        self.module.on("tactical_separation",  self._on_tactical_separation)
 
         self._sessions: Dict[str, VehicleSession] = {}
         self._clock_mode: ClockMode = ClockMode.EXTERNAL
@@ -385,22 +383,8 @@ class IntegratedAirMobilityService:
             self.target_ip = str(target_ip)
         if ws_port is not None:
             self.ws_port = int(ws_port)
-        new_url = f"ws://{self.target_ip}:{self.ws_port}/ws/dtam"
-        if new_url != self.module.server_url:
-            try:
-                self.module.close()
-            except Exception:
-                pass
-            self.module = DtamModule.start(
-                role=Role.VEHICLE,
-                server_url=new_url,
-                heartbeat=True,
-            )
-            self.module.on("scheduled_flight",     self._on_scheduled_flight)
-            self.module.on("common_time_info",     self._on_common_time_info)
-            self.module.on("dtam_execute",         self._on_dtam_execute)
-            self.module.on("strategic_separation", self._on_strategic_separation)
-            self.module.on("tactical_separation",  self._on_tactical_separation)
+        # comm 이 콜백 등록까지 모두 보존한 채로 WS 만 재접속.
+        self.comm.reconfigure_endpoint(target_ip=self.target_ip, ws_port=self.ws_port)
 
     # ── 시계 제어 ──────────────────────────────────────────────
 
@@ -462,7 +446,7 @@ class IntegratedAirMobilityService:
     def close(self) -> None:
         self.stop()
         try:
-            self.module.close()
+            self.comm.close()
         except Exception:
             pass
 
@@ -577,7 +561,7 @@ class IntegratedAirMobilityService:
         ts = _sim_time_to_iso(sim_time_s)
         message = build_4001_message(vehicle_payloads, timestamp=ts)
         try:
-            self.module.send("vehicle_status", message)
+            self.comm.send("vehicle_status", message)
         except Exception:
             logger.exception("vehicle_status send failed")
         if self.on_publish is not None:
@@ -609,8 +593,8 @@ class IntegratedAirMobilityService:
         return FleetStatus(
             clock_mode=clock_mode,
             running=running,
-            publisher_connected=self.module.connected,
-            publisher_error=self.module.stats.last_error or "",
+            publisher_connected=self.comm.connected,
+            publisher_error=self.comm.stats.last_error or "",
             sim_time_s=sim_t,
             sim_time_hms=_s_to_hhmmss(sim_t),
             vehicles=[s.status() for s in sessions],

@@ -4,7 +4,7 @@
 |---|---|
 | Message ID | `4001` |
 | Message Name | Vehicle Status |
-| Transport | UDP |
+| Transport | WebSocket (`/ws/dtam`) |
 | Encoding | JSON (UTF-8) |
 | Rate | Sender discretion |
 

@@ -4,7 +4,7 @@
 |---|---|
 | Message ID | `2001` |
 | Message Name | Flight Plan Request |
-| Transport | TCP |
+| Transport | WebSocket (`/ws/dtam`) |
 | Encoding | JSON (UTF-8) |
 | Rate | Event-based |
 

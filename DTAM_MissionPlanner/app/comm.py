@@ -1,15 +1,11 @@
-"""DTAM 3001 (Scheduled Flight) 송신 모듈.
+"""DTAM Mission Planner 통신 layer (WebSocket /ws/dtam).
 
-DtamModule (WebSocket /ws/dtam) 기반. Mission Planner UI 가 구성한
-Mission ICD record 를 검증한 뒤 DtamModule.send("scheduled_flight", ...) 로 송출.
+``DtamModule`` 서브클래스 + ``@on_receive("MID")`` 데코레이터 패턴.
+2001 (Flight Plan Request) / 2002 (DTAM Execute) 수신 핸들러를 데코레이터로
+자동 등록하고, 3001 (Scheduled Flight) 송신은 도메인 메서드로 노출한다.
 
-- 입력: Mission ICD record dict (``flightPlanNumber``, ``aircraftId``,
-  ``departure``, ``enRoute``, ``arrival``)
-- 추가로 3001 스키마가 요구하는 ``planVersion`` / ``planStatus`` 를 채워줌.
-- 송신 결과를 PushResult 호환 dict 형식으로 반환.
-
-외부 인터페이스 (server.py 가 사용):
-  - DtamSender(target_ip, ws_port, on_flight_plan_request)
+외부 인터페이스 (server.py / routes/* 가 사용):
+  - MissionComm(target_ip, ws_port, on_flight_plan_request)
   - .describe() → dict
   - .send_scheduled_flight(record) → dict
   - .send_scheduled_flights(records) → dict
@@ -29,19 +25,15 @@ _SDK_ROOT = Path(__file__).resolve().parents[2] / "DTAM_SDK"
 if _SDK_ROOT.is_dir() and str(_SDK_ROOT) not in sys.path:
     sys.path.insert(0, str(_SDK_ROOT))
 
-from dtam_client import DtamModule, Role  # type: ignore
+from dtam_client import DtamModule, Role, on_receive  # type: ignore
 
 logger = logging.getLogger(__name__)
 
-FlightPlanRequestHandler = Callable[[Dict[str, Any], "DtamSender"], Optional[Dict[str, Any]]]
+FlightPlanRequestHandler = Callable[[Dict[str, Any], "MissionComm"], Optional[Dict[str, Any]]]
 
 
 def _result_raw(result: Any) -> Dict[str, Any]:
-    """수신 콜백 인자를 dict 으로 정규화.
-
-    DtamModule 이 ICD dataclass 인스턴스를 넘기면 ``asdict`` 로 풀고,
-    이미 dict 형태로 들어온 경우엔 그대로 반환한다.
-    """
+    """수신 콜백 인자(dataclass 또는 dict)를 dict 으로 정규화."""
     if isinstance(result, dict):
         return result
     raw = getattr(result, "raw", None)
@@ -74,7 +66,7 @@ def _ensure_plan_metadata(record: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _quick_validate(record: Dict[str, Any]) -> List[str]:
-    """스키마 세부는 SDK 가 하지만, 흔한 사전오류만 먼저 잡는다."""
+    """스키마 세부는 SDK 가 검증하지만 흔한 사전오류를 먼저 잡는다."""
     errors: List[str] = []
     if not isinstance(record, dict):
         return ["record is not a dict"]
@@ -87,21 +79,28 @@ def _quick_validate(record: Dict[str, Any]) -> List[str]:
     return errors
 
 
-class DtamSender:
-    """Mission Planner 전용 DTAM 3001 송신기 (DtamModule 위 얇은 wrapper)."""
+class MissionComm(DtamModule):
+    """Mission Planner DTAM 통신 layer.
+
+    - role = Role.MISSION (KNOWN_MODULES 에서 source/display_name 자동 결정)
+    - 2001 / 2002 수신: ``@on_receive`` 로 자동 등록
+    - 3001 송신: ``send_scheduled_flight*`` 도메인 메서드
+    - 0002 heartbeat 1Hz: DtamModule 가 자동 송신
+    """
+
+    role = Role.MISSION
 
     def __init__(
         self,
         *,
         target_ip: str = "127.0.0.1",
-        ws_port: int = 8096,             # SimulationState HTTP/WS 포트
+        ws_port: int = 8096,
         on_flight_plan_request: Optional[FlightPlanRequestHandler] = None,
     ) -> None:
-        self._lock = threading.RLock()
+        # 통계/상태 (super().__init__ 보다 먼저 — 데코레이터 핸들러가 곧 참조 가능)
+        self._mc_lock = threading.RLock()
         self._target_ip = str(target_ip)
         self._ws_port = int(ws_port)
-        self._module: Optional[DtamModule] = None
-        self._last_error: str = ""
         self._rx_2001_count = 0
         self._rx_2002_count = 0
         self._last_rx_2001 = ""
@@ -110,69 +109,86 @@ class DtamSender:
         self._last_auto_3001 = ""
         self._last_auto_3001_error = ""
         self._on_flight_plan_request_handler = on_flight_plan_request
-        self._build_module_locked()
 
-    # ── 내부: DtamModule 생성/콜백 등록 ────────────────────────
-    def _build_module_locked(self) -> None:
-        url = f"ws://{self._target_ip}:{self._ws_port}/ws/dtam"
-        try:
-            self._module = DtamModule.start(
-                role=Role.MISSION,
-                server_url=url,
-                heartbeat=True,
-            )
-            self._module.on("flight_plan_request", self._on_flight_plan_request_cb)
-            self._module.on("dtam_execute",        self._on_dtam_execute_cb)
-            self._last_error = ""
-        except Exception as exc:
-            self._module = None
-            self._last_error = f"init failed: {type(exc).__name__}: {exc}"
-            logger.exception("DtamModule init failed")
+        super().__init__(
+            server_url=f"ws://{target_ip}:{ws_port}/ws/dtam",
+            heartbeat=True,
+        )
 
-    def _close_module_locked(self) -> None:
-        mod = self._module
-        self._module = None
-        if mod is None:
+    # ── 수신 핸들러 (@on_receive 자동 등록) ─────────────────────
+    @on_receive("2001")
+    def _on_flight_plan_request(self, msg: Any) -> None:
+        raw = _result_raw(msg)
+        scenario = str(raw.get("scenarioFileName") or "")
+        with self._mc_lock:
+            self._rx_2001_count += 1
+            self._last_rx_2001 = scenario or str(raw)
+        logger.info("2001 Flight Plan Request received: scenario=%s", scenario)
+        handler = self._on_flight_plan_request_handler
+        if handler is None:
             return
         try:
-            mod.close()
-        except Exception:
-            logger.exception("DtamModule.close failed")
+            auto_result = handler(raw, self) or {}
+            count = int(auto_result.get("count") or 0)
+            ok = bool(auto_result.get("ok", False))
+            summary = str(auto_result.get("summary") or "")
+            with self._mc_lock:
+                if ok:
+                    self._auto_3001_count += count
+                    self._last_auto_3001 = summary or f"sent {count} scheduled flight(s)"
+                    self._last_auto_3001_error = ""
+                else:
+                    self._last_auto_3001_error = summary or str(auto_result)
+            if ok:
+                logger.info("2001 auto 3001 completed: %s", summary)
+            else:
+                logger.warning("2001 auto 3001 failed: %s", summary)
+        except Exception as exc:
+            err = f"{type(exc).__name__}: {exc}"
+            with self._mc_lock:
+                self._last_auto_3001_error = err
+            logger.exception("2001 auto 3001 handler failed")
 
-    # ── 설정 ──────────────────────────────────────────────────
+    @on_receive("2002")
+    def _on_dtam_execute(self, msg: Any) -> None:
+        raw = _result_raw(msg)
+        folder = str(raw.get("flightPlanFolderName") or "")
+        with self._mc_lock:
+            self._rx_2002_count += 1
+            self._last_rx_2002 = folder or str(raw)
+        logger.info("2002 DTAM Execute received: flightPlanFolderName=%s", folder)
+
+    # ── 설정/상태 ─────────────────────────────────────────────
     def reconfigure(
         self,
         *,
         target_ip: Optional[str] = None,
         ws_port: Optional[int] = None,
     ) -> Dict[str, Any]:
-        """WS 서버 endpoint 재설정."""
-        with self._lock:
-            rebuild = False
+        """target_ip/ws_port 변경 시 WS 끊고 재접속."""
+        with self._mc_lock:
+            changed = False
             if target_ip is not None and str(target_ip) != self._target_ip:
                 self._target_ip = str(target_ip)
-                rebuild = True
+                changed = True
             if ws_port is not None and int(ws_port) != self._ws_port:
                 self._ws_port = int(ws_port)
-                rebuild = True
-
-            if rebuild:
-                self._close_module_locked()
-                self._build_module_locked()
-            return self.describe()
+                changed = True
+            new_url = f"ws://{self._target_ip}:{self._ws_port}/ws/dtam"
+        if changed:
+            super().reconfigure(server_url=new_url)
+        return self.describe()
 
     def describe(self) -> Dict[str, Any]:
-        with self._lock:
-            mod = self._module
-            stats = mod.stats.to_dict() if mod is not None else {}
+        with self._mc_lock:
             return {
                 "target_ip": self._target_ip,
                 "ws_port": self._ws_port,
-                "server_url": f"ws://{self._target_ip}:{self._ws_port}/ws/dtam",
-                "last_error": self._last_error,
-                "ready": mod is not None,
-                "connected": bool(mod and mod.connected),
-                "registered": bool(mod and mod.registered),
+                "server_url": self.server_url,
+                "last_error": self.stats.last_error,
+                "ready": True,
+                "connected": self.connected,
+                "registered": self.registered,
                 "rx_2001_count": self._rx_2001_count,
                 "rx_2002_count": self._rx_2002_count,
                 "last_rx_2001": self._last_rx_2001,
@@ -180,14 +196,14 @@ class DtamSender:
                 "auto_3001_count": self._auto_3001_count,
                 "last_auto_3001": self._last_auto_3001,
                 "last_auto_3001_error": self._last_auto_3001_error,
-                "stats": stats,
+                "stats": self.stats.to_dict(),
             }
 
     # ── 송신 ──────────────────────────────────────────────────
     def send_scheduled_flight(self, record: Dict[str, Any]) -> Dict[str, Any]:
-        """단일 3001 record 를 송신하고 결과 dict 를 반환한다."""
+        """단일 3001 record 송신 결과 dict."""
         payload = _ensure_plan_metadata(record)
-        target = f"ws://{self._target_ip}:{self._ws_port}/ws/dtam"
+        target = self.server_url
         errors = _quick_validate(payload)
         if errors:
             return {
@@ -198,38 +214,20 @@ class DtamSender:
                 "errors": errors,
                 "warnings": [],
             }
-
-        with self._lock:
-            mod = self._module
-            if mod is None:
-                return {
-                    "ok": False,
-                    "target": target,
-                    "aircraftId": payload.get("aircraftId"),
-                    "flightPlanNumber": payload.get("flightPlanNumber"),
-                    "errors": [f"module not initialised: {self._last_error or 'unknown'}"],
-                    "warnings": [],
-                }
         try:
-            ok = mod.send("scheduled_flight", payload)
+            ok = self.send("scheduled_flight", payload)
         except Exception as exc:
-            msg = f"{type(exc).__name__}: {exc}"
-            with self._lock:
-                self._last_error = msg
+            err = f"{type(exc).__name__}: {exc}"
             logger.exception("scheduled_flight send raised")
             return {
                 "ok": False, "target": target,
                 "aircraftId": payload.get("aircraftId"),
                 "flightPlanNumber": payload.get("flightPlanNumber"),
-                "errors": [msg], "warnings": [],
+                "errors": [err], "warnings": [],
             }
-
         errors_out: List[str] = []
         if not ok:
             errors_out.append("WebSocket send failed (not connected or registered)")
-            self._last_error = "; ".join(errors_out)
-        else:
-            self._last_error = ""
         return {
             "ok": ok,
             "target": target,
@@ -246,48 +244,5 @@ class DtamSender:
         ok = all(item["ok"] for item in items) if items else False
         return {"ok": ok, "count": len(items), "results": items}
 
-    # ── 라이프사이클 ──────────────────────────────────────────
-    def close(self) -> None:
-        with self._lock:
-            self._close_module_locked()
 
-    # ── 내부 콜백 ─────────────────────────────────────────────
-    def _on_flight_plan_request_cb(self, payload: Any) -> None:
-        raw = _result_raw(payload)
-        scenario = str(raw.get("scenarioFileName") or "")
-        with self._lock:
-            self._rx_2001_count += 1
-            self._last_rx_2001 = scenario or str(raw)
-        logger.info("2001 Flight Plan Request received: scenario=%s", scenario)
-        handler = self._on_flight_plan_request_handler
-        if handler is None:
-            return
-        try:
-            auto_result = handler(raw, self) or {}
-            count = int(auto_result.get("count") or 0)
-            ok = bool(auto_result.get("ok", False))
-            summary = str(auto_result.get("summary") or "")
-            with self._lock:
-                if ok:
-                    self._auto_3001_count += count
-                    self._last_auto_3001 = summary or f"sent {count} scheduled flight(s)"
-                    self._last_auto_3001_error = ""
-                else:
-                    self._last_auto_3001_error = summary or str(auto_result)
-            if ok:
-                logger.info("2001 auto 3001 completed: %s", summary)
-            else:
-                logger.warning("2001 auto 3001 failed: %s", summary)
-        except Exception as exc:
-            msg = f"{type(exc).__name__}: {exc}"
-            with self._lock:
-                self._last_auto_3001_error = msg
-            logger.exception("2001 auto 3001 handler failed")
-
-    def _on_dtam_execute_cb(self, payload: Any) -> None:
-        raw = _result_raw(payload)
-        folder = str(raw.get("flightPlanFolderName") or "")
-        with self._lock:
-            self._rx_2002_count += 1
-            self._last_rx_2002 = folder or str(raw)
-        logger.info("2002 DTAM Execute received: flightPlanFolderName=%s", folder)
+__all__ = ["MissionComm", "FlightPlanRequestHandler"]

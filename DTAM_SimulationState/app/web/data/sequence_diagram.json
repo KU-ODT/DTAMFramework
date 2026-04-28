@@ -80,7 +80,7 @@
       "to": "sim_state",
       "id": "0001",
       "name": "Module Setting Info",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "report endpoint"
     },
     {
@@ -88,7 +88,7 @@
       "to": "sim_state",
       "id": "0001",
       "name": "Module Setting Info",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "report endpoint"
     },
     {
@@ -96,7 +96,7 @@
       "to": "sim_state",
       "id": "0001",
       "name": "Module Setting Info",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "report endpoint"
     },
     {
@@ -104,7 +104,7 @@
       "to": "sim_state",
       "id": "0001",
       "name": "Module Setting Info",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "report endpoint"
     },
     {
@@ -112,7 +112,7 @@
       "to": "monitoring",
       "id": "0001",
       "name": "Module Setting Summary",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "aggregate"
     },
     {
@@ -120,7 +120,7 @@
       "to": "sim_state",
       "id": "0002",
       "name": "Module Status",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "initial report"
     },
     {
@@ -128,7 +128,7 @@
       "to": "sim_state",
       "id": "0002",
       "name": "Module Status",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "initial report"
     },
     {
@@ -136,7 +136,7 @@
       "to": "sim_state",
       "id": "0002",
       "name": "Module Status",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "initial report"
     },
     {
@@ -144,7 +144,7 @@
       "to": "sim_state",
       "id": "0002",
       "name": "Module Status",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "initial report"
     },
     {
@@ -169,7 +169,7 @@
       "to": "sim_state",
       "id": "1001",
       "name": "Sim Mode Setup",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "send to server"
     },
     {
@@ -191,7 +191,7 @@
       "to": "sim_state",
       "id": "1003",
       "name": "Scenario Setup",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "send to server"
     },
     {
@@ -216,7 +216,7 @@
       "to": "sim_state",
       "id": "2001",
       "name": "Flight Plan Request",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "request"
     },
     {
@@ -232,7 +232,7 @@
       "to": "mission",
       "id": "2001",
       "name": "Flight Plan Request",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "forward"
     },
     {
@@ -256,7 +256,7 @@
       "to": "sim_state",
       "id": "3001",
       "name": "Scheduled Flight",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "submit"
     },
     {
@@ -272,7 +272,7 @@
       "to": "vehicle",
       "id": "3001",
       "name": "Scheduled Flight",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "forward"
     },
     {
@@ -289,7 +289,7 @@
       "to": "sim_state",
       "id": "2002",
       "name": "DTAM Execute",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "execute"
     },
     {
@@ -305,7 +305,7 @@
       "to": "mission",
       "id": "2002",
       "name": "DTAM Execute",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "forward"
     },
     {
@@ -313,7 +313,7 @@
       "to": "monitoring",
       "id": "2002",
       "name": "DTAM Execute",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "forward"
     },
     {
@@ -321,7 +321,7 @@
       "to": "vehicle",
       "id": "2002",
       "name": "DTAM Execute",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "forward"
     },
     {
@@ -329,7 +329,7 @@
       "to": "visual",
       "id": "2002",
       "name": "DTAM Execute",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "forward"
     },
     {
@@ -395,7 +395,7 @@
       "to": "sim_state",
       "id": "1002",
       "name": "Simulation Control",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "send to server"
     },
     {
@@ -411,7 +411,7 @@
       "to": "vehicle",
       "id": "1002",
       "name": "Simulation Control",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "forward"
     },
     {
@@ -419,7 +419,7 @@
       "to": "visual",
       "id": "1002",
       "name": "Simulation Control",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "forward"
     },
     {
@@ -430,7 +430,7 @@
       "to": "vehicle",
       "id": "0003",
       "name": "Common Time Info",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "forward"
     },
     {
@@ -438,7 +438,7 @@
       "to": "visual",
       "id": "0003",
       "name": "Common Time Info",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "forward"
     },
     {
@@ -446,7 +446,7 @@
       "to": "sim_state",
       "id": "4001",
       "name": "Vehicle Status",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "periodic"
     },
     {
@@ -462,7 +462,7 @@
       "to": "monitoring",
       "id": "4001",
       "name": "Vehicle Status",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "forward"
     },
     {
@@ -470,7 +470,7 @@
       "to": "visual",
       "id": "4001",
       "name": "Vehicle Status",
-      "proto": "UDP",
+      "proto": "ws",
       "note": "forward"
     },
     {
@@ -478,7 +478,7 @@
       "to": "sim_state",
       "id": "4101",
       "name": "Camera Image Frame",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "periodic"
     },
     {
@@ -486,7 +486,7 @@
       "to": "monitoring",
       "id": "4101",
       "name": "Camera Image Frame",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "forward"
     },
     {
@@ -497,7 +497,7 @@
       "to": "sim_state",
       "id": "3002",
       "name": "Strategic Separation",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "submit"
     },
     {
@@ -513,7 +513,7 @@
       "to": "vehicle",
       "id": "3002",
       "name": "Strategic Separation",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "forward"
     },
     {
@@ -521,7 +521,7 @@
       "to": "sim_state",
       "id": "3003",
       "name": "Tactical Separation",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "submit"
     },
     {
@@ -537,7 +537,7 @@
       "to": "vehicle",
       "id": "3003",
       "name": "Tactical Separation",
-      "proto": "TCP",
+      "proto": "ws",
       "note": "forward"
     }
   ]
