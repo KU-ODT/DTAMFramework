@@ -1,7 +1,7 @@
 """모듈 연결 상태 레지스트리.
 
 - 4 종 역할 (mission / monitoring / vehicle / visual) 을 설정 기반으로 초기화.
-- 0002 Module Status (UDP) 가 도착하면 해당 역할의 heartbeat/status 갱신.
+- 0002 Module Status 가 도착하면 해당 역할의 heartbeat/status 갱신.
 - heartbeat 가 일정 시간 안 오면 `connected = False`.
 - per-mid rx/tx 카운터 + 최근 payload 보관.
 """
@@ -71,9 +71,6 @@ class MessageCounter:
 class ModuleState:
     role: str
     display_name: str
-    ip: str
-    udp_port: int
-    tcp_port: int
     expected_source: str = ""
     last_heartbeat_ts: float = 0.0
     last_source: str = ""
@@ -91,9 +88,6 @@ class ModuleState:
         return {
             "role": self.role,
             "display_name": self.display_name,
-            "ip": self.ip,
-            "udp_port": self.udp_port,
-            "tcp_port": self.tcp_port,
             "expected_source": self.expected_source,
             "last_heartbeat_ts": self.last_heartbeat_ts,
             "last_source": self.last_source,
@@ -120,9 +114,6 @@ class ModuleRegistry:
             self._by_role[ep.role] = ModuleState(
                 role=ep.role,
                 display_name=ep.display_name,
-                ip=ep.ip,
-                udp_port=ep.udp_port,
-                tcp_port=ep.resolved_tcp_port,
                 expected_source=ep.expected_source,
             )
             if ep.expected_source:
@@ -216,22 +207,12 @@ class ModuleRegistry:
         self,
         role: str,
         *,
-        ip: Optional[str] = None,
-        udp_port: Optional[int] = None,
-        tcp_port: Optional[int] = None,
         expected_source: Optional[str] = None,
     ) -> Optional[ModuleState]:
         with self._lock:
             module = self._by_role.get(role)
             if module is None:
                 return None
-            if ip is not None:
-                module.ip = str(ip)
-            if udp_port is not None:
-                module.udp_port = int(udp_port)
-                module.tcp_port = int(udp_port) + 1
-            if tcp_port is not None:
-                module.tcp_port = int(tcp_port)
             if expected_source is not None:
                 if module.expected_source:
                     self._source_to_role.pop(module.expected_source, None)

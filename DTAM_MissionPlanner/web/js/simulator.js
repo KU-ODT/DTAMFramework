@@ -16,11 +16,8 @@ ODT.Simulator = (function () {
     sending: false,
     ready: false,
     target_ip: '127.0.0.1',
-    target_port: 17000,
-    target_tcp_port: 17001,
-    my_ip: '0.0.0.0',
-    my_port: 17002,
-    my_tcp_port: 17003,
+    ws_port: 8096,
+    server_url: '',
     last_error: '',
     last_result: null,
   };
@@ -101,9 +98,9 @@ ODT.Simulator = (function () {
     };
     // Mission 카드의 DTAM target 입력 기본값을 채워 둔다 (사용자가 수정 중이면 덮어쓰지 않음)
     const ipInput = document.getElementById('mission-sim-dtam-target-ip');
-    const portInput = document.getElementById('mission-sim-dtam-target-port');
+    const wsInput = document.getElementById('mission-sim-dtam-ws-port');
     if (ipInput && !ipInput.dataset.userEdited) ipInput.value = status.target_ip || '';
-    if (portInput && !portInput.dataset.userEdited) portInput.value = status.target_port || '';
+    if (wsInput && !wsInput.dataset.userEdited) wsInput.value = status.ws_port || '';
     render();
   }
 
@@ -194,7 +191,7 @@ ODT.Simulator = (function () {
     setText(
       'mission-sim-airsim-status',
       state.ready
-        ? `${text.statusConnected} ${state.target_ip || '--'}:${state.target_tcp_port || '--'}`
+        ? `${text.statusConnected} ${state.target_ip || '--'}:${state.ws_port || '--'}`
         : text.statusDisconnected
     );
     setText(
@@ -244,7 +241,7 @@ ODT.Simulator = (function () {
     }
     if (label) {
       label.textContent = state.ready
-        ? `${text.statusConnected} ${state.target_ip || '--'}:${state.target_tcp_port || '--'}`
+        ? `${text.statusConnected} ${state.target_ip || '--'}:${state.ws_port || '--'}`
         : text.statusDisconnected;
     }
     if (connectBtn) {
@@ -252,7 +249,7 @@ ODT.Simulator = (function () {
       connectBtn.classList.toggle('connected', !!state.ready);
       connectBtn.disabled = false;
       connectBtn.title = state.target_ip
-        ? `DTAM target ${state.target_ip}:${state.target_tcp_port} (my_port ${state.my_tcp_port})`
+        ? (state.server_url || `ws://${state.target_ip}:${state.ws_port}/ws/dtam`)
         : 'DTAM target not configured';
     }
     if (playBtn) {

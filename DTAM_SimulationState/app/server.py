@@ -1,6 +1,6 @@
 """DTAM Simulation State FastAPI 앱 팩토리.
 
-세션 서버로서 실제 데이터 통신(UDP/TCP/WS)과 DB 로깅, 시뮬레이션 엔진(시간)을 관리합니다.
+세션 서버로서 WebSocket 데이터 통신(``/ws/dtam``)과 DB 로깅, 시뮬레이션 엔진(시간)을 관리합니다.
 또한 라이브 모니터 웹 UI 를 ``/`` 에 호스팅합니다 (자기 자신의 ``/ws/events`` 와 same-origin).
 """
 from __future__ import annotations

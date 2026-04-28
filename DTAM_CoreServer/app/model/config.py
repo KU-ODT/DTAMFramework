@@ -28,25 +28,13 @@ DEFAULT_CONFIG_FILE = ROOT_DIR / "config.json"
 @dataclass
 class ServerEndpoint:
     bind_ip: str = "0.0.0.0"
-    udp_port: int = 17000
-
-    @property
-    def tcp_port(self) -> int:
-        return self.udp_port + 1
 
 
 @dataclass
 class ModuleEndpoint:
     role: str
     display_name: str
-    ip: str = "127.0.0.1"
-    udp_port: int = 17010
-    tcp_port: Optional[int] = None
     expected_source: str = ""
-
-    @property
-    def resolved_tcp_port(self) -> int:
-        return int(self.tcp_port) if self.tcp_port is not None else int(self.udp_port) + 1
 
 
 @dataclass
@@ -71,14 +59,10 @@ class ServerConfig:
 
 def default_modules() -> List[ModuleEndpoint]:
     return [
-        ModuleEndpoint(role="mission", display_name="Mission Planner",
-                       ip="127.0.0.1", udp_port=17010, expected_source="DTAM_MissionPlanner"),
-        ModuleEndpoint(role="monitoring", display_name="Operations Console",
-                       ip="127.0.0.1", udp_port=17020, expected_source="DTAMOperationsConsole"),
-        ModuleEndpoint(role="vehicle", display_name="Air Mobility",
-                       ip="127.0.0.1", udp_port=17030, expected_source="DTAMAirMobility"),
-        ModuleEndpoint(role="visual", display_name="Visualization",
-                       ip="127.0.0.1", udp_port=17040, expected_source="DTAMVisualization"),
+        ModuleEndpoint(role="mission",     display_name="Mission Planner",     expected_source="DTAM_MissionPlanner"),
+        ModuleEndpoint(role="monitoring",  display_name="Operations Console",  expected_source="DTAMOperationsConsole"),
+        ModuleEndpoint(role="vehicle",     display_name="Air Mobility",        expected_source="DTAMAirMobility"),
+        ModuleEndpoint(role="visual",      display_name="Visualization",       expected_source="DTAMVisualization"),
     ]
 
 
@@ -94,7 +78,6 @@ def load_config(path: Optional[Path] = None) -> ServerConfig:
     server_raw = dict(raw.get("server") or {})
     srv = ServerEndpoint(
         bind_ip=str(server_raw.get("bind_ip", "0.0.0.0")),
-        udp_port=int(server_raw.get("udp_port", 17000)),
     )
 
     gui_host = str(raw.get("gui_host", "127.0.0.1"))
@@ -126,9 +109,6 @@ def load_config(path: Optional[Path] = None) -> ServerConfig:
             modules.append(ModuleEndpoint(
                 role=role,
                 display_name=str(item.get("display_name") or role.title()),
-                ip=str(item.get("ip") or "127.0.0.1"),
-                udp_port=int(item.get("udp_port") or 17010),
-                tcp_port=int(item["tcp_port"]) if item.get("tcp_port") is not None else None,
                 expected_source=str(item.get("expected_source") or ""),
             ))
     if not modules:

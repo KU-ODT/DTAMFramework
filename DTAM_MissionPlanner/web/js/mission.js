@@ -98,13 +98,13 @@ ODT.Mission = (function () {
     const dtamApplyBtn = document.getElementById('mission-sim-dtam-apply');
     if (dtamApplyBtn) dtamApplyBtn.addEventListener('click', async () => {
       const ip = document.getElementById('mission-sim-dtam-target-ip')?.value?.trim();
-      const port = parseInt(document.getElementById('mission-sim-dtam-target-port')?.value, 10);
+      const wsPort = parseInt(document.getElementById('mission-sim-dtam-ws-port')?.value, 10);
       try {
         await ODT.Dtam?.applyTargetConfig?.({
           target_ip: ip || undefined,
-          target_port: Number.isFinite(port) ? port : undefined,
+          ws_port: Number.isFinite(wsPort) ? wsPort : undefined,
         });
-        ODT.OperatorLog?.success('DTAM target', `→ ${ip || '(unchanged)'}:${Number.isFinite(port) ? port : '(unchanged)'}`);
+        ODT.OperatorLog?.success('DTAM target', `→ ws://${ip || '(unchanged)'}:${Number.isFinite(wsPort) ? wsPort : '(unchanged)'}/ws/dtam`);
       } catch (_) {}
     });
     const dtamRefreshBtn = document.getElementById('mission-sim-dtam-refresh');

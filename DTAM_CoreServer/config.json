@@ -1,7 +1,6 @@
 {
   "server": {
-    "bind_ip": "0.0.0.0",
-    "udp_port": 17000
+    "bind_ip": "0.0.0.0"
   },
   "gui_host": "127.0.0.1",
   "gui_port": 8095,
@@ -11,35 +10,25 @@
     {
       "role": "mission",
       "display_name": "DTAM Mission Planner",
-      "ip": "127.0.0.1",
-      "udp_port": 17010,
       "expected_source": "DTAM_MissionPlanner"
     },
     {
       "role": "monitoring",
       "display_name": "DTAM Operations Console",
-      "ip": "127.0.0.1",
-      "udp_port": 17020,
       "expected_source": "DTAMOperationsConsole"
     },
     {
       "role": "vehicle",
       "display_name": "DTAM Air Mobility",
-      "ip": "127.0.0.1",
-      "udp_port": 17030,
       "expected_source": "DTAMAirMobility"
     },
     {
       "role": "visual",
-      "display_name": "DTAM Visualization",
-      "ip": "127.0.0.1",
-      "udp_port": 17040
+      "display_name": "DTAM Visualization"
     },
     {
       "role": "sim_state",
       "display_name": "DTAM Simulation State Engine",
-      "ip": "127.0.0.1",
-      "udp_port": 17050,
       "expected_source": "DTAM_SimulationState"
     }
   ]

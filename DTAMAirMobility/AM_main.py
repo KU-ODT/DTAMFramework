@@ -105,11 +105,6 @@ def parse_args() -> argparse.Namespace:
                         help="DTAM SimulationState server host")
     parser.add_argument("--ws-port", type=int, default=8096,
                         help="DTAM SimulationState WebSocket/HTTP port (default 8096)")
-    # ── legacy (UDP/TCP 시절) 인자 — 무시되지만 backward-compat 위해 유지
-    parser.add_argument("--target-port", type=int, default=17000,
-                        help=argparse.SUPPRESS)
-    parser.add_argument("--my-port", type=int, default=17030,
-                        help=argparse.SUPPRESS)
 
     # 즉시 등록할 비행계획
     parser.add_argument("--plan", action="append", default=[],

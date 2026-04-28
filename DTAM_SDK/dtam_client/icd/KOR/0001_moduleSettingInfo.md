@@ -8,9 +8,9 @@
 | 인코딩 | JSON (UTF-8) |
 | 용도 | 각 모듈이 자신의 식별 정보(이름·역할)를 서버에 보고 |
 
-> **변경 이력**: 이전(legacy UDP) 명세에는 `IP` / `UDPPort` / `TCPPort` 가 포함되었으나,
 > WebSocket 단일 채널 체제에서는 모듈이 서버에 *접속* 하므로 네트워크 endpoint 보고가
-> 불필요해 제거되었다. ``Role`` 필드가 추가되어 모듈 역할(vehicle/mission/...) 을 명시한다.
+> 필요하지 않다. 대신 ``Role`` 필드가 모듈 역할(vehicle/mission/monitoring/visual/sim_state)
+> 을 명시하는 데 쓰인다.
 
 ## 1. 최상위 구조
 

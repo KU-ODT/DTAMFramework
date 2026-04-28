@@ -262,38 +262,6 @@ class VehicleSession:
         )
 
 
-class _PublisherCompat:
-    """``service.publisher.target_ip`` 등 기존 외부 사용 호환을 위한 mirror.
-
-    DtamVehiclePublisher 가 사라졌지만 backend/app.py 의 ``_status_to_dict``
-    가 아직 ``service.publisher.{target_ip,target_port,my_port}`` 를 읽기 때문에
-    같은 이름의 속성을 service 에서 받아서 노출한다.
-    """
-
-    def __init__(self, service: "IntegratedAirMobilityService") -> None:
-        self._svc = service
-
-    @property
-    def target_ip(self) -> str:
-        return self._svc.target_ip
-
-    @property
-    def target_port(self) -> int:
-        return self._svc.target_port
-
-    @property
-    def my_port(self) -> int:
-        return self._svc.my_port
-
-    @property
-    def connected(self) -> bool:
-        return self._svc.module.connected
-
-    @property
-    def last_error(self) -> str:
-        return ""
-
-
 class IntegratedAirMobilityService:
     """Top-level 서비스.
 
@@ -307,12 +275,7 @@ class IntegratedAirMobilityService:
         *,
         target_ip: str = "127.0.0.1",
         ws_port: int = 8096,                 # SimulationState HTTP/WS 포트
-        # ── legacy (UDP/TCP 시절) 인자 — 무시되며 dashboard 표시값으로만 보존 ──
-        target_port: int = 17000,
-        my_ip: str = "0.0.0.0",
-        my_port: int = 17030,
         async_send: bool = True,
-        # ── /legacy ─────────────────────────────────────────────────────────
         config: Optional[SimulationConfig] = None,
         wind_seed: int = 20260121,
         month: int = 4,
@@ -327,8 +290,6 @@ class IntegratedAirMobilityService:
 
         # ── DtamModule 기반 통신 (WebSocket /ws/dtam) ─────────────
         self.target_ip = str(target_ip)
-        self.target_port = int(target_port)
-        self.my_port = int(my_port)
         self.ws_port = int(ws_port)
         self._async_send = bool(async_send)
         server_url = f"ws://{self.target_ip}:{self.ws_port}/ws/dtam"
@@ -342,9 +303,6 @@ class IntegratedAirMobilityService:
         self.module.on("dtam_execute",         self._on_dtam_execute)
         self.module.on("strategic_separation", self._on_strategic_separation)
         self.module.on("tactical_separation",  self._on_tactical_separation)
-
-        # backend/app.py 의 _status_to_dict 호환을 위한 publisher mirror
-        self.publisher = _PublisherCompat(self)
 
         self._sessions: Dict[str, VehicleSession] = {}
         self._clock_mode: ClockMode = ClockMode.EXTERNAL
@@ -420,22 +378,11 @@ class IntegratedAirMobilityService:
         self,
         *,
         target_ip: Optional[str] = None,
-        target_port: Optional[int] = None,
-        my_ip: Optional[str] = None,
-        my_port: Optional[int] = None,
         ws_port: Optional[int] = None,
     ) -> None:
-        """WebSocket 서버 endpoint 재설정.
-
-        ``target_port`` / ``my_ip`` / ``my_port`` 는 legacy UDP 시절 인자라 이제
-        무시되지만 외부 호출 호환을 위해 시그니처는 유지한다.
-        """
+        """WebSocket 서버 endpoint 재설정."""
         if target_ip is not None:
             self.target_ip = str(target_ip)
-        if target_port is not None:
-            self.target_port = int(target_port)
-        if my_port is not None:
-            self.my_port = int(my_port)
         if ws_port is not None:
             self.ws_port = int(ws_port)
         new_url = f"ws://{self.target_ip}:{self.ws_port}/ws/dtam"

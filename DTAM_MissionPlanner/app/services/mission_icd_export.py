@@ -10,7 +10,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
-from .converter_tool import get_vertiport_spawn_point
+from ..domain.converter_tool import get_vertiport_spawn_point
 from .route_planner import RoutePlanner
 
 

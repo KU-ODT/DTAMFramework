@@ -234,9 +234,6 @@ class ServerHub:
             "server": {
                 "bind_ip": self.config.server.bind_ip,
                 "ws_port": getattr(self.config, "ws_port", 8096),
-                # 역호환을 위해 udp/tcp 키도 노출 (legacy GUI 가 읽음)
-                "udp_port": self.config.server.udp_port,
-                "tcp_port": self.config.server.tcp_port,
             },
             "registry": registry_desc,
             "messages": MESSAGE_TABLE,
@@ -249,17 +246,11 @@ class ServerHub:
         self,
         role: str,
         *,
-        ip: Optional[str] = None,
-        udp_port: Optional[int] = None,
-        tcp_port: Optional[int] = None,
         expected_source: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
-        """모듈 endpoint 정보 갱신. 통신은 이제 WS이지만 표시용 메타 유지."""
+        """모듈 expected_source 갱신 (WS-only 환경에서는 source 매칭만 의미)."""
         module = self.registry.update_endpoint(
             role,
-            ip=ip,
-            udp_port=udp_port,
-            tcp_port=tcp_port,
             expected_source=expected_source,
         )
         if module is None:

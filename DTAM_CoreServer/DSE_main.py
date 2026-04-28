@@ -82,8 +82,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--db-root", default=None, help=f"DB 루트 폴더 (기본: {DEFAULT_DB_ROOT})")
     parser.add_argument("--no-browser", action="store_true")
     parser.add_argument("--log-level", default="info")
-    # ── legacy (UDP/TCP 시절) 인자 — 무시되지만 backward-compat 위해 받음
-    parser.add_argument("--udp-port", type=int, default=None, help=argparse.SUPPRESS)
     return parser.parse_args()
 
 
@@ -100,8 +98,6 @@ def main() -> None:
     # CLI override
     if args.bind_ip:
         cfg.server.bind_ip = args.bind_ip
-    if args.udp_port is not None:
-        cfg.server.udp_port = int(args.udp_port)
     if args.gui_host:
         cfg.gui_host = args.gui_host
     if args.gui_port is not None:

@@ -1,124 +1,149 @@
-# DTAM SDK Guide
+# DTAM SDK Guide (English)
 
 Version: `0.0.1`
 
-This SDK lets DTAM modules exchange data without the GUI. A module creates a
-message payload as a Python dict, then sends it through `DtamClient`.
+The DTAM SDK is the Python client every module uses to exchange ICD
+messages with the DTAM SimulationState server over a single WebSocket
+channel (`/ws/dtam` on port 8096). It also bundles the canonical message
+catalog, ICD dataclasses, and identity tables shared with the server.
 
-## 1. Simplest Usage
+## 1. Architecture
+
+- **Control plane** — `DTAM_CoreServer` on port 8095 (HTTP REST, GUI,
+  process supervision).
+- **Data plane** — `DTAM_SimulationState` on port 8096 (HTTP + WebSocket
+  `/ws/dtam`, DB logging, live monitor).
+- **Modules** (Mission Planner, Air Mobility, Operations Console,
+  Visualization) — every module connects as a WebSocket *client* to the
+  data plane. Modules never reach each other directly; the server forwards
+  according to `FORWARD_RULES` and the role of the connected client.
+
+## 2. Recommended pattern — subclass `DtamModule`
 
 ```python
-from dtam_client import DtamClient
-
-dtam = DtamClient.module(
-    my_ip="0.0.0.0",        # where this module listens
-    my_port=17000,          # UDP port; TCP is 17001 by default
-    peer_ip="203.252.161.43",
-    peer_port=17000,        # peer UDP port; peer TCP is 17001 by default
-    auto_listen=True,
+from dtam_client import DtamModule, Role, on_receive
+from dtam_client.schema import (
+    Msg3001_ScheduledFlight,
+    Msg4001_VehicleStatus,
+    Msg0003_CommonTimeInfo,
 )
 
-payload = dtam.sample("4001")
-dtam.push_vehicle_status_async(payload)
+class VehicleService(DtamModule):
+    role = Role.VEHICLE
+
+    def __init__(self):
+        super().__init__(
+            server_url="ws://127.0.0.1:8096/ws/dtam",
+            heartbeat=True,            # auto-publishes 0002 once per second
+        )
+        self._plans: dict[str, Msg3001_ScheduledFlight] = {}
+
+    @on_receive("3001")
+    def on_plan(self, plan: Msg3001_ScheduledFlight) -> None:
+        self._plans[plan.aircraftId] = plan
+
+    @on_receive("0003")
+    def on_clock(self, clock: Msg0003_CommonTimeInfo) -> None:
+        ...
+
+    def publish_status(self, vehicles: dict) -> bool:
+        return self.send(Msg4001_VehicleStatus(
+            timestamp="2026-04-28T00:00:00.000Z",
+            vehicles=vehicles,
+        ))
 ```
 
-Only remember this rule:
+Decorated handlers are auto-registered on construction. The argument is the
+ICD message ID (`"3001"` etc.), and the callback receives a parsed
+dataclass instance — never a raw dict in strict mode.
 
-- `my_*` is where this module receives data.
-- `peer_*` is where this module sends data.
-- UDP uses `port`; TCP uses `port + 1`.
+## 3. Imperative pattern — `DtamModule.start(...) + .on(alias, cb)`
 
-## 2. Config File Usage
-
-`dtam_config.json`:
-
-```json
-{
-  "my": {
-    "name": "my_module",
-    "ip": "0.0.0.0",
-    "port": 17000
-  },
-  "peer": {
-    "name": "peer_module",
-    "ip": "203.252.161.43",
-    "port": 17000
-  }
-}
-```
-
-Python:
+When a subclass is overkill (one-off scripts, integration tests):
 
 ```python
-from dtam_client import DtamClient
+from dtam_client import DtamModule, Role
 
-dtam = DtamClient.from_config("dtam_config.json", auto_listen=True)
-dtam.push_sample_async("4001")
+mod = DtamModule.start(
+    role=Role.MISSION,
+    server_url="ws://127.0.0.1:8096/ws/dtam",
+    heartbeat=True,
+)
+mod.on("scheduled_flight", lambda plan: print(plan.aircraftId))
+mod.on("3001",             lambda plan: print(plan))   # mid also accepted
 ```
 
-## 3. Receive Callbacks
+Aliases come from the catalog (`scheduled_flight` ↔ `3001`).
+
+## 4. Sending — dataclass first
 
 ```python
-from dtam_client import DtamClient
+from dtam_client.schema import Msg2002_DtamExecute
 
-dtam = DtamClient.from_config("dtam_config.json", auto_listen=False)
-
-@dtam.on("4001")
-def on_vehicle_status(result):
-    print(result.to_dict())
-
-dtam.listen(block=True)
+mod.send(Msg2002_DtamExecute(timestamp="...", flightPlanFolderName="abc"))
 ```
 
-## 4. Multiple Modules On One Computer
+The SDK looks up the right `mid`, applies any `to_wire()` adapter (e.g. the
+flat layout for 4001), and ships it. Strict mode (`set_strict_dataclass(True)`)
+forbids `mod.send_legacy(mid, dict)` and raises a `TypeError` instead of a
+DeprecationWarning. Strict mode is recommended for new code; leave it off
+when migrating older callers.
 
-Two modules on the same computer cannot listen on the same port. Give every
-module a different `my.port`.
+## 5. Identity & roles
 
-Example:
-
-- Module A: `my.port = 17000`, TCP automatically uses `17001`
-- Module B: `my.port = 17100`, TCP automatically uses `17101`
-
-To send between them, put the other module's `my.port` into your `peer.port`.
-
-Module A config:
-
-```json
-{
-  "my": {"ip": "0.0.0.0", "port": 17000},
-  "peer": {"ip": "127.0.0.1", "port": 17100}
-}
-```
-
-Module B config:
-
-```json
-{
-  "my": {"ip": "0.0.0.0", "port": 17100},
-  "peer": {"ip": "127.0.0.1", "port": 17000}
-}
-```
-
-## 5. Non-Blocking Sends
-
-For simulation loops, prefer `_async` send methods. If the peer listener is
-not ready, your module loop will not be blocked for long.
+Every module identifies itself with a `Role`. The SDK is the authority:
 
 ```python
-def on_send_error(result):
-    print(result)
+from dtam_client import Role, identity_of, role_of
 
-dtam.on_send_error = on_send_error
-dtam.push_dtam_execute_async(dtam.sample("2002"))
+identity_of(Role.VEHICLE).source   # "DTAMAirMobility"
+role_of("DTAM_MissionPlanner")     # Role.MISSION
 ```
 
-## 6. ICD Documents
+The server's heartbeat tracking matches a module's `source` against
+`KNOWN_MODULES` to assign it a role.
 
-ICD documents are distributed with the SDK:
+## 6. Subscriptions
 
-- Korean: `dtam_client/icd/KOR`
-- English: `dtam_client/icd/ENG`
+`FORWARD_RULES` declares which roles receive which messages.
+`subscriptions_for(role)` returns the list of `mid`s a given role should
+listen for — the SDK auto-subscribes for you when you call `start()` /
+construct a `DtamModule` subclass.
 
-The `message/` folder is a user-side payload builder example. Socket code,
-schemas, receivers, and ICD documents belong in `dtam_client/`.
+## 7. REST helper
+
+Use `DtamRest` for stateless calls (server snapshot, module list, etc.)
+without opening a WebSocket:
+
+```python
+from dtam_client import DtamRest
+
+rest = DtamRest("http://127.0.0.1:8096")
+rest.snapshot()        # GET /api/state
+rest.modules()         # GET /api/modules
+```
+
+## 8. Status & lifecycle
+
+```python
+mod.connected      # WebSocket open?
+mod.registered     # 'register' handshake acknowledged?
+mod.subscriptions  # list of mids this module receives
+mod.stats.to_dict()
+mod.close()
+```
+
+`DtamModule` runs its socket on a background thread, so calling
+`send()`/`close()` from your main loop is safe.
+
+## 9. ICD documents
+
+Per-message specs live next to the package:
+
+- 한국어: `dtam_client/icd/KOR/`
+- English: `dtam_client/icd/ENG/`
+
+Adding a new ICD message? Follow [dtam_client/NEW_MESSAGE_PROMPT.md](dtam_client/NEW_MESSAGE_PROMPT.md) —
+edit `catalog.py`, add a dataclass under `dtam_client/schema/`, register
+forward rules in `policy.py`, and drop matching markdown into both `KOR/`
+and `ENG/`.

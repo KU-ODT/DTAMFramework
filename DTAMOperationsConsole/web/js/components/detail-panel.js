@@ -126,7 +126,7 @@ function renderModuleCard(module, copy) {
           ${copy[status]}
         </span>
       </header>
-      <p class="dtam-module-endpoint">${module.ip}:${module.udp_port} <span>(TCP ${module.tcp_port})</span></p>
+      <p class="dtam-module-endpoint">${module.expected_source || "—"} <span>(${module.last_source || "no source yet"})</span></p>
       <div class="dtam-module-metrics">
         <div>
           <span>${copy.rx}</span>

@@ -9,11 +9,11 @@ Mission ICD record 를 검증한 뒤 DtamModule.send("scheduled_flight", ...) �
 - 송신 결과를 PushResult 호환 dict 형식으로 반환.
 
 외부 인터페이스 (server.py 가 사용):
-  - DtamSender(target_ip, target_port, my_ip, my_port, on_flight_plan_request, ws_port)
+  - DtamSender(target_ip, ws_port, on_flight_plan_request)
   - .describe() → dict
   - .send_scheduled_flight(record) → dict
   - .send_scheduled_flights(records) → dict
-  - .reconfigure(target_ip=..., target_port=..., ws_port=...) → dict
+  - .reconfigure(target_ip=..., ws_port=...) → dict
   - .close()
 """
 from __future__ import annotations
@@ -39,8 +39,8 @@ FlightPlanRequestHandler = Callable[[Dict[str, Any], "DtamSender"], Optional[Dic
 def _result_raw(result: Any) -> Dict[str, Any]:
     """수신 콜백 인자를 dict 으로 정규화.
 
-    DtamModule 은 ICD dataclass 인스턴스를 넘긴다 (parse_payload 결과).
-    legacy 경로 (dict 직접, 또는 ``ReceiveResult.raw``) 와도 호환.
+    DtamModule 이 ICD dataclass 인스턴스를 넘기면 ``asdict`` 로 풀고,
+    이미 dict 형태로 들어온 경우엔 그대로 반환한다.
     """
     if isinstance(result, dict):
         return result
@@ -95,18 +95,10 @@ class DtamSender:
         *,
         target_ip: str = "127.0.0.1",
         ws_port: int = 8096,             # SimulationState HTTP/WS 포트
-        # ── legacy (UDP/TCP 시절) 인자 — 무시되며 describe() 표시값으로만 보존
-        target_port: int = 17000,
-        my_ip: str = "0.0.0.0",
-        my_port: int = 17010,
-        # ── /legacy ───────────────────────────────────────────────────────
         on_flight_plan_request: Optional[FlightPlanRequestHandler] = None,
     ) -> None:
         self._lock = threading.RLock()
         self._target_ip = str(target_ip)
-        self._target_port = int(target_port)
-        self._my_ip = str(my_ip)
-        self._my_port = int(my_port)
         self._ws_port = int(ws_port)
         self._module: Optional[DtamModule] = None
         self._last_error: str = ""
@@ -153,12 +145,8 @@ class DtamSender:
         *,
         target_ip: Optional[str] = None,
         ws_port: Optional[int] = None,
-        # ── legacy (UDP/TCP) — 무시
-        target_port: Optional[int] = None,
-        my_ip: Optional[str] = None,
-        my_port: Optional[int] = None,
     ) -> Dict[str, Any]:
-        """WS 서버 endpoint 재설정 (target_ip / ws_port). legacy 인자는 무시."""
+        """WS 서버 endpoint 재설정."""
         with self._lock:
             rebuild = False
             if target_ip is not None and str(target_ip) != self._target_ip:
@@ -167,12 +155,6 @@ class DtamSender:
             if ws_port is not None and int(ws_port) != self._ws_port:
                 self._ws_port = int(ws_port)
                 rebuild = True
-            if target_port is not None:
-                self._target_port = int(target_port)
-            if my_ip is not None:
-                self._my_ip = str(my_ip)
-            if my_port is not None:
-                self._my_port = int(my_port)
 
             if rebuild:
                 self._close_module_locked()
@@ -187,10 +169,6 @@ class DtamSender:
                 "target_ip": self._target_ip,
                 "ws_port": self._ws_port,
                 "server_url": f"ws://{self._target_ip}:{self._ws_port}/ws/dtam",
-                # legacy 표시값 — UI 가 옛 키를 참조하더라도 화면 깨지지 않게
-                "target_port": self._target_port,
-                "my_ip": self._my_ip,
-                "my_port": self._my_port,
                 "last_error": self._last_error,
                 "ready": mod is not None,
                 "connected": bool(mod and mod.connected),

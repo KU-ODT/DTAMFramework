@@ -136,11 +136,6 @@ def _coerce_value(val: Any, target_type: Any) -> Any:
     return val
 
 
-# Backward-compat: legacy 이름 (사용처 없으면 삭제 가능).
-def _resolve_type(cls: Type, field_name: str) -> Optional[Type]:
-    return _resolve_field_types(cls).get(field_name)
-
-
 def parse_payload(mid: str, data: Dict[str, Any]) -> Any:
     """wire dict payload 를 해당 ICD dataclass 인스턴스로 변환.
 

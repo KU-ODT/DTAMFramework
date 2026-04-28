@@ -106,10 +106,6 @@ def parse_args() -> argparse.Namespace:
                         help="DTAM CoreServer HTTP host for central DB lookup.")
     parser.add_argument("--server-http-port", type=int, default=None,
                         help="DTAM CoreServer HTTP port for central DB lookup.")
-    # ── legacy (UDP/TCP 시절) 인자 — 무시되지만 backward-compat 위해 받음
-    parser.add_argument("--target-port", type=int, default=None, help=argparse.SUPPRESS)
-    parser.add_argument("--my-ip", default=None, help=argparse.SUPPRESS)
-    parser.add_argument("--my-port", type=int, default=None, help=argparse.SUPPRESS)
     return parser.parse_args()
 
 
@@ -123,13 +119,6 @@ def _apply_dtam_overrides(args: argparse.Namespace) -> None:
         settings["server_http_host"] = str(args.server_http_host)
     if args.server_http_port is not None:
         settings["server_http_port"] = int(args.server_http_port)
-    # legacy
-    if args.target_port is not None:
-        settings["dtam_target_port"] = int(args.target_port)
-    if args.my_ip:
-        settings["dtam_my_ip"] = str(args.my_ip)
-    if args.my_port is not None:
-        settings["dtam_my_port"] = int(args.my_port)
 
 
 def main() -> None:

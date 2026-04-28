@@ -50,7 +50,7 @@ app.include_router(web_router)
 app.include_router(api_router, prefix="/api/v1")
 
 app.mount("/static", StaticFiles(directory=settings.static_dir), name="static")
-app.mount("/resource", StaticFiles(directory=settings.resource_dir), name="resource")
+app.mount("/resources", StaticFiles(directory=settings.resource_dir), name="resources")
 
 
 def run() -> None:

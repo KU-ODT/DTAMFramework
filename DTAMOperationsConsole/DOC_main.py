@@ -66,8 +66,6 @@ def parse_args() -> argparse.Namespace:
                         help="DTAM SimulationState server host (for WS heartbeat + REST ICD sends).")
     parser.add_argument("--reload", action="store_true", help="Enable Uvicorn auto-reload.")
     parser.add_argument("--no-browser", action="store_true", help="Do not open a browser window.")
-    # ── legacy (UDP) — 무시되지만 backward-compat 위해 받음
-    parser.add_argument("--target-port", type=int, default=17000, help=argparse.SUPPRESS)
     return parser.parse_args()
 
 

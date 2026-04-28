@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 class Msg0001_ModuleSettingInfo:
     """MSG 0001: 모듈 세팅 정보 — 모듈이 서버에 자기 식별 정보를 보고.
 
-    legacy UDP 시절에는 ``IP`` / ``UDPPort`` / ``TCPPort`` 도 함께 보고했지만,
     WebSocket(``/ws/dtam``) 단일 채널 체제에서는 모듈이 서버에 *접속* 하므로
     네트워크 endpoint 보고가 불필요하다. ``ModuleName`` 은 ``register`` 핸드셰이크
     의 ``source`` 와 동일한 역할로 쓰인다.

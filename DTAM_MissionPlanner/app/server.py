@@ -22,8 +22,7 @@ from urllib.parse import urlencode
 from urllib.request import Request as UrlRequest
 from urllib.request import urlopen
 
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from .config import (
@@ -34,15 +33,12 @@ from .config import (
     DEFAULT_CENTER_LAT,
     DEFAULT_CENTER_LON,
     DEFAULT_START_ZOOM,
-    DTAM_MY_IP,
-    DTAM_MY_PORT,
     DTAM_TARGET_IP,
-    DTAM_TARGET_PORT,
     DTAM_WS_PORT,
     MBTILES_PATH,
     WEB_DIR,
 )
-from .converter_tool import (
+from .domain.converter_tool import (
     DEFAULT_CUSTOM_X_AXIS_HEADING_DEG,
     DEFAULT_CUSTOM_Y_AXIS_HEADING_DEG,
     build_vertiport_spawn_layout,
@@ -50,13 +46,13 @@ from .converter_tool import (
     get_vertiport_spawn_point,
     load_airsim_settings_summary,
 )
-from .dtam_sender import DtamSender
-from .mission_icd_export import (
+from .comm import DtamSender
+from .services.mission_icd_export import (
     build_mission_icd_export,
     validate_mission_icd_record,
 )
-from .mbtiles import MBTiles
-from .route_planner import RoutePlanner
+from .services.mbtiles import MBTiles
+from .services.route_planner import RoutePlanner
 
 
 # ── 모듈 전역 싱글턴 (startup 이벤트에서 초기화) ────────────────────────────
@@ -69,11 +65,6 @@ MISSION_ICD_RESOURCE_CSV = DATA_DIR / "resources_vp.csv"
 settings: Dict[str, Any] = {
     "dtam_target_ip": DTAM_TARGET_IP,
     "dtam_ws_port": DTAM_WS_PORT,
-    # ── legacy (UDP/TCP) ── 무시되지만 dashboard/REST 표시값으로 보존
-    "dtam_target_port": DTAM_TARGET_PORT,
-    "dtam_my_ip": DTAM_MY_IP,
-    "dtam_my_port": DTAM_MY_PORT,
-    # ──────────────────
     "server_http_host": os.getenv("DTAM_MP_SERVER_HTTP_HOST", DTAM_TARGET_IP),
     "server_http_port": int(os.getenv("DTAM_MP_SERVER_HTTP_PORT", "8095")),
     "default_speed_mps": 30.0,
@@ -813,7 +804,7 @@ def create_app() -> FastAPI:
 
 
         try:
-            from .dem import load_dem_provider
+            from .services.dem import load_dem_provider
             dem_provider = load_dem_provider(DEM_DIR, DEM_TILE_SIZE, DEM_MAX_ZOOM)
             if dem_provider.available:
                 print("[DTAM MP] DEM provider loaded")
@@ -838,391 +829,35 @@ def create_app() -> FastAPI:
         if dtam_sender is not None:
             dtam_sender.close()
 
-    # ── 정적 파일 ─────────────────────────────────────────────
-    @app.get("/", response_class=HTMLResponse)
-    async def index() -> HTMLResponse:
-        index_path = WEB_DIR / "index.html"
-        return HTMLResponse(content=index_path.read_text(encoding="utf-8"))
+    # ── 라우터 등록 (도메인별로 routes/*.py 에 분리) ─────────────
+    from .routes import (
+        index as index_routes,
+        tiles as tiles_routes,
+        info as info_routes,
+        icd as icd_routes,
+        route as route_routes,
+        dtam as dtam_routes,
+        settings_api as settings_routes,
+        converter as converter_routes,
+    )
+    for r in (
+        index_routes.router,
+        tiles_routes.router,
+        info_routes.router,
+        icd_routes.router,
+        route_routes.router,
+        dtam_routes.router,
+        settings_routes.router,
+        converter_routes.router,
+    ):
+        app.include_router(r)
 
+    # ── 정적 파일 마운트 ──────────────────────────────────────
     app.mount("/css", StaticFiles(directory=str(WEB_DIR / "css")), name="css")
     app.mount("/js", StaticFiles(directory=str(WEB_DIR / "js")), name="js")
     app.mount("/data", StaticFiles(directory=str(DATA_DIR)), name="data")
     app.mount("/resources", StaticFiles(directory=str(Path(MBTILES_PATH).parent)), name="resources")
 
-    # ── 타일 ──────────────────────────────────────────────────
-    @app.get("/tiles/{z}/{x}/{y}.pbf")
-    async def get_tile(z: int, x: int, y: int) -> Response:
-        if mbtiles is None:
-            return Response(status_code=404)
-        data = mbtiles.get_tile(z, x, y)
-        if data is None:
-            return Response(status_code=204)
-        headers = {"Content-Type": "application/vnd.mapbox-vector-tile",
-                   "Access-Control-Allow-Origin": "*",
-                   "Cache-Control": "public, max-age=86400"}
-        if len(data) >= 2 and data[0] == 0x1f and data[1] == 0x8b:
-            headers["Content-Encoding"] = "gzip"
-        return Response(content=data, headers=headers)
-
-    @app.get("/dem/{z}/{x}/{y}.png")
-    async def get_dem_tile(z: int, x: int, y: int) -> Response:
-        if dem_provider is None or not dem_provider.available:
-            return Response(status_code=404)
-        data = dem_provider.get_tile(z, x, y)
-        if data is None:
-            return Response(status_code=204)
-        return Response(content=data,
-                        media_type="image/png",
-                        headers={"Cache-Control": "public, max-age=86400"})
-
-    # ── 설정/기본 리소스 ────────────────────────────────────
-    @app.get("/api/config")
-    async def get_config() -> JSONResponse:
-        info = mbtiles.info if mbtiles else None
-        bounds = list(info.bounds) if info and info.bounds else None
-        return JSONResponse({
-            "center": [DEFAULT_CENTER_LON, DEFAULT_CENTER_LAT],
-            "zoom": DEFAULT_START_ZOOM,
-            "minZoom": info.min_zoom if info else 0,
-            "maxZoom": info.max_zoom if info else 14,
-            "bounds": bounds,
-            "tileUrl": "/tiles/{z}/{x}/{y}.pbf",
-            "demUrl": "/dem/{z}/{x}/{y}.png",
-            "dem": {
-                "enabled": bool(dem_provider and dem_provider.available),
-                "tileUrl": "/dem/{z}/{x}/{y}.png",
-                "tileSize": DEM_TILE_SIZE,
-                "maxZoom": DEM_MAX_ZOOM,
-                "encoding": "terrarium",
-                "exaggeration": 1.15,
-                "pitchThreshold": 18,
-                "terrainZoomThreshold": 9,
-                "hillshadeMinZoom": 8,
-                "buildingPitchThreshold": 28,
-                "buildingZoomThreshold": 13.5,
-            },
-            "dtam": _dtam_status_payload(),
-        })
-
-    @app.get("/api/vertiports")
-    async def get_vertiports() -> JSONResponse:
-        if route_planner is None:
-            return JSONResponse([])
-        result = []
-        for port in route_planner.ports.values():
-            result.append({
-                "name": port.name,
-                "lat": port.lat,
-                "lon": port.lon,
-                "ground_m": _sample_ground_m(port.lon, port.lat),
-                "inr_km": port.inr_km,
-                "otr_km": port.otr_km,
-                "inr_deg": port.inr_deg,
-                "otr_deg": port.otr_deg,
-                "turn_dir": port.turn_dir,
-                "links": list(port.links),
-            })
-        return JSONResponse(result)
-
-    @app.get("/api/waypoints")
-    async def get_waypoints() -> JSONResponse:
-        if route_planner is None:
-            return JSONResponse([])
-        result = []
-        for wp in route_planner.waypoints.values():
-            result.append({
-                "name": wp.name,
-                "lat": wp.lat,
-                "lon": wp.lon,
-                "ground_m": _sample_ground_m(wp.lon, wp.lat),
-                "alt_ft": wp.alt_ft,
-                "alt_m": wp.alt_ft * 0.3048 if wp.alt_ft else None,
-                "links": list(wp.links),
-            })
-        return JSONResponse(result)
-
-    @app.get("/api/elevation")
-    async def get_elevation(lon: float, lat: float) -> JSONResponse:
-        available = bool(dem_provider and getattr(dem_provider, "available", False))
-        ground_m = _sample_ground_optional_m(lon, lat) if available else None
-        return JSONResponse({
-            "lon": lon,
-            "lat": lat,
-            "ground_m": ground_m,
-            "available": available,
-        })
-
-    # ── Mission ICD (3001 payload 그 자체) ────────────────────
-    @app.post("/api/mission/icd/export")
-    async def export_mission_icd(request: Request) -> JSONResponse:
-        body = await request.json()
-        try:
-            if _looks_like_icd_record(body) or _looks_like_icd_record_list(body):
-                result = _build_existing_icd_export_bundle(body)
-            else:
-                result = _build_mission_icd_bundle(body)
-            return JSONResponse(result)
-        except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=400)
-
-    @app.post("/api/mission/icd/save")
-    async def save_mission_icd(request: Request) -> JSONResponse:
-        if dtam_sender is None:
-            return JSONResponse({"error": "DTAM sender not ready"}, status_code=500)
-        body = await request.json()
-        try:
-            if _looks_like_icd_record(body) or _looks_like_icd_record_list(body):
-                result = _build_existing_icd_export_bundle(body)
-            else:
-                result = _build_mission_icd_bundle(body)
-            if not result.get("validation", {}).get("valid", False):
-                return JSONResponse(result, status_code=400)
-            records = _extract_records_from_export(result)
-            if not records:
-                return JSONResponse({"error": "No ICD records to save"}, status_code=400)
-            send_result = dtam_sender.send_scheduled_flights(records)
-            result["saved_by"] = "DTAM_SimulationState"
-            result["local_save"] = False
-            result["send_result"] = send_result
-            status_code = 200 if send_result.get("ok") else 502
-            return JSONResponse(result, status_code=status_code)
-        except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=400)
-
-    @app.post("/api/mission/icd/open-folder")
-    async def open_mission_icd_folder() -> JSONResponse:
-        try:
-            stats = _server_get_json("/api/db/stats")
-            return JSONResponse({
-                "ok": True,
-                "folder_path": stats.get("session_dir"),
-                "server_db": stats,
-                "open_folder_url": f"{_server_http_base()}/api/db/open-folder",
-            })
-        except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=400)
-
-    # ── Route / Via (odt_mp 와 동일한 응답 스키마) ─────────
-    @app.post("/api/route")
-    async def compute_route(request: Request) -> JSONResponse:
-        body = await request.json()
-        if route_planner is None:
-            return JSONResponse({"error": "Route planner not loaded"}, status_code=500)
-        start = body.get("start")
-        end = body.get("end")
-        include_arcs = body.get("include_arcs", True)
-        if not start or not end:
-            return JSONResponse({"error": "start and end required"}, status_code=400)
-        try:
-            result = route_planner.find_route(start, end, include_turn_arcs=include_arcs)
-            return JSONResponse(_route_payload_response(start, end, result))
-        except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=400)
-
-    @app.post("/api/route/via")
-    async def compute_route_via(request: Request) -> JSONResponse:
-        body = await request.json()
-        if route_planner is None:
-            return JSONResponse({"error": "Route planner not loaded"}, status_code=500)
-        start = body.get("start")
-        end = body.get("end")
-        via = body.get("via", [])
-        include_arcs = body.get("include_arcs", True)
-        if not start or not end:
-            return JSONResponse({"error": "start and end required"}, status_code=400)
-        try:
-            result = route_planner.find_route_via(
-                start, end, via, include_turn_arcs=include_arcs
-            )
-            return JSONResponse(_route_payload_response(start, end, result))
-        except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=400)
-
-    # ── 3001 DTAM 송신 ─────────────────────────────────────────
-    @app.get("/api/dtam/status")
-    async def get_dtam_status() -> JSONResponse:
-        return JSONResponse(_dtam_status_payload())
-
-    @app.post("/api/dtam/config")
-    async def update_dtam_config(request: Request) -> JSONResponse:
-        body = await request.json()
-        try:
-            target_ip = body.get("target_ip") or body.get("targetIp")
-            target_port = _coerce_int(body.get("target_port") or body.get("targetPort"))
-            my_ip = body.get("my_ip") or body.get("myIp")
-            my_port = _coerce_int(body.get("my_port") or body.get("myPort"))
-            if target_ip:
-                settings["dtam_target_ip"] = str(target_ip)
-            if target_port is not None:
-                settings["dtam_target_port"] = int(target_port)
-            if my_ip:
-                settings["dtam_my_ip"] = str(my_ip)
-            if my_port is not None:
-                settings["dtam_my_port"] = int(my_port)
-            if dtam_sender is not None:
-                dtam_sender.reconfigure(
-                    target_ip=str(settings["dtam_target_ip"]),
-                    target_port=int(settings["dtam_target_port"]),
-                    my_ip=str(settings["dtam_my_ip"]),
-                    my_port=int(settings["dtam_my_port"]),
-                )
-            return JSONResponse(_dtam_status_payload())
-        except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=400)
-
-    @app.post("/api/dtam/send")
-    async def send_to_dtam(request: Request) -> JSONResponse:
-        """Mission payload (ICD record, ICD-list, 또는 mission draft) 를 받아
-        3001 메시지로 묶어 송신한다."""
-        if dtam_sender is None:
-            return JSONResponse({"error": "DTAM sender not ready"}, status_code=500)
-        body = await request.json()
-        try:
-            if _looks_like_icd_record(body) or _looks_like_icd_record_list(body):
-                export = _build_existing_icd_export_bundle(body)
-            else:
-                export = _build_mission_icd_bundle(body)
-        except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=400)
-
-        validation = export.get("validation", {}) or {}
-        if not validation.get("valid", False):
-            return JSONResponse({
-                "ok": False,
-                "error": "Validation failed",
-                "validation": validation,
-                "warnings": export.get("warnings", []),
-                "fleet": export.get("fleet", []),
-            }, status_code=400)
-
-        records = _extract_records_from_export(export)
-        if not records:
-            return JSONResponse({"error": "No ICD records to send"}, status_code=400)
-
-        send_result = dtam_sender.send_scheduled_flights(records)
-        response = {
-            "ok": send_result["ok"],
-            "target": f"{settings['dtam_target_ip']}:{int(settings['dtam_target_port']) + 1}",
-            "count": send_result["count"],
-            "results": send_result["results"],
-            "fleet": export.get("fleet", []),
-            "mission_export": export,
-        }
-        status_code = 200 if send_result["ok"] else 502
-        return JSONResponse(response, status_code=status_code)
-
-    # ── 설정 저장 (UI ↔ 서버) ─────────────────────────────────
-    @app.get("/api/settings")
-    async def get_settings() -> JSONResponse:
-        return JSONResponse(settings)
-
-    @app.put("/api/settings")
-    async def update_settings(request: Request) -> JSONResponse:
-        body = await request.json()
-        reconfigure_dtam = False
-        for key in (
-            "dtam_target_ip", "dtam_target_port", "dtam_my_ip", "dtam_my_port",
-            "server_http_host", "server_http_port",
-            "default_speed_mps", "default_altitude_m", "auto_plan_max_aircraft",
-        ):
-            if key in body:
-                if key.startswith("dtam_"):
-                    reconfigure_dtam = True
-                settings[key] = body[key]
-        if reconfigure_dtam and dtam_sender is not None:
-            dtam_sender.reconfigure(
-                target_ip=str(settings["dtam_target_ip"]),
-                target_port=int(settings["dtam_target_port"]),
-                my_ip=str(settings["dtam_my_ip"]),
-                my_port=int(settings["dtam_my_port"]),
-            )
-        return JSONResponse(settings)
-
-    # ── Converter (odt_mp 와 동일, 좌표 변환 계산기) ──────
-    @app.get("/api/converter/settings")
-    async def get_converter_settings() -> JSONResponse:
-        try:
-            return JSONResponse(load_airsim_settings_summary(None))
-        except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=400)
-
-    @app.post("/api/converter/convert")
-    async def convert_coordinates(request: Request) -> JSONResponse:
-        body = await request.json()
-        try:
-            target_lat = float(body.get("target_lat"))
-            target_lon = float(body.get("target_lon"))
-            player_start_lat = float(body.get("player_start_lat"))
-            player_start_lon = float(body.get("player_start_lon"))
-            player_start_alt_m = float(body.get("player_start_alt_m") or 0.0)
-            x_axis_heading_deg = float(body.get("x_axis_heading_deg") or DEFAULT_CUSTOM_X_AXIS_HEADING_DEG)
-            y_axis_heading_deg = float(body.get("y_axis_heading_deg") or DEFAULT_CUSTOM_Y_AXIS_HEADING_DEG)
-        except (TypeError, ValueError):
-            return JSONResponse({"error": "Invalid converter input."}, status_code=400)
-
-        target_ground_m = _sample_ground_optional_m(target_lon, target_lat)
-        player_start_ground_m = _sample_ground_optional_m(player_start_lon, player_start_lat)
-
-        raw_target_alt = body.get("target_alt_m")
-        if raw_target_alt in (None, ""):
-            target_alt_m = target_ground_m if target_ground_m is not None else 0.0
-        else:
-            try:
-                target_alt_m = float(raw_target_alt)
-            except (TypeError, ValueError):
-                return JSONResponse({"error": "Invalid target altitude."}, status_code=400)
-
-        result = convert_target_to_unreal(
-            player_start_lat=player_start_lat,
-            player_start_lon=player_start_lon,
-            player_start_alt_m=player_start_alt_m,
-            target_lat=target_lat,
-            target_lon=target_lon,
-            target_alt_m=target_alt_m,
-            x_axis_heading_deg=x_axis_heading_deg,
-            y_axis_heading_deg=y_axis_heading_deg,
-        )
-        return JSONResponse({
-            "player_start": {
-                "lat": player_start_lat,
-                "lon": player_start_lon,
-                "alt_m": player_start_alt_m,
-                "ground_m": player_start_ground_m,
-            },
-            "target": {
-                "lat": target_lat,
-                "lon": target_lon,
-                "ground_m": target_ground_m,
-                "alt_m": target_alt_m,
-            },
-            **result,
-        })
-
-    @app.get("/api/converter/vertiport-spawns")
-    async def get_converter_vertiport_spawns(name: str) -> JSONResponse:
-        if route_planner is None:
-            return JSONResponse({"error": "Route planner not loaded."}, status_code=500)
-        port = route_planner.ports.get(name)
-        if port is None:
-            return JSONResponse({"error": f"Unknown vertiport: {name}"}, status_code=404)
-        try:
-            return JSONResponse(
-                build_vertiport_spawn_layout(
-                    vertiport_name=port.name,
-                    vertiport_lat=port.lat,
-                    vertiport_lon=port.lon,
-                    vertiport_ground_m=_sample_ground_optional_m(port.lon, port.lat),
-                )
-            )
-        except Exception as exc:
-            return JSONResponse({"error": str(exc)}, status_code=400)
-
-    @app.get("/api/buildings")
-    async def get_buildings() -> JSONResponse:
-        return JSONResponse({
-            "type": "FeatureCollection",
-            "features": [],
-        })
 
     return app
 
@@ -1284,9 +919,7 @@ def _dtam_status_payload() -> Dict[str, Any]:
         return {
             "ready": False,
             "target_ip": settings.get("dtam_target_ip"),
-            "target_port": settings.get("dtam_target_port"),
-            "my_ip": settings.get("dtam_my_ip"),
-            "my_port": settings.get("dtam_my_port"),
+            "ws_port": settings.get("dtam_ws_port"),
             "last_error": "sender not initialised",
         }
     return dtam_sender.describe()

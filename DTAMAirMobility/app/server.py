@@ -30,12 +30,9 @@ def _status_to_dict(service: IntegratedAirMobilityService) -> Dict[str, Any]:
         "running": st.running,
         "publisher_connected": st.publisher_connected,
         "publisher_error": st.publisher_error,
-        "target_ip": service.publisher.target_ip,
-        # ws_port + server_url 이 실제 연결 정보. target_port/my_port 는 legacy 표시용.
+        "target_ip": service.target_ip,
         "ws_port": service.ws_port,
         "server_url": service.module.server_url,
-        "target_port": service.publisher.target_port,   # legacy display
-        "my_port": service.publisher.my_port,           # legacy display
         "sim_time_s": st.sim_time_s,
         "sim_time_hms": st.sim_time_hms,
         "rx_3001_count": st.rx_3001_count,
@@ -106,8 +103,7 @@ def create_app(service: Optional[IntegratedAirMobilityService] = None) -> FastAP
     async def api_publisher(body: Dict[str, Any] = Body(default_factory=dict)) -> Dict[str, Any]:
         svc.reconfigure_publisher(
             target_ip=body.get("target_ip"),
-            target_port=int(body["target_port"]) if body.get("target_port") is not None else None,
-            my_port=int(body["my_port"]) if body.get("my_port") is not None else None,
+            ws_port=int(body["ws_port"]) if body.get("ws_port") is not None else None,
         )
         return _status_to_dict(svc)
 

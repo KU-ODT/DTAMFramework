@@ -8,9 +8,9 @@
 | Encoding | JSON (UTF-8) |
 | Purpose | Each module reports its identity (name + role) to the server |
 
-> **Change log**: The legacy UDP specification included `IP` / `UDPPort` / `TCPPort`.
-> Under the WebSocket-only architecture, modules *connect* to the server, so endpoint
-> reporting is unnecessary. A `Role` field replaces them.
+> Under the WebSocket-only architecture modules *connect* to the server, so reporting
+> a network endpoint is unnecessary. The `Role` field instead identifies the module's
+> role (vehicle/mission/monitoring/visual/sim_state).
 
 ## 1. Top-level layout
 

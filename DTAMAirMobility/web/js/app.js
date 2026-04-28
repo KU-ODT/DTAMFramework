@@ -1,8 +1,7 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const targetIp = $("targetIp");
-  const targetPort = $("targetPort");
-  const myPort = $("myPort");
+  const wsPort = $("wsPort");
   const applyPublisher = $("applyPublisher");
   const publisherStatus = $("publisherStatus");
   const planFiles = $("planFiles");
@@ -20,7 +19,7 @@
   const rxStatus = $("rxStatus");
 
   let dirtyPublisher = false;
-  [targetIp, targetPort, myPort].forEach((el) =>
+  [targetIp, wsPort].forEach((el) =>
     el.addEventListener("input", () => { dirtyPublisher = true; })
   );
 
@@ -43,7 +42,7 @@
 
   function renderStatus(status) {
     publisherStatus.textContent =
-      `수신지=${status.target_ip}:${status.target_port}  내 포트=${status.my_port}  `
+      `WS=${status.server_url || `ws://${status.target_ip}:${status.ws_port}/ws/dtam`}  `
       + `연결=${YESNO(status.publisher_connected)}`
       + (status.publisher_error ? `  오류=${status.publisher_error}` : "");
     serviceStatus.textContent =
@@ -63,8 +62,7 @@
 
     if (!dirtyPublisher) {
       targetIp.value = status.target_ip;
-      targetPort.value = status.target_port;
-      myPort.value = status.my_port;
+      wsPort.value = status.ws_port;
     }
     if (clockMode.value !== status.clock_mode && document.activeElement !== clockMode) {
       clockMode.value = status.clock_mode;
@@ -160,8 +158,7 @@
         method: "POST",
         body: {
           target_ip: targetIp.value.trim() || "127.0.0.1",
-          target_port: Number(targetPort.value),
-          my_port: Number(myPort.value),
+          ws_port: Number(wsPort.value),
         },
       });
       dirtyPublisher = false;

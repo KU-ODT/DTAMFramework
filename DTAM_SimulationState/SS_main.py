@@ -32,8 +32,6 @@ def main():
     parser.add_argument("--db-root", default=str(DEFAULT_DB_ROOT), help="Database directory")
     parser.add_argument("--host", default="0.0.0.0", help="HTTP/WebSocket bind host")
     parser.add_argument("--port", type=int, default=8096, help="HTTP/WebSocket port (default 8096)")
-    # ── legacy (UDP/TCP 시절) 인자 — 무시되지만 backward-compat 위해 받음
-    parser.add_argument("--udp-port", type=int, default=17000, help=argparse.SUPPRESS)
     args = parser.parse_args()
 
     config_path = FRAMEWORK_ROOT / "DTAM_CoreServer" / args.config

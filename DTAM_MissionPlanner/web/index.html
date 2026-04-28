@@ -160,8 +160,8 @@
                   <input class="settings-input simulator-input" id="mission-sim-dtam-target-ip" type="text" placeholder="127.0.0.1" />
                 </label>
                 <label class="simulator-field">
-                  <span class="simulator-label">Target Port</span>
-                  <input class="settings-input simulator-input" id="mission-sim-dtam-target-port" type="number" min="1" max="65535" step="1" placeholder="17000" />
+                  <span class="simulator-label">WS Port</span>
+                  <input class="settings-input simulator-input" id="mission-sim-dtam-ws-port" type="number" min="1" max="65535" step="1" placeholder="8096" />
                 </label>
               </div>
               <div class="wp-action-row">
@@ -395,25 +395,14 @@
         <div class="section-body">
           <div class="section-inner">
             <div class="settings-group">
-              <div class="settings-group-title">DTAM Target (3001 TCP)</div>
+              <div class="settings-group-title">DTAM Server (WebSocket /ws/dtam)</div>
               <div class="settings-row">
                 <span class="settings-label">Target IP</span>
                 <input class="settings-input" id="settings-dtam-target-ip" type="text" value="127.0.0.1" />
               </div>
               <div class="settings-row">
-                <span class="settings-label">Target Port (UDP base)</span>
-                <input class="settings-input" id="settings-dtam-target-port" type="number" min="1" max="65535" value="17000" />
-              </div>
-              <div class="settings-row">
-                <span class="settings-label">My IP</span>
-                <input class="settings-input" id="settings-dtam-my-ip" type="text" value="0.0.0.0" />
-              </div>
-              <div class="settings-row">
-                <span class="settings-label">My Port (UDP base)</span>
-                <input class="settings-input" id="settings-dtam-my-port" type="number" min="1" max="65535" value="17002" />
-              </div>
-              <div class="settings-row" style="font-size:11px;opacity:0.6">
-                TCP = UDP base + 1 (by DTAM convention). 3001 은 TCP 로 송출됩니다.
+                <span class="settings-label">WS Port</span>
+                <input class="settings-input" id="settings-dtam-ws-port" type="number" min="1" max="65535" value="8096" />
               </div>
             </div>
             <div class="settings-group">

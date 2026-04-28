@@ -14,11 +14,10 @@
 
 <main>
   <section class="card">
-    <h2>송신기 설정 (UDP 4001)</h2>
+    <h2>송신기 설정 (WebSocket /ws/dtam)</h2>
     <div class="row">
       <label>수신 IP <input id="targetIp" placeholder="127.0.0.1" /></label>
-      <label>수신 포트 <input id="targetPort" type="number" min="1" max="65535" /></label>
-      <label>내 포트 <input id="myPort" type="number" min="1" max="65535" /></label>
+      <label>WS 포트 <input id="wsPort" type="number" min="1" max="65535" placeholder="8096" /></label>
       <button id="applyPublisher">적용</button>
     </div>
     <div class="status-line" id="publisherStatus">—</div>
@@ -32,8 +31,8 @@
       <button id="clearPlans" class="danger">전체 삭제</button>
     </div>
     <div class="status-line">
-      파일로 직접 업로드하거나, 외부에서 <code>MSG 3001</code> 을 UDP 로 보내면
-      자동으로 등록됩니다.
+      파일로 직접 업로드하거나, 외부에서 <code>MSG 3001</code> 을 WebSocket
+      <code>/ws/dtam</code> 으로 보내면 자동으로 등록됩니다.
     </div>
     <ul id="planList" class="plan-list">
       <li class="empty">등록된 비행계획이 없습니다.</li>

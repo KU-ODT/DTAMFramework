@@ -90,9 +90,8 @@ python DTAMAirMobility/AM_main.py
 | `--port`            | FastAPI 포트                              | `8100`       |
 | `--no-browser`      | 브라우저 자동 실행 끄기                   |              |
 | `--windowed`        | 전체화면 대신 일반 창                     |              |
-| `--target-ip`       | DTAM 4001 수신 IP                         | `127.0.0.1`  |
-| `--target-port`     | DTAM 4001 수신 UDP 포트                   | `17000`      |
-| `--my-port`         | 로컬 UDP 포트 (SDK 바인딩)                | `17001`      |
+| `--target-ip`       | DTAM SimulationState 서버 IP              | `127.0.0.1`  |
+| `--ws-port`         | DTAM SimulationState WebSocket/HTTP 포트  | `8096`       |
 | `--plan`            | 비행계획 JSON 경로 (반복 가능)            |              |
 | `--clock`           | `external` / `wall` / `manual`            | `external`   |
 | `--autostart`       | 부팅 직후 서비스 start                    |              |
@@ -101,7 +100,7 @@ python DTAMAirMobility/AM_main.py
 
 ```bash
 python DTAMAirMobility/AM_main.py \
-    --target-ip 203.252.1.10 --target-port 17000 \
+    --target-ip 203.252.1.10 --ws-port 8096 \
     --plan ./DTAMAirMobility/simpleDynamics/example_mission.json \
     --clock wall --autostart
 ```
@@ -123,7 +122,7 @@ import json
 from pathlib import Path
 from DTAMAirMobility import IntegratedAirMobilityService, ClockMode
 
-svc = IntegratedAirMobilityService(target_ip="127.0.0.1", target_port=17000)
+svc = IntegratedAirMobilityService(target_ip="127.0.0.1", ws_port=8096)
 svc.add_plans_from_json(json.loads(Path("mission.json").read_text(encoding="utf-8")))
 svc.set_clock_mode(ClockMode.EXTERNAL)
 svc.start()
@@ -139,7 +138,7 @@ svc.close()
 | Method | Path                            | 설명                                          |
 |--------|---------------------------------|-----------------------------------------------|
 | GET    | `/api/status`                   | 전체 상태 (publisher, fleet, sim time)        |
-| POST   | `/api/publisher`                | `{target_ip, target_port, my_port}` 적용      |
+| POST   | `/api/publisher`                | `{target_ip, ws_port}` 적용                   |
 | POST   | `/api/plans`                    | 단일 dict 또는 list 의 비행계획 등록         |
 | POST   | `/api/plans/batch`              | 여러 비행계획을 리스트로 일괄 등록           |
 | DELETE | `/api/plans/{vehicle_id}`       | 단일 제거                                     |

@@ -69,9 +69,7 @@ ODT.Settings = (function () {
   async function saveSettings() {
     const payload = {
       dtam_target_ip: fieldValue('settings-dtam-target-ip', '127.0.0.1'),
-      dtam_target_port: fieldInt('settings-dtam-target-port', 17000),
-      dtam_my_ip: fieldValue('settings-dtam-my-ip', '0.0.0.0'),
-      dtam_my_port: fieldInt('settings-dtam-my-port', 17002),
+      dtam_ws_port: fieldInt('settings-dtam-ws-port', 8096),
       default_speed_mps: fieldFloat('settings-speed', 30),
       default_altitude_m: fieldFloat('settings-altitude', 300),
     };
@@ -80,7 +78,7 @@ ODT.Settings = (function () {
       await ODT.putJSON('/api/settings', payload);
       ODT.OperatorLog?.success(
         ODT.t('log_settings_saved_title'),
-        `DTAM → ${payload.dtam_target_ip}:${payload.dtam_target_port} (TCP ${payload.dtam_target_port + 1})`
+        `DTAM → ws://${payload.dtam_target_ip}:${payload.dtam_ws_port}/ws/dtam`
       );
       try {
         await ODT.Dtam?.refreshStatus?.(true);
@@ -97,9 +95,7 @@ ODT.Settings = (function () {
     try {
       const s = await ODT.api('/api/settings');
       setFieldValue('settings-dtam-target-ip', s.dtam_target_ip || '127.0.0.1');
-      setFieldValue('settings-dtam-target-port', s.dtam_target_port || 17000);
-      setFieldValue('settings-dtam-my-ip', s.dtam_my_ip || '0.0.0.0');
-      setFieldValue('settings-dtam-my-port', s.dtam_my_port || 17002);
+      setFieldValue('settings-dtam-ws-port', s.dtam_ws_port || 8096);
       setFieldValue('settings-speed', s.default_speed_mps ?? 30);
       setFieldValue('settings-altitude', s.default_altitude_m ?? 300);
     } catch (e) {
