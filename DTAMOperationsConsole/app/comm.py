@@ -16,7 +16,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import HTTPException
 
@@ -52,43 +52,13 @@ def _server_ip() -> str:
     return os.environ.get("DTAM_TARGET_IP") or "127.0.0.1"
 
 
-# ── WebSocket 통신 layer (MonitoringModule 서브클래스) ───────
-class MonitoringComm:
-    """OpsConsole DTAM 통신 layer (lazy MonitoringModule 서브클래스).
+# ── WebSocket 모듈 (SDK 의 MonitoringModule 직접 사용) ───────
+# OpsConsole 의 WS 책임은 0002 heartbeat + 향후 forwarding 수신뿐이라
+# 별도 wrapper 클래스 없이 SDK 의 ``MonitoringModule`` 인스턴스 그대로 사용.
+# 향후 4001/4101 등의 도메인 처리가 필요해지면, 그때 MonitoringModule 을
+# 상속한 클래스를 만들고 핸들러를 override.
 
-    SDK path 가 sys.path 에 들어간 뒤에야 ``MonitoringModule`` import 가
-    가능하므로, 실제 서브클래스 정의는 :func:`_build_class` 안에서 처리.
-    ``MonitoringComm()`` 호출 시 lazily 생성·반환.
-    """
-
-    def __new__(cls, **kwargs):
-        impl = _build_class()
-        return impl(**kwargs)
-
-
-def _build_class():
-    """SDK 가 sys.path 에 올라간 뒤 정의되는 실제 MonitoringModule 서브클래스."""
-    _ensure_sdk_on_path()
-    from dtam_client import MonitoringModule  # type: ignore
-
-    class _MonitoringComm(MonitoringModule):
-        # MonitoringModule 베이스가 5개 mid (0001/0002/2002/4001/4101) 의
-        # 빈 stub 을 제공. 현재는 heartbeat 전용이므로 override 없음 —
-        # 향후 운영자 화면이 4001/4101 등을 받아 표시할 때 메서드 추가.
-
-        def __init__(self, *, target_ip: Optional[str] = None,
-                     ws_port: int = STATE_WS_PORT) -> None:
-            ip = target_ip or _server_ip()
-            super().__init__(
-                server_url=f"ws://{ip}:{ws_port}/ws/dtam",
-                heartbeat=True,
-            )
-
-    return _MonitoringComm
-
-
-# ── 모듈 레벨 lifecycle (server.py 가 호출) ──────────────────
-_module: Any = None  # MonitoringComm 인스턴스
+_module: Any = None  # MonitoringModule 인스턴스
 
 
 def start_module_status_heartbeat() -> None:
@@ -96,7 +66,11 @@ def start_module_status_heartbeat() -> None:
     global _module
     if _module is not None:
         return
-    _module = MonitoringComm()
+    _ensure_sdk_on_path()
+    from dtam_client import MonitoringModule  # type: ignore
+
+    server_url = f"ws://{_server_ip()}:{STATE_WS_PORT}/ws/dtam"
+    _module = MonitoringModule(server_url=server_url, heartbeat=True)
 
 
 def stop_module_status_heartbeat() -> None:

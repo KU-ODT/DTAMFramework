@@ -46,7 +46,7 @@ from .domain.converter_tool import (
     get_vertiport_spawn_point,
     load_airsim_settings_summary,
 )
-from .comm import MissionComm
+from .services.mission_service import MissionService
 from .services.mission_icd_export import (
     build_mission_icd_export,
     validate_mission_icd_record,
@@ -59,7 +59,7 @@ from .services.route_planner import RoutePlanner
 mbtiles: Optional[MBTiles] = None
 route_planner: Optional[RoutePlanner] = None
 dem_provider: Any = None
-dtam_sender: Optional[MissionComm] = None
+mission_service: Optional[MissionService] = None
 
 MISSION_ICD_RESOURCE_CSV = DATA_DIR / "resources_vp.csv"
 settings: Dict[str, Any] = {
@@ -747,7 +747,7 @@ def _build_auto_mission_payload_from_scenario(scenario: Dict[str, Any]) -> Dict[
     }
 
 
-def _handle_flight_plan_request(payload: Dict[str, Any], sender: MissionComm) -> Dict[str, Any]:
+def _handle_flight_plan_request(payload: Dict[str, Any], sender: MissionService) -> Dict[str, Any]:
     scenario_file_name = str(payload.get("scenarioFileName") or "")
     scenario, scenario_path = _find_scenario_setup_payload(scenario_file_name)
     mission_payload = _build_auto_mission_payload_from_scenario(scenario)
@@ -783,7 +783,7 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     async def startup() -> None:
-        global mbtiles, route_planner, dem_provider, dtam_sender
+        global mbtiles, route_planner, dem_provider, mission_service
         if MBTILES_PATH.exists():
             mbtiles = MBTiles(MBTILES_PATH)
             print(f"[DTAM MP] MBTiles loaded: {mbtiles.info.name} "
@@ -812,12 +812,12 @@ def create_app() -> FastAPI:
             print(f"[DTAM MP] DEM provider unavailable: {exc}")
 
         try:
-            dtam_sender = MissionComm(
+            mission_service = MissionService(
                 target_ip=str(settings["dtam_target_ip"]),
                 ws_port=int(settings.get("dtam_ws_port", 8096)),
                 on_flight_plan_request=_handle_flight_plan_request,
             )
-            desc = dtam_sender.describe()
+            desc = mission_service.describe()
             print(f"[DTAM MP] DTAM sender ready → {desc['server_url']}")
         except Exception as exc:
             print(f"[DTAM MP] DTAM sender unavailable: {exc}")
@@ -826,8 +826,8 @@ def create_app() -> FastAPI:
     async def shutdown() -> None:
         if mbtiles:
             mbtiles.close()
-        if dtam_sender is not None:
-            dtam_sender.close()
+        if mission_service is not None:
+            mission_service.close()
 
     # ── 라우터 등록 (도메인별로 routes/*.py 에 분리) ─────────────
     from .routes import (
@@ -915,11 +915,11 @@ def _route_payload_response(
 
 
 def _dtam_status_payload() -> Dict[str, Any]:
-    if dtam_sender is None:
+    if mission_service is None:
         return {
             "ready": False,
             "target_ip": settings.get("dtam_target_ip"),
             "ws_port": settings.get("dtam_ws_port"),
             "last_error": "sender not initialised",
         }
-    return dtam_sender.describe()
+    return mission_service.describe()

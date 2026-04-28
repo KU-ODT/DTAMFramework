@@ -41,7 +41,7 @@ from ..domain.dynamics.core.types import (
 from ..domain.dynamics.core.wind_model import WindModel
 from ..domain.dynamics.io.icd_parser import parse_flight_plans, parse_flight_plan
 
-from ..comm import VehicleComm   # WebSocket 통신 layer (DtamModule 서브클래스)
+from dtam_client import VehicleModule  # type: ignore  # SDK 가 sys.path 에 있어야 함
 
 from .msg4001 import (
     VehiclePublishContext,
@@ -262,12 +262,17 @@ class VehicleSession:
         )
 
 
-class IntegratedAirMobilityService:
-    """Top-level 서비스.
+class IntegratedAirMobilityService(VehicleModule):
+    """Top-level 서비스 — 통신 + 도메인 한 클래스에 통합.
+
+    ``VehicleModule`` 베이스가 6개 mid 의 빈 ``@on_receive`` stub 을 제공.
+    이 클래스는 도메인 로직 (시계, 세션, 10Hz tick) 을 채우고 5개 핸들러를
+    override 한다 (1002 SimulationSetup 은 베이스 stub 그대로).
 
     - 비행계획들을 등록
     - clock 모드 설정 (external / wall / manual)
-    - 10 Hz 로 tick → 각 session.advance() → 4001 묶어서 publish
+    - 10 Hz 로 tick → 각 session.advance() → 4001 묶어서 publish (self.send)
+    - 0002 heartbeat 1Hz: 부모 클래스가 자동
     """
 
     def __init__(
@@ -288,18 +293,13 @@ class IntegratedAirMobilityService:
         self.month = int(month)
         self._lock = threading.RLock()
 
-        # ── VehicleComm 기반 통신 (WebSocket /ws/dtam) ─────────────
+        # ── 통신 (VehicleModule 부모가 처리) ──────────────────────
         self.target_ip = str(target_ip)
         self.ws_port = int(ws_port)
         self._async_send = bool(async_send)
-        self.comm = VehicleComm(
-            target_ip=self.target_ip,
-            ws_port=self.ws_port,
-            on_scheduled_flight=self._on_scheduled_flight,
-            on_common_time_info=self._on_common_time_info,
-            on_dtam_execute=self._on_dtam_execute,
-            on_strategic_separation=self._on_strategic_separation,
-            on_tactical_separation=self._on_tactical_separation,
+        super().__init__(
+            server_url=f"ws://{self.target_ip}:{self.ws_port}/ws/dtam",
+            heartbeat=True,
         )
 
         self._sessions: Dict[str, VehicleSession] = {}
@@ -446,7 +446,7 @@ class IntegratedAirMobilityService:
     def close(self) -> None:
         self.stop()
         try:
-            self.comm.close()
+            super().close()      # 부모 (DtamModule) — WS + heartbeat 정리
         except Exception:
             pass
 
@@ -561,7 +561,7 @@ class IntegratedAirMobilityService:
         ts = _sim_time_to_iso(sim_time_s)
         message = build_4001_message(vehicle_payloads, timestamp=ts)
         try:
-            self.comm.send("vehicle_status", message)
+            self.send("vehicle_status", message)     # 부모 DtamModule.send
         except Exception:
             logger.exception("vehicle_status send failed")
         if self.on_publish is not None:
@@ -593,8 +593,8 @@ class IntegratedAirMobilityService:
         return FleetStatus(
             clock_mode=clock_mode,
             running=running,
-            publisher_connected=self.comm.connected,
-            publisher_error=self.comm.stats.last_error or "",
+            publisher_connected=self.connected,                  # DtamModule property
+            publisher_error=self.stats.last_error or "",
             sim_time_s=sim_t,
             sim_time_hms=_s_to_hhmmss(sim_t),
             vehicles=[s.status() for s in sessions],
@@ -613,10 +613,10 @@ class IntegratedAirMobilityService:
 
     # ── DTAM 수신 핸들러 ──────────────────────────────────────
 
-    def _on_scheduled_flight(self, result: Any) -> None:
+    def on_scheduled_flight(self, result: Any) -> None:
         """MSG 3001 수신 → 해당 비행체의 계획을 자동 등록/갱신.
 
-        DtamModule 은 plain dict 를, 구버전 SDK 는 ReceiveResult 를 넘긴다.
+        VehicleModule 의 빈 stub 을 override.
         planStatus == 'discarded' 면 해당 비행체 계획 제거.
         planStatus == 'superseded' 면 무시 (더 신선한 active 가 올 것).
         planVersion 이 기존보다 낮으면 무시.
@@ -658,7 +658,7 @@ class IntegratedAirMobilityService:
         except Exception:
             logger.exception("_on_scheduled_flight failed")
 
-    def _on_common_time_info(self, result: Any) -> None:
+    def on_common_time_info(self, result: Any) -> None:
         """MSG 0003 수신 → simTime 을 시계로 주입.
 
         - 공통 시간은 권위 있는 시간 원천이므로 모드에 상관없이 ``_sim_time_s`` 갱신.
@@ -681,7 +681,7 @@ class IntegratedAirMobilityService:
         except Exception:
             logger.exception("_on_common_time_info failed")
 
-    def _on_dtam_execute(self, result: Any) -> None:
+    def on_dtam_execute(self, result: Any) -> None:
         try:
             raw = _result_raw(result)
             folder = str(raw.get("flightPlanFolderName") or "")
@@ -693,7 +693,7 @@ class IntegratedAirMobilityService:
         except Exception:
             logger.exception("_on_dtam_execute failed")
 
-    def _on_strategic_separation(self, result: Any) -> None:
+    def on_strategic_separation(self, result: Any) -> None:
         try:
             raw = _result_raw(result)
             command_id = str(raw.get("commandId") or "")
@@ -711,7 +711,7 @@ class IntegratedAirMobilityService:
         except Exception:
             logger.exception("_on_strategic_separation failed")
 
-    def _on_tactical_separation(self, result: Any) -> None:
+    def on_tactical_separation(self, result: Any) -> None:
         try:
             raw = _result_raw(result)
             command_id = str(raw.get("commandId") or "")

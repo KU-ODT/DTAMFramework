@@ -24,7 +24,7 @@ async def export_mission_icd(request: Request) -> JSONResponse:
 
 @router.post("/save")
 async def save_mission_icd(request: Request) -> JSONResponse:
-    if server.dtam_sender is None:
+    if server.mission_service is None:
         return JSONResponse({"error": "DTAM sender not ready"}, status_code=500)
     body = await request.json()
     try:
@@ -37,7 +37,7 @@ async def save_mission_icd(request: Request) -> JSONResponse:
         records = server._extract_records_from_export(result)
         if not records:
             return JSONResponse({"error": "No ICD records to save"}, status_code=400)
-        send_result = server.dtam_sender.send_scheduled_flights(records)
+        send_result = server.mission_service.send_scheduled_flights(records)
         result["saved_by"] = "DTAM_SimulationState"
         result["local_save"] = False
         result["send_result"] = send_result

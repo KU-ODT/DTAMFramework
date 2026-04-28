@@ -27,8 +27,8 @@ async def update_settings(request: Request) -> JSONResponse:
             if key.startswith("dtam_"):
                 reconfigure_dtam = True
             server.settings[key] = body[key]
-    if reconfigure_dtam and server.dtam_sender is not None:
-        server.dtam_sender.reconfigure(
+    if reconfigure_dtam and server.mission_service is not None:
+        server.mission_service.reconfigure(
             target_ip=str(server.settings["dtam_target_ip"]),
             ws_port=int(server.settings["dtam_ws_port"]),
         )

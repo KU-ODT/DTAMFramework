@@ -5,7 +5,7 @@
 자동 등록하고, 3001 (Scheduled Flight) 송신은 도메인 메서드로 노출한다.
 
 외부 인터페이스 (server.py / routes/* 가 사용):
-  - MissionComm(target_ip, ws_port, on_flight_plan_request)
+  - MissionService(target_ip, ws_port, on_flight_plan_request)
   - .describe() → dict
   - .send_scheduled_flight(record) → dict
   - .send_scheduled_flights(records) → dict
@@ -21,7 +21,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-_SDK_ROOT = Path(__file__).resolve().parents[2] / "DTAM_SDK"
+_SDK_ROOT = Path(__file__).resolve().parents[3] / "DTAM_SDK"
 if _SDK_ROOT.is_dir() and str(_SDK_ROOT) not in sys.path:
     sys.path.insert(0, str(_SDK_ROOT))
 
@@ -29,7 +29,7 @@ from dtam_client import MissionModule  # type: ignore
 
 logger = logging.getLogger(__name__)
 
-FlightPlanRequestHandler = Callable[[Dict[str, Any], "MissionComm"], Optional[Dict[str, Any]]]
+FlightPlanRequestHandler = Callable[[Dict[str, Any], "MissionService"], Optional[Dict[str, Any]]]
 
 
 def _result_raw(result: Any) -> Dict[str, Any]:
@@ -79,7 +79,7 @@ def _quick_validate(record: Dict[str, Any]) -> List[str]:
     return errors
 
 
-class MissionComm(MissionModule):
+class MissionService(MissionModule):
     """Mission Planner DTAM 통신 layer.
 
     ``MissionModule`` 베이스가 ``role = Role.MISSION`` + 2001/2002 의 빈
@@ -240,4 +240,4 @@ class MissionComm(MissionModule):
         return {"ok": ok, "count": len(items), "results": items}
 
 
-__all__ = ["MissionComm", "FlightPlanRequestHandler"]
+__all__ = ["MissionService", "FlightPlanRequestHandler"]

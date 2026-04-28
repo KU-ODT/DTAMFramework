@@ -24,8 +24,8 @@ async def update_dtam_config(request: Request) -> JSONResponse:
             server.settings["dtam_target_ip"] = str(target_ip)
         if ws_port is not None:
             server.settings["dtam_ws_port"] = int(ws_port)
-        if server.dtam_sender is not None:
-            server.dtam_sender.reconfigure(
+        if server.mission_service is not None:
+            server.mission_service.reconfigure(
                 target_ip=str(server.settings["dtam_target_ip"]),
                 ws_port=int(server.settings["dtam_ws_port"]),
             )
@@ -37,7 +37,7 @@ async def update_dtam_config(request: Request) -> JSONResponse:
 @router.post("/send")
 async def send_to_dtam(request: Request) -> JSONResponse:
     """Mission payload (ICD record / list / mission draft) 를 받아 3001 로 송신."""
-    if server.dtam_sender is None:
+    if server.mission_service is None:
         return JSONResponse({"error": "DTAM sender not ready"}, status_code=500)
     body = await request.json()
     try:
@@ -62,7 +62,7 @@ async def send_to_dtam(request: Request) -> JSONResponse:
     if not records:
         return JSONResponse({"error": "No ICD records to send"}, status_code=400)
 
-    send_result = server.dtam_sender.send_scheduled_flights(records)
+    send_result = server.mission_service.send_scheduled_flights(records)
     response = {
         "ok": send_result["ok"],
         "target": f"ws://{server.settings['dtam_target_ip']}:{int(server.settings['dtam_ws_port'])}/ws/dtam",

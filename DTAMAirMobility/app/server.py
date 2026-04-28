@@ -32,7 +32,7 @@ def _status_to_dict(service: IntegratedAirMobilityService) -> Dict[str, Any]:
         "publisher_error": st.publisher_error,
         "target_ip": service.target_ip,
         "ws_port": service.ws_port,
-        "server_url": service.comm.server_url,
+        "server_url": service.server_url,             # DtamModule attribute
         "sim_time_s": st.sim_time_s,
         "sim_time_hms": st.sim_time_hms,
         "rx_3001_count": st.rx_3001_count,
