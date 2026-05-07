@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>DTAM Air Mobility</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+<header class="topbar">
+  <h1>DTAM Air Mobility</h1>
+  <div class="subtitle">Dynamics authority / ICD 4001 publisher</div>
+</header>
+
+<main>
+  <section class="card">
+    <h2>Publisher</h2>
+    <div class="row">
+      <label>Target IP <input id="targetIp" placeholder="127.0.0.1" /></label>
+      <label>WS/HTTP Port <input id="wsPort" type="number" min="1" max="65535" /></label>
+      <button id="applyPublisher">Apply</button>
+    </div>
+    <div class="status-line" id="publisherStatus">-</div>
+  </section>
+
+  <section class="card control-card">
+    <h2>Control Authority</h2>
+    <div class="row">
+      <label>Control Mode
+        <select id="controlMode">
+          <option value="mission">mission / autopilot</option>
+          <option value="keyboard">keyboard</option>
+          <option value="joystick">joystick</option>
+        </select>
+      </label>
+      <label>Vehicle ID <input id="manualVehicleId" value="UAM0001" /></label>
+      <label>Origin Lat <input id="manualLat" type="number" step="0.000001" /></label>
+      <label>Origin Lon <input id="manualLon" type="number" step="0.000001" /></label>
+      <label>Origin Alt <input id="manualAlt" type="number" step="1" /></label>
+    </div>
+    <div class="row">
+      <label>AirSim Vehicle
+        <select id="airsimVehicleName">
+          <option value="">Loading...</option>
+        </select>
+      </label>
+      <button id="refreshVehicles">Refresh Vehicles</button>
+      <button id="applyManualConfig">Apply Vehicle</button>
+      <button id="activateKeyboard" class="primary">Connect + Keyboard</button>
+      <button id="activateJoystick" class="primary">Connect + Joystick</button>
+      <button id="releaseKeyboard">Release</button>
+    </div>
+    <div class="axis-strip">
+      <span>Roll <b id="axisRoll">0.00</b></span>
+      <span>Pitch <b id="axisPitch">0.00</b></span>
+      <span>Yaw <b id="axisYaw">0.00</b></span>
+      <span>Throttle <b id="axisThrottle">0.00</b></span>
+    </div>
+    <div class="status-line" id="visualizationStatus">-</div>
+    <div class="status-line" id="controlStatus">-</div>
+    <div class="status-line" id="manualActuatorStatus">-</div>
+    <div class="status-line" id="manualSensorStatus">-</div>
+  </section>
+
+  <section class="card">
+    <h2>Flight Plans</h2>
+    <div class="row">
+      <input id="planFiles" type="file" accept=".json" multiple />
+      <button id="uploadPlans">Upload</button>
+      <button id="clearPlans" class="danger">Clear All</button>
+    </div>
+    <ul id="planList" class="plan-list">
+      <li class="empty">등록된 비행계획이 없습니다.</li>
+    </ul>
+  </section>
+
+  <section class="card">
+    <h2>DTAM RX</h2>
+    <div class="status-line" id="rxStatus">-</div>
+  </section>
+
+  <section class="card">
+    <h2>Clock / Service</h2>
+    <div class="row">
+      <label>Clock Mode
+        <select id="clockMode">
+          <option value="external">external</option>
+          <option value="wall">wall</option>
+          <option value="manual">manual</option>
+        </select>
+      </label>
+      <label>HH:MM:SS <input id="hms" value="09:10:00" /></label>
+      <button id="feedTime">Feed Time</button>
+      <button id="stepOnce">Step Once</button>
+      <button id="startService" class="primary">Start</button>
+      <button id="stopService" class="danger" disabled>Stop</button>
+    </div>
+    <div class="status-line" id="serviceStatus">-</div>
+  </section>
+
+  <section class="card">
+    <h2>Fleet Status</h2>
+    <table class="fleet">
+      <thead>
+        <tr>
+          <th>Vehicle</th>
+          <th>Plan</th>
+          <th>State</th>
+          <th>ETOT</th>
+          <th>Elapsed</th>
+          <th>Waypoint</th>
+          <th>LLA</th>
+          <th>N/E/D (m)</th>
+        </tr>
+      </thead>
+      <tbody id="fleetBody">
+        <tr><td colspan="8" class="empty">진행 중인 비행체가 없습니다.</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+
+<script src="/static/js/app.js?v=20260424g"></script>
+</body>
+</html>

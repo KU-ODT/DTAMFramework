@@ -20,23 +20,38 @@ if str(dtam_sdk_root) not in sys.path:
     sys.path.insert(0, str(dtam_sdk_root))
 
 from backend.app.api.router import api_router
+from backend.app.api.routes.legacy_msg import router as legacy_msg_router
 from backend.app.core.settings import settings
 from backend.app.services.dtam_sdk_service import (
     start_module_status_heartbeat,
     stop_module_status_heartbeat,
 )
+from backend.app.services.monitoring_service import MonitoringService
+from backend.app.services.module_process_service import shutdown_modules_for_console_exit
+from backend.app.services.operational_environment import ensure_operational_environment_files
+from backend.app.services.vehicle_status_service import (
+    start_vehicle_status_listener,
+    stop_vehicle_status_listener,
+)
 from backend.app.web.router import web_router
-from dtam_client._ports import find_available_tcp_port
+from dtam_client.ports import find_available_tcp_port
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
+async def lifespan(app: FastAPI):
     settings.ensure_directories()
+    ensure_operational_environment_files()
     start_module_status_heartbeat()
+    start_vehicle_status_listener()
+    monitoring_service = MonitoringService()
+    app.state.monitoring_service = monitoring_service
     try:
         yield
     finally:
+        monitoring_service.close()
+        stop_vehicle_status_listener()
         stop_module_status_heartbeat()
+        shutdown_modules_for_console_exit()
 
 
 app = FastAPI(
@@ -48,9 +63,11 @@ app = FastAPI(
 
 app.include_router(web_router)
 app.include_router(api_router, prefix="/api/v1")
+app.include_router(legacy_msg_router)
 
 app.mount("/static", StaticFiles(directory=settings.static_dir), name="static")
 app.mount("/resource", StaticFiles(directory=settings.resource_dir), name="resource")
+app.mount("/resources", StaticFiles(directory=settings.resource_dir), name="resources")
 
 
 def run() -> None:

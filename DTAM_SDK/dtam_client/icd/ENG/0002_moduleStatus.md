@@ -4,7 +4,7 @@
 |---|---|
 | Message ID | `0002` |
 | Message Name | Module Status |
-| Transport | UDP |
+| Transport | WebSocket (`/ws/dtam`) |
 | Encoding | JSON (UTF-8) |
 | Rate | 1 Hz (every 1 second) |
 

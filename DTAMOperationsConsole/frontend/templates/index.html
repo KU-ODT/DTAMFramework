@@ -1,14 +1,14 @@
 <!-- Main dashboard HTML template for the DTAM landing page. -->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ page_title }}</title>
-    <link rel="stylesheet" href="/static/css/base.css" />
-    <link rel="stylesheet" href="/static/css/dashboard.css" />
-    <link rel="stylesheet" href="/static/vendor/maplibre-gl.css" />
-    <link rel="stylesheet" href="/static/css/simulation-workspace.css" />
+    <link rel="stylesheet" href="/static/css/base.css?v=20260428-uam-marker6" />
+    <link rel="stylesheet" href="/static/css/dashboard.css?v=20260428-uam-marker7" />
+    <link rel="stylesheet" href="/static/vendor/maplibre-gl.css?v=20260428-uam-marker7" />
+    <link rel="stylesheet" href="/static/css/simulation-workspace.css?v=20260428-uam-marker7" />
   </head>
   <body>
     <div class="app-shell">
@@ -30,8 +30,9 @@
               id="language-toggle"
               class="language-toggle"
               type="button"
-              aria-label="Switch language to Korean"
-              aria-pressed="false"
+              aria-label="Switch language to English"
+              aria-pressed="true"
+              data-current-language="ko"
             >
               <span class="language-toggle__option" data-language-option="en">EN</span>
               <span class="language-toggle__divider" aria-hidden="true">/</span>
@@ -44,8 +45,8 @@
                 data-description-en="An extensible aviation digital twin framework for any air vehicle, integrating flight simulation, mission operations, environment modeling, and system control into one comprehensive solution."
                 data-description-ko="모든 비행체로 확장 가능한 항공 디지털 트윈 프레임워크.&#10;비행체 시뮬레이션, 임무 운용, 환경 모델링, 시스템 제어를 하나로 통합한 종합 솔루션입니다."
               >
-                An extensible aviation digital twin framework for any air vehicle, integrating flight simulation,
-                mission operations, environment modeling, and system control into one comprehensive solution.
+                모든 비행체로 확장 가능한 항공 디지털 트윈 프레임워크.
+                비행체 시뮬레이션, 임무 운용, 환경 모델링, 시스템 제어를 하나로 통합한 종합 솔루션입니다.
               </p>
               <section class="hero-note" aria-labelledby="patch-note-title">
                 <p id="patch-note-title" class="hero-note__label">패치노트</p>
@@ -82,6 +83,6 @@
       </section>
     </section>
 
-    <script type="module" src="/static/js/app.js"></script>
+    <script type="module" src="/static/js/app.js?v=20260429-dtam-flow2"></script>
   </body>
 </html>

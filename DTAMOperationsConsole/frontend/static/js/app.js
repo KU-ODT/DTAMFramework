@@ -1,9 +1,11 @@
 // Frontend entry file that boots the dashboard page.
-import { initDashboard } from "./features/dashboard/dashboard-page.js";
+import { initDashboard } from "./features/dashboard/dashboard-page.js?v=20260429-dtam-flow2";
+
+const DEFAULT_LANGUAGE = "ko";
 
 const patchNoteState = {
   data: null,
-  language: "en",
+  language: DEFAULT_LANGUAGE,
 };
 
 function initLanguageToggle() {
@@ -19,7 +21,7 @@ function initLanguageToggle() {
   };
 
   function setLanguage(language) {
-    const nextLanguage = descriptions[language] ? language : "en";
+    const nextLanguage = descriptions[language] ? language : DEFAULT_LANGUAGE;
     description.textContent = descriptions[nextLanguage];
     document.documentElement.lang = nextLanguage === "ko" ? "ko" : "en";
     toggle.dataset.currentLanguage = nextLanguage;
@@ -39,7 +41,7 @@ function initLanguageToggle() {
     setLanguage(currentLanguage === "ko" ? "en" : "ko");
   });
 
-  setLanguage(localStorage.getItem("dtam-operations-console-language") || "en");
+  setLanguage(localStorage.getItem("dtam-operations-console-language") || DEFAULT_LANGUAGE);
 }
 
 function parsePatchNotesSection(sectionText, language) {

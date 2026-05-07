@@ -1,165 +1,69 @@
-# ICD — Camera Image Frame (MSG 4101)
+# ICD - Camera Image Frame (MSG 4101)
 
 | Item | Value |
 |---|---|
 | Message ID | `4101` |
 | Message Name | Camera Image Frame |
-| Transport | TCP or WebSocket |
-| Encoding | JSON header (UTF-8) + binary payload |
+| Transport | WebSocket (`/ws/dtam`) |
+| Wire Encoding | Single JSON WebSocket message with optional Base64 image field |
 | Rate | Sender discretion |
 
 ## 1. Purpose
 
-MSG 4101 transfers camera image frames from a vehicle or simulator to a receiving server.
+MSG 4101 transfers camera image frames from Visualization to the server and Operations Console. It is separate from MSG 4001 because images are large while 4001 must remain a small vehicle-status message.
 
-This message is intentionally separated from MSG 4001 Vehicle Status because image data can be large. MSG 4001 should remain a small status message, while MSG 4101 carries image metadata and the associated binary image payload.
+## 2. WebSocket Framing
 
-## 2. Framing
+The current ServerRevision runtime sends 4101 as the same JSON envelope used by all ICD WebSocket messages. Binary WebSocket frames are not used.
 
-```text
-[header_length][header_json][payload_binary]
+```json
+{
+  "type": "message",
+  "mid": "4101",
+  "payload": {
+    "message_id": 4101,
+    "message_name": "Camera Image Frame",
+    "timestamp": "2026-04-16T08:20:00.123Z",
+    "vehicle_id": "UAM0001",
+    "camera_name": "front_center",
+    "image_type": "scene",
+    "sequence": 1204,
+    "width": 1280,
+    "height": 720,
+    "channels": 3,
+    "pixel_format": "jpeg",
+    "encoding": "jpeg",
+    "payload_size": 86432
+  },
+  "image_b64": "<base64-encoded image bytes>"
+}
 ```
 
-| Part | Type | Size | Description |
-|---|---|---:|---|
-| `header_length` | uint32 | 4 bytes | Byte length of `header_json`, unsigned little-endian |
-| `header_json` | UTF-8 JSON | variable | Metadata for the image frame |
-| `payload_binary` | byte[] | variable | Encoded image bytes |
+`image_b64` is optional only for metadata-only/status testing. In normal camera streaming it should contain the encoded image bytes.
 
-## 3. Header Fields
+## 3. Payload Fields
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `message_id` | int | ✔ | Must be `4101` |
-| `message_name` | str | ✔ | Must be `Camera Image Frame` |
-| `timestamp` | str | ✔ | Image capture time (UTC, ISO-8601) |
-| `vehicle_id` | str | ✔ | Vehicle ID (`^[A-Z]{2,8}\d{4}$`) |
-| `camera_name` | str | ✔ | Camera name |
-| `image_type` | str | ✔ | Logical image type |
-| `sequence` | int | ✔ | Monotonic frame sequence number per vehicle-camera stream |
-| `width` | int | ✔ | Image width in pixels |
-| `height` | int | ✔ | Image height in pixels |
-| `channels` | int | ✔ | Number of image channels |
-| `pixel_format` | str | ✔ | Pixel format |
-| `encoding` | str | ✔ | Payload encoding |
-| `payload_size` | int | ✔ | Number of bytes in `payload_binary` |
-| `checksum` | str | ✖ | Payload checksum (recommended) |
-| `unit` | str | ✖ | Physical unit for depth or scalar images |
-| `frame_id` | str | ✖ | Coordinate frame or camera frame identifier |
+| `message_id` | int | Yes | Must be `4101` |
+| `message_name` | str | No | `Camera Image Frame` |
+| `timestamp` | str | Yes | Capture time, UTC ISO-8601 |
+| `vehicle_id` | str | Yes | Vehicle ID, for example `UAM0001` |
+| `camera_name` | str | Yes | Camera name |
+| `image_type` | str/int | Yes | Logical image type or AirSim image type |
+| `sequence` | int | Yes | Monotonic frame sequence |
+| `width` | int | Yes | Image width in pixels |
+| `height` | int | Yes | Image height in pixels |
+| `channels` | int | Yes | Channel count |
+| `pixel_format` | str | Yes | Current runtime uses `jpeg` for JPEG frames |
+| `encoding` | str | Yes | `jpeg`, `png`, or `raw` |
+| `payload_size` | int | Yes | Number of bytes before Base64 encoding |
+| `checksum` | str | No | Optional payload checksum |
+| `unit` | str | No | Physical unit for depth/scalar images |
+| `frame_id` | str | No | Coordinate/camera frame identifier |
 
-### 3.1 camera_name recommended values
+## 4. Notes
 
-| Value | Description |
-|---|---|
-| `front_center` | Forward camera |
-| `front_left` | Forward-left camera |
-| `front_right` | Forward-right camera |
-| `bottom_center` | Downward camera |
-| `back_center` | Rear camera |
-
-### 3.2 image_type enum
-
-| Value | Description |
-|---|---|
-| `scene` | RGB visual image |
-| `depth_planar` | Planar depth image |
-| `depth_perspective` | Perspective depth image |
-| `depth_vis` | Depth visualization image |
-| `segmentation` | Segmentation image |
-| `surface_normals` | Surface normal image |
-| `infrared` | Infrared image |
-| `optical_flow` | Optical flow data |
-| `optical_flow_vis` | Optical flow visualization image |
-
-### 3.3 pixel_format enum
-
-| Value | Description |
-|---|---|
-| `rgb8` | 8-bit RGB, 3 channels |
-| `rgba8` | 8-bit RGBA, 4 channels |
-| `gray8` | 8-bit grayscale, 1 channel |
-| `gray16` | 16-bit grayscale, 1 channel |
-| `float32` | 32-bit float, 1 or more channels |
-| `vector2_float32` | 2-channel float vector |
-
-### 3.4 encoding enum
-
-| Value | Payload Type | Recommended Use |
-|---|---|---|
-| `jpeg` | JPEG bytes | RGB scene images |
-| `png` | PNG bytes | Lossless RGB, segmentation, masks |
-| `raw` | Raw pixel bytes | Internal use or low-resolution |
-| `depth_png` | PNG bytes | Depth encoded as unsigned integer image |
-
-## 4. Examples
-
-### 4.1 RGB Scene Frame Header
-
-```json
-{
-  "message_id": 4101,
-  "message_name": "Camera Image Frame",
-  "timestamp": "2026-04-16T08:20:00.123Z",
-  "vehicle_id": "UAM0001",
-  "camera_name": "front_center",
-  "image_type": "scene",
-  "sequence": 1204,
-  "width": 1280,
-  "height": 720,
-  "channels": 3,
-  "pixel_format": "rgb8",
-  "encoding": "jpeg",
-  "payload_size": 86432,
-  "checksum": "sha256:3f786850e387550fdab836ed7e6dc881de23001b"
-}
-```
-
-### 4.2 Depth Frame Header
-
-```json
-{
-  "message_id": 4101,
-  "message_name": "Camera Image Frame",
-  "timestamp": "2026-04-16T08:20:00.156Z",
-  "vehicle_id": "UAM0001",
-  "camera_name": "front_center",
-  "image_type": "depth_planar",
-  "sequence": 1205,
-  "width": 640,
-  "height": 480,
-  "channels": 1,
-  "pixel_format": "gray16",
-  "encoding": "depth_png",
-  "unit": "mm",
-  "payload_size": 92340
-}
-```
-
-## 5. Receiver Behavior
-
-1. Read 4 bytes as `header_length`.
-2. Decode `header_length` as unsigned little-endian uint32.
-3. Read `header_length` bytes as UTF-8 JSON.
-4. Parse and validate `header_json`.
-5. Read exactly `payload_size` bytes as `payload_binary`.
-6. Validate checksum if `checksum` is provided.
-7. Decode or relay `payload_binary` according to `encoding`.
-
-## 6. Validation Policy
-
-- Missing required field -> error (`ok=false`)
-- Type mismatch -> error (`ok=false`)
-- Vehicle ID pattern mismatch -> error (`ok=false`)
-- Unsupported `image_type` -> error (`ok=false`)
-- Unsupported `pixel_format` -> error (`ok=false`)
-- Unsupported `encoding` -> error (`ok=false`)
-- `width <= 0` or `height <= 0` -> error (`ok=false`)
-- `payload_size` mismatch -> error (`ok=false`)
-- Checksum mismatch -> error (`ok=false`)
-
-## 7. Notes
-
-- Do not include `payload_binary` as Base64 inside JSON for normal operation.
-- Base64 may be used only for debugging or temporary text-only transport.
-- For high-frame-rate live video, define a separate stream message using H.264/H.265, RTSP, or WebRTC.
-- MSG 4101 is intended for frame-based image transfer, not continuous video streaming.
+- `DTAM_SDK.dtam_client._ws_client.DtamWsClient.send(..., image_bytes=...)` converts `image_bytes` to `image_b64`.
+- `DTAM_SimulationState` decodes `image_b64`, stores the latest frame, and forwards MSG 4101 through the server to the `monitoring` role.
+- Do not implement `header_length + header_json + payload_binary` for the current runtime. That framing belongs to the previous draft and is not compatible with `/ws/dtam`.

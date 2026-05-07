@@ -4,7 +4,7 @@
 |---|---|
 | Message ID | `1001` |
 | Message Name | Sim Mode Setup |
-| Transport | UDP |
+| Transport | WebSocket (`/ws/dtam`) |
 | Encoding | JSON (UTF-8) |
 | Rate | Event-based |
 

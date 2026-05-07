@@ -1,0 +1,67 @@
+{
+  "flightPlanNumber": 4101207,
+  "aircraftId": "TEST01",
+  "departure": {
+    "vertiport": "WP1",
+    "std": "10:00:00",
+    "depGateNumber": "G1",
+    "eobt": "10:01:00",
+    "depFatoNumber": "F1",
+    "etot": "10:00:40"
+  },
+  "enRoute": [
+    {
+      "seq": 1,
+      "phase": "B",
+      "startLLA": {
+        "lat": 37.5,
+        "lon": 126.9,
+        "alt": 25.0
+      },
+      "endLLA": {
+        "lat": 37.5,
+        "lon": 126.9,
+        "alt": 180.0
+      },
+      "targetSpeed": 10.5
+    },
+    {
+      "seq": 2,
+      "phase": "C",
+      "startLLA": {
+        "lat": 37.5,
+        "lon": 126.9,
+        "alt": 180.0
+      },
+      "endLLA": {
+        "lat": 37.51,
+        "lon": 126.95,
+        "alt": 220.0
+      },
+      "targetSpeed": 16.5
+    },
+    {
+      "seq": 3,
+      "phase": "J",
+      "startLLA": {
+        "lat": 37.51,
+        "lon": 126.95,
+        "alt": 220.0
+      },
+      "endLLA": {
+        "lat": 37.51,
+        "lon": 126.95,
+        "alt": 30.0
+      },
+      "targetSpeed": 10.5
+    }
+  ],
+  "arrival": {
+    "vertiport": "WP2",
+    "sta": "10:05:50",
+    "arrGateNumber": "G1",
+    "eibt": "10:05:50",
+    "arrFatoNumber": "F1",
+    "eldt": "10:05:50"
+  }
+}

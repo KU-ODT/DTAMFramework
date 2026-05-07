@@ -1,3 +1,1 @@
-# DTAM SDK runtime uses only the Python standard library.
-# Install locally with:
-#   pip install -e .
+websocket-client>=1.8

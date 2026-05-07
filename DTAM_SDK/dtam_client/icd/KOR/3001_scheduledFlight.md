@@ -4,7 +4,7 @@
 |---|---|
 | Message ID | `3001` |
 | Message Name | 정기편 정보 |
-| 전송 방식 | TCP |
+| 전송 방식 | WebSocket (`/ws/dtam`) |
 | 인코딩 | JSON (UTF-8) |
 | 주기 | 이벤트성 (편성 시 1회) |
 

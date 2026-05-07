@@ -20,22 +20,12 @@ const MODE_DETAILS = {
   },
   traffic: {
     ko: {
-      title: "교통 흐름 모사",
-      description: "항공 교통 시뮬레이션으로 다수의 UAM 비행 흐름을 모사합니다.",
+      title: "Traffic Sim",
+      description: "Traffic Sim 모드로 추가 설정값 없이 운용합니다.",
     },
     en: {
-      title: "Traffic Flow Simulation",
-      description: "Simulates multiple UAM flight flows through air traffic simulation.",
-    },
-  },
-  integrated: {
-    ko: {
-      title: "통합 비행 모드",
-      description: "주 비행체 1대는 선택한 동역학 모델로 운용하고, 주변 UAM 비행체는 항공 교통 시뮬레이션으로 함께 모사합니다.",
-    },
-    en: {
-      title: "Integrated Flight Mode",
-      description: "Runs one primary aircraft with the selected dynamics model while surrounding UAM traffic is simulated.",
+      title: "Traffic Sim",
+      description: "Runs Traffic Sim mode without additional setup fields.",
     },
   },
 };
@@ -75,13 +65,6 @@ const ICONS = {
       <circle cx="16" cy="17" r="2.2" />
     </svg>
   `,
-  integratedMode: `
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 3 18 8.5 12 14 6 8.5 12 3Z" />
-      <path d="M6 12.5 12 18 18 12.5" />
-      <path d="M6 16.5 12 22 18 16.5" />
-    </svg>
-  `,
 };
 
 function icon(name) {
@@ -115,7 +98,7 @@ function messageTitle(messageId, language = "en") {
 }
 
 function modeSummary(mode, language = "en") {
-  const detail = MODE_DETAILS[mode]?.[normalizeLanguage(language)] || MODE_DETAILS.integrated.en;
+  const detail = MODE_DETAILS[mode]?.[normalizeLanguage(language)] || MODE_DETAILS.single.en;
   const iconName = `${mode}Mode`;
   return `
     <div class="mode-summary__icon" aria-hidden="true">${icon(iconName)}</div>
@@ -286,18 +269,12 @@ function modeSetupPayload(form) {
     operationMode: mode,
   };
 
-  if (mode !== "traffic") {
+  if (mode === "single") {
     payload.singleFlight = {
       vehicleSimType: {
         dynamics: form.elements.dynamics.value,
         mainVehicleController: form.elements.mainVehicleController.value,
       },
-    };
-  }
-
-  if (mode !== "single") {
-    payload.traffic = {
-      trafficScenario: form.elements.trafficScenario.value,
     };
   }
 
@@ -315,8 +292,8 @@ export function renderModeSetupForm(container, language = "en") {
         <form class="icd-form icd-form--mode">
           <input data-timestamp-field name="timestamp" type="hidden" />
 
-          <section class="mode-summary mode-summary--integrated form-section--full" data-mode-summary>
-            ${modeSummary("integrated", normalizedLanguage)}
+          <section class="mode-summary mode-summary--single form-section--full" data-mode-summary>
+            ${modeSummary("single", normalizedLanguage)}
           </section>
 
           <div class="form-section form-section--full">
@@ -328,10 +305,9 @@ export function renderModeSetupForm(container, language = "en") {
               "operationMode",
               [
                 { value: "single", ko: "단일 비행", en: "Single Flight", icon: "singleMode" },
-                { value: "traffic", ko: "교통 흐름 모사", en: "Traffic Flow Simulation", icon: "trafficMode" },
-                { value: "integrated", ko: "통합 비행 모드", en: "Integrated Flight Mode", icon: "integratedMode" },
+                { value: "traffic", ko: "Traffic Sim", en: "Traffic Sim", icon: "trafficMode" },
               ],
-              "integrated",
+              "single",
               normalizedLanguage,
               "segmented-control--mode",
             )}
@@ -365,22 +341,6 @@ export function renderModeSetupForm(container, language = "en") {
             </div>
           </div>
 
-          <div class="icd-card" data-traffic-section>
-            <div class="field-heading">
-              ${duo("교통 시나리오", "Traffic scenario", normalizedLanguage)}
-              <small>${text("배경 교통 밀도를 지정합니다.", "Set the background traffic density.", normalizedLanguage)}</small>
-            </div>
-            <label class="form-label">
-              ${duo("교통 밀도", "Traffic density", normalizedLanguage)}
-              <select name="trafficScenario">
-                <option value="low">${text("낮음", "Low", normalizedLanguage)}</option>
-                <option value="middle">${text("보통", "Middle", normalizedLanguage)}</option>
-                <option value="high">${text("높음", "High", normalizedLanguage)}</option>
-                <option value="customed">${text("사용자 정의", "Custom", normalizedLanguage)}</option>
-              </select>
-            </label>
-          </div>
-
           <div class="send-status send-status--idle" data-send-status>
             <strong>${text("설정값을 확인한 뒤 확정하세요.", "Review settings, then confirm.", normalizedLanguage)}</strong>
           </div>
@@ -396,7 +356,6 @@ export function renderModeSetupForm(container, language = "en") {
       const updateVisibility = () => {
         const mode = form.elements.operationMode.value;
         form.querySelector("[data-single-section]").hidden = mode === "traffic";
-        form.querySelector("[data-traffic-section]").hidden = mode === "single";
         if (summary) {
           summary.className = `mode-summary mode-summary--${mode} form-section--full`;
           summary.innerHTML = modeSummary(mode, normalizedLanguage);

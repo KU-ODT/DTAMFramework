@@ -4,7 +4,7 @@
 |---|---|
 | Message ID | `1003` |
 | Message Name | 시나리오 설정 |
-| 전송 방식 | UDP |
+| 전송 방식 | WebSocket (`/ws/dtam`) |
 | 인코딩 | JSON (UTF-8) |
 | 주기 | 이벤트성 (시나리오 로드/변경 시 1회) |
 

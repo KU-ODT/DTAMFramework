@@ -4,9 +4,13 @@
 |---|---|
 | Message ID | `0001` |
 | Message Name | 모듈 세팅 정보 |
-| 전송 방식 | UDP |
+| 전송 방식 | WebSocket (`/ws/dtam`) |
 | 인코딩 | JSON (UTF-8) |
-| 용도 | 각 모듈이 자신의 수신 IP/포트를 서버에 보고 |
+| 용도 | 각 모듈이 자신의 식별 정보(이름·역할)를 서버에 보고 |
+
+> WebSocket 단일 채널 체제에서는 모듈이 서버에 *접속* 하므로 네트워크 endpoint 보고가
+> 필요하지 않다. 대신 ``Role`` 필드가 모듈 역할(vehicle/mission/monitoring/visual/sim_state)
+> 을 명시하는 데 쓰인다.
 
 ## 1. 최상위 구조
 
@@ -14,9 +18,7 @@
 {
   "Timestamp": "<ISO-8601 UTC>",
   "ModuleName": "<module name>",
-  "IP": "<IPv4 address>",
-  "UDPPort": 17000,
-  "TCPPort": 17001
+  "Role": "<role>"
 }
 ```
 
@@ -25,26 +27,27 @@
 | 필드 | 타입 | 값 / 패턴 | 설명 |
 |---|---|---|---|
 | `Timestamp` | str | `YYYY-MM-DDTHH:MM:SS.sssZ` | 보고 시각(UTC) |
-| `ModuleName` | str | 비어 있지 않은 문자열 | 보고 모듈 이름 |
-| `IP` | str | IPv4 주소 | 모듈이 동작 중인 컴퓨터 IP |
-| `UDPPort` | int | `1`-`65535` | 모듈이 열어 둔 UDP 수신 포트 |
-| `TCPPort` | int | `1`-`65535` | 모듈이 열어 둔 TCP 수신 포트 |
+| `ModuleName` | str | 비어 있지 않은 문자열 | 보고 모듈 이름 (예: `DTAMAirMobility`) |
+| `Role` | str | `mission` \| `monitoring` \| `vehicle` \| `visual` \| `sim_state` | 모듈 역할 |
 
 ## 3. 예시
 
 ```json
 {
-  "Timestamp": "2026-04-17T00:00:00.000Z",
-  "ModuleName": "MissionPlanner",
-  "IP": "192.168.0.21",
-  "UDPPort": 17000,
-  "TCPPort": 17001
+  "Timestamp": "2026-04-28T00:00:00.000Z",
+  "ModuleName": "DTAM_MissionPlanner",
+  "Role": "mission"
 }
 ```
 
 ## 4. 검증 정책
 
 - 필수 필드 누락 또는 타입 불일치는 오류이다.
-- `ModuleName`은 빈 문자열일 수 없다.
-- `IP`는 IPv4 주소 형식이어야 한다.
-- `UDPPort`, `TCPPort`는 유효한 TCP/UDP 포트 범위 안에 있어야 한다.
+- `ModuleName` 은 빈 문자열일 수 없다.
+- `Role` 은 SDK 의 `Role` enum 값 중 하나여야 한다.
+
+## 5. 참고
+
+- 동일 모듈은 별개의 `register` 메시지로도 `role` / `source` 를 서버에 알린다
+  (`{"type": "register", "role": "vehicle", "source": "DTAMAirMobility"}`).
+  MSG 0001 은 그 외 부가 정보(시작 시각 등)를 ICD 메시지로 정식 송신할 때 사용.

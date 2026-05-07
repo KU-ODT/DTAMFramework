@@ -4,7 +4,7 @@
 |---|---|
 | Message ID | `0002` |
 | Message Name | 모듈 상태 보고 |
-| 전송 방식 | UDP |
+| 전송 방식 | WebSocket (`/ws/dtam`) |
 | 인코딩 | JSON (UTF-8) |
 | 주기 | 1 Hz (1초 주기) |
 

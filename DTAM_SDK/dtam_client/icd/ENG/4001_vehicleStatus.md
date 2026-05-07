@@ -4,7 +4,7 @@
 |---|---|
 | Message ID | `4001` |
 | Message Name | Vehicle Status |
-| Transport | UDP |
+| Transport | WebSocket (`/ws/dtam`) |
 | Encoding | JSON (UTF-8) |
 | Rate | Sender discretion |
 
@@ -64,6 +64,11 @@ Identifies the waypoint the vehicle is currently heading toward. Linked to MSG 3
 | Arrival vertiport | `{flightPlanNumber}-{vertiport}-{gate}` | `1201-Jamsil-G8` | Heading to Jamsil gate G8 of plan 1201 |
 
 ### 2.1 position (NED)
+
+`position` is a local NED coordinate. In mission replay mode, Air Mobility uses
+the first emitted trajectory point as the replay origin, so the first `4001`
+sample starts at approximately `{ "north": 0, "east": 0, "down": 0 }`.
+AirSim/Unreal spawn coordinates are not added to this field.
 
 | Field | Type | Unit | Range | Description |
 |---|---|---:|---:|---|

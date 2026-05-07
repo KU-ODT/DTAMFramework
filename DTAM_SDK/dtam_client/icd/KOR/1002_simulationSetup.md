@@ -4,7 +4,7 @@
 |---|---|
 | Message ID | `1002` |
 | Message Name | Simulation Setup |
-| 전송 방식 | UDP |
+| 전송 방식 | WebSocket (`/ws/dtam`) |
 | 인코딩 | JSON (UTF-8) |
 | 주기 | 이벤트 기반 / 사용자 조작 |
 

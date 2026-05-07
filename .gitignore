@@ -1,8 +1,30 @@
-/DTAMVisualization/
 /DTAMVisualization - 복사본/
 
+.dtam_migration_backup/
 .dtam_runtime/
+DTAMVisualization_Source/
+reference/
+DB/ServerStart_*/
+DTAM_SimulationState/data/DB/
+
+DTAMVisualization/.git/
+DTAMVisualization/**/Source/
+DTAMVisualization/**/Intermediate/
+DTAMVisualization/**/DerivedDataCache/
+DTAMVisualization/**/Saved/
+DTAMVisualization/**/Content/
+DTAMVisualization/**/Binaries/
+DTAMVisualization/**/Binaries/**/*.pdb
+DTAMVisualization/**/cesium-request-cache.sqlite*
 **/.git/
+**/.claude/
+**/.claude/**
+**/.vscode/
+**/.vscode/**
+*.claude/
+*.vscode/
+.claude/
+.vscode/
 **/.venv/
 **/venv/
 **/node_modules/
@@ -19,6 +41,7 @@
 *.tmp
 *.bak
 *.swp
+token.txt
 
 reference/**/log/
 _tmp_*.png

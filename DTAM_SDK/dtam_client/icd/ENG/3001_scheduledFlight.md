@@ -4,7 +4,7 @@
 |---|---|
 | Message ID | `3001` |
 | Message Name | Scheduled Flight |
-| Transport | TCP |
+| Transport | WebSocket (`/ws/dtam`) |
 | Encoding | JSON (UTF-8) |
 | Rate | Event-based (once per schedule) |
 

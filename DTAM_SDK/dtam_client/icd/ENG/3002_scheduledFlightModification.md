@@ -4,7 +4,7 @@
 |---|---|
 | Message ID | `3002` |
 | Message Name | Strategic Separation Command |
-| Transport | UDP |
+| Transport | WebSocket (`/ws/dtam`) |
 | Encoding | JSON (UTF-8) |
 | Rate | Event-based |
 

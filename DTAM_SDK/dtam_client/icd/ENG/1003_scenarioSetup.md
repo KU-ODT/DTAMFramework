@@ -4,7 +4,7 @@
 |---|---|
 | Message ID | `1003` |
 | Message Name | Scenario Setup |
-| Transport | UDP |
+| Transport | WebSocket (`/ws/dtam`) |
 | Encoding | JSON (UTF-8) |
 | Rate | Event-based (once per scenario load/change) |
 

@@ -7,8 +7,7 @@ from pydantic import BaseModel, Field
 
 class IcdSendRequest(BaseModel):
     payload: dict[str, Any] = Field(..., description="DTAM ICD payload to validate and send.")
-    target_ip: str | None = Field(None, description="Optional UDP target IP override.")
-    target_port: int | None = Field(None, ge=1, le=65535, description="Optional UDP target port override.")
+    target_ip: str | None = Field(None, description="Optional SimulationState target IP override.")
 
 
 class IcdSendResponse(BaseModel):

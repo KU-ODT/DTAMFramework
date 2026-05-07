@@ -6,8 +6,8 @@ const MODULE_COPY = {
     ko: { title: "모드 선택", subtitle: "" },
   },
   mission: {
-    en: { title: "Simulation Ops", subtitle: "" },
-    ko: { title: "시뮬레이션 운용", subtitle: "" },
+    en: { title: "Mission and Operation", subtitle: "" },
+    ko: { title: "임무 및 운용", subtitle: "" },
   },
   "dtam-modules": {
     en: { title: "DTAM Module Management", subtitle: "" },
@@ -19,11 +19,15 @@ const MODULE_COPY = {
   },
   fleet: {
     en: { title: "Fleet Monitor", subtitle: "" },
-    ko: { title: "기체 모니터", subtitle: "" },
+    ko: { title: "비행체 모니터", subtitle: "" },
   },
   airspace: {
     en: { title: "Airspace Control", subtitle: "" },
-    ko: { title: "공역 제어", subtitle: "" },
+    ko: { title: "공역 통제", subtitle: "" },
+  },
+  plugin: {
+    en: { title: "Plug-In", subtitle: "" },
+    ko: { title: "플러그 인", subtitle: "" },
   },
   data: {
     en: { title: "Data Console", subtitle: "" },
@@ -45,8 +49,10 @@ const MODULE_ICONS = {
   `,
   mission: `
     <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M8 5v14l11-7-11-7Z" />
-      <path d="M4 5v14" />
+      <path d="M5 7h14" />
+      <path d="M5 12h10" />
+      <path d="M5 17h8" />
+      <path d="M17 8.5 20 12l-3 3.5" />
     </svg>
   `,
   "dtam-modules": `
@@ -79,6 +85,18 @@ const MODULE_ICONS = {
       <path d="M4 19 20 5" />
       <path d="M8 5h12v12" />
       <path d="M5 12h6" />
+    </svg>
+  `,
+  plugin: `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M6 6h5v5H6Z" />
+      <path d="M13 6h5v5h-5Z" />
+      <path d="M6 13h5v5H6Z" />
+      <path d="M13 13h5v5h-5Z" />
+      <path d="M11 8.5h2" />
+      <path d="M11 15.5h2" />
+      <path d="M8.5 11v2" />
+      <path d="M15.5 11v2" />
     </svg>
   `,
   data: `

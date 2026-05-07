@@ -4,7 +4,7 @@
 |---|---|
 | Message ID | `2002` |
 | Message Name | DTAM Execute |
-| Transport | TCP |
+| Transport | WebSocket (`/ws/dtam`) |
 | Encoding | JSON (UTF-8) |
 | Rate | Event-based |
 

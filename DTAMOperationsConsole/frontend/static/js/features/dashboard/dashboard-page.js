@@ -1,9 +1,10 @@
 // Page-level controller that loads modules and updates the main dashboard view.
-import { getJSON } from "../../api/client.js";
-import { renderError, renderLoading, renderModuleManagement, renderOverview } from "../../components/detail-panel.js";
+import { getJSON, postJSON } from "../../api/client.js";
+import { renderError, renderLoading, renderModuleManagement, renderOverview, renderPlaceholder } from "../../components/detail-panel.js?v=20260429-module-launch1";
 import { renderScenarioSetupForm } from "../../components/icd-forms.js";
 import { createModuleCard, getModuleCopy, setActiveCard } from "../../components/module-card.js";
-import { renderSimulationWorkspace } from "../simulation/simulation-workspace.js";
+import { renderSimulationWorkspace } from "../simulation/simulation-workspace.js?v=20260429-dtam-flow2";
+import { renderPluginWorkspace } from "../modules/plugin.js";
 import { moduleLoaders } from "../modules/index.js";
 
 const moduleGrid = document.querySelector("#module-grid");
@@ -24,6 +25,10 @@ let loadedModules = [];
 let activeSlug = null;
 let currentLanguage = document.documentElement.lang === "ko" ? "ko" : "en";
 let simulationWorkspaceController = null;
+
+function clearDetailPanelModes() {
+  detailPanel?.classList.remove("detail-panel--module-management", "detail-panel--plugin");
+}
 
 async function loadModules() {
   return getJSON("/api/v1/dashboard/modules");
@@ -62,9 +67,6 @@ function closeModal() {
 }
 
 function closeSimulationWorkspace() {
-  simulationWorkspaceController?.destroy();
-  simulationWorkspaceController = null;
-
   if (simulationWorkspaceRoot) {
     simulationWorkspaceRoot.hidden = true;
   }
@@ -88,7 +90,10 @@ function openSimulationWorkspace(sourceButton = null) {
   simulationWorkspaceRoot.hidden = false;
   window.scrollTo({ top: 0, left: 0 });
   document.body.classList.add("simulation-workspace-open");
-  simulationWorkspaceController?.destroy();
+  if (simulationWorkspaceController) {
+    simulationWorkspaceController.show?.();
+    return;
+  }
   simulationWorkspaceController = renderSimulationWorkspace(simulationWorkspaceRoot, {
     language: currentLanguage,
     onBack: closeSimulationWorkspace,
@@ -107,16 +112,57 @@ async function selectModule(module, sourceButton = null) {
 
   if (module.slug === "dtam-modules") {
     const moduleTitle = getModuleCopy(module, currentLanguage).title;
+    clearDetailPanelModes();
     setIcdMode(false);
     openModal(moduleTitle);
     renderModuleManagement(detailPanel, currentLanguage);
     return;
   }
 
+  if (module.slug === "data") {
+    const moduleTitle = getModuleCopy(module, currentLanguage).title;
+    clearDetailPanelModes();
+    setIcdMode(false);
+    openModal(moduleTitle);
+    renderLoading(detailPanel, moduleTitle);
+    try {
+      await postJSON("/api/v1/data/open-console", {});
+      closeModal();
+    } catch (error) {
+      renderError(detailPanel, error.message);
+    }
+    return;
+  }
+
+  if (module.slug === "plugin") {
+    const moduleTitle = getModuleCopy(module, currentLanguage).title;
+    clearDetailPanelModes();
+    setIcdMode(false);
+    openModal(moduleTitle);
+    renderPluginWorkspace(detailPanel, currentLanguage);
+    return;
+  }
+
+  if (module.slug === "system") {
+    const moduleTitle = getModuleCopy(module, currentLanguage).title;
+    clearDetailPanelModes();
+    setIcdMode(false);
+    openModal(moduleTitle);
+    renderPlaceholder(detailPanel, {
+      eyebrow: currentLanguage === "ko" ? "시스템" : "System",
+      title: moduleTitle,
+      summary: currentLanguage === "ko" ? "시스템 설정 화면은 준비 중입니다." : "System Setting surface reserved.",
+      detail: currentLanguage === "ko"
+        ? "아직 연결된 실행 동작이 없습니다. 추후 시스템 제어 기능을 연결하기 위해 비워둔 작업 영역입니다."
+        : "No runtime action is connected yet. This workspace is intentionally left empty for later system controls.",
+    });
+    return;
+  }
+
   const moduleTitle = getModuleCopy(module, currentLanguage).title;
   const formRenderer = icdFormRenderers[module.slug];
   if (formRenderer) {
-    detailPanel.classList.remove("detail-panel--module-management");
+    clearDetailPanelModes();
     setIcdMode(true);
     openModal(moduleTitle);
     formRenderer(detailPanel, currentLanguage);
@@ -124,7 +170,7 @@ async function selectModule(module, sourceButton = null) {
   }
 
   setIcdMode(false);
-  detailPanel.classList.remove("detail-panel--module-management");
+  clearDetailPanelModes();
   openModal(moduleTitle);
   renderLoading(detailPanel, moduleTitle);
 
@@ -190,9 +236,9 @@ export async function initDashboard() {
     } else {
       moduleGrid.innerHTML = `
         <div class="module-grid__empty">
-          <p class="eyebrow">No Modules</p>
-          <h3>Dashboard is empty</h3>
-          <p>Add module definitions on the backend to populate the dock.</p>
+          <p class="eyebrow">${currentLanguage === "ko" ? "모듈 없음" : "No Modules"}</p>
+          <h3>${currentLanguage === "ko" ? "대시보드가 비어 있습니다" : "Dashboard is empty"}</h3>
+          <p>${currentLanguage === "ko" ? "백엔드에 모듈 정의를 추가하면 도크에 표시됩니다." : "Add module definitions on the backend to populate the dock."}</p>
         </div>
       `;
     }

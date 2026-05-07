@@ -4,7 +4,7 @@
 |---|---|
 | Message ID | `4001` |
 | Message Name | 비행체 상태 정보 |
-| 전송 방식 | UDP |
+| 전송 방식 | WebSocket (`/ws/dtam`) |
 | 인코딩 | JSON (UTF-8) |
 | 주기 | 송신측 재량 |
 
@@ -59,6 +59,11 @@
 | 도착 버티포트 | `{flightPlanNumber}-{vertiport}-{gate}` | `1201-Jamsil-G8` | 1201편 잠실 게이트 G8 |
 
 ### 2.1 position (NED)
+
+`position`은 local NED 좌표이다. Mission replay 모드에서는 Air Mobility가
+첫 송출 trajectory point를 replay 원점으로 사용하므로 첫 `4001` 샘플은
+대략 `{ "north": 0, "east": 0, "down": 0 }`에서 시작한다.
+AirSim/Unreal spawn 좌표는 이 필드에 더하지 않는다.
 
 | 필드 | 타입 | 단위 | 범위 | 설명 |
 |---|---|---:|---:|---|

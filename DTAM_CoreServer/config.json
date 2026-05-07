@@ -1,0 +1,35 @@
+{
+  "server": {
+    "bind_ip": "0.0.0.0"
+  },
+  "gui_host": "127.0.0.1",
+  "gui_port": 8095,
+  "db_root": "../DB",
+  "heartbeat_timeout_s": 3.5,
+  "modules": [
+    {
+      "role": "mission",
+      "display_name": "DTAM Mission Planner",
+      "expected_source": "DTAM_MissionPlanner"
+    },
+    {
+      "role": "monitoring",
+      "display_name": "DTAM Operations Console",
+      "expected_source": "DTAMOperationsConsole"
+    },
+    {
+      "role": "vehicle",
+      "display_name": "DTAM Air Mobility",
+      "expected_source": "DTAMAirMobility"
+    },
+    {
+      "role": "visual",
+      "display_name": "DTAM Visualization"
+    },
+    {
+      "role": "sim_state",
+      "display_name": "DTAM Simulation State Engine",
+      "expected_source": "DTAM_SimulationState"
+    }
+  ]
+}
