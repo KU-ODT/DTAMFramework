@@ -29,7 +29,7 @@ async def icd_list() -> JSONResponse:
             "mid": mid,
             "name": info["name"],
             "name_ko": info.get("name_ko", info["name"]),
-            "proto": info.get("proto", "udp"),
+            "proto": info.get("proto", "ws"),
             "direction": info.get("direction", ""),
             "rate_hz": info.get("rate_hz", 0.0),
             "phase": phase,

@@ -129,7 +129,7 @@ async function render(){
     if(m.group){groups+=`<div class="seq-group" style="top:${y}px;height:${groupH}px"><span class="seq-group-label">${esc(m.group)}</span></div>`;y+=groupH;continue}
     const fi=ai[m.from],ti=ai[m.to],x1=cx(fi),x2=cx(ti),my=y+rowH/2+6;
     const proto=String(m.proto||"").toLowerCase();
-    // proto 색상: WebSocket(ws), DB/file, UI/internal — 옛 UDP/TCP 표기는 ws 로 fallback
+    // proto 색상: WebSocket(ws), DB/file, UI/internal. Legacy protocol names normalize to ws.
     const sc=proto==="db"||proto==="file"?"#8892a6":proto==="ui"||proto==="build"?"#a371f7":proto==="internal"?"#f0883e":"#3b78d8";
     let txt=`<span class="seq-msg-id">${m.id?m.id+" ":""}</span><span class="seq-msg-name">${esc(m.name)}</span><span class="seq-msg-proto">${m.proto||""}</span>`;
     if(m.note)txt+=`<span class="seq-msg-proto"> · ${esc(m.note)}</span>`;

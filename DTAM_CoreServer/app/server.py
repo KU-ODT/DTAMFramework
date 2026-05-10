@@ -15,6 +15,8 @@ import logging
 import subprocess
 import sys
 from contextlib import asynccontextmanager
+from urllib.error import URLError
+from urllib.request import urlopen
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
@@ -25,6 +27,20 @@ logger = logging.getLogger(__name__)
 
 # 라이브 모니터는 SimulationState 가 호스팅
 SIMULATION_STATE_URL = "http://127.0.0.1:8096/"
+
+
+def _creation_flags() -> int:
+    if sys.platform != "win32":
+        return 0
+    return int(getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+
+def _state_server_ready(timeout_s: float = 0.4) -> bool:
+    try:
+        with urlopen(f"{SIMULATION_STATE_URL}api/state", timeout=timeout_s) as response:
+            return 200 <= int(response.status) < 500
+    except (OSError, URLError, TimeoutError):
+        return False
 
 
 def _build_tags_metadata():
@@ -48,21 +64,35 @@ def create_app(config: ServerConfig) -> FastAPI:
         # [NEW] 프로세스 하트비트 루프 시작
         asyncio.create_task(_process_heartbeat_loop())
         state_script = FRAMEWORK_ROOT / "DTAM_SimulationState" / "SS_main.py"
-        try:
-            state_process_holder["proc"] = subprocess.Popen(
-                [sys.executable, str(state_script)],
-                creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0
-            )
-            logger.info("Started Simulation State Server (SS_main.py) in background.")
-        except Exception as e:
-            logger.error(f"Failed to start State Server: {e}")
+        if _state_server_ready():
+            state_process_holder["external"] = True
+            logger.info("Simulation State Server already running at %s", SIMULATION_STATE_URL)
+        else:
+            try:
+                state_process_holder["proc"] = subprocess.Popen(
+                    [sys.executable, str(state_script)],
+                    creationflags=_creation_flags(),
+                )
+                for _ in range(40):
+                    proc = state_process_holder.get("proc")
+                    if proc is not None and proc.poll() is not None:
+                        logger.error("Simulation State Server exited early with code %s", proc.returncode)
+                        break
+                    if _state_server_ready():
+                        logger.info("Started Simulation State Server (SS_main.py) in background.")
+                        break
+                    await asyncio.sleep(0.2)
+                else:
+                    logger.error("Simulation State Server did not become ready at %s", SIMULATION_STATE_URL)
+            except Exception as e:
+                logger.error(f"Failed to start State Server: {e}")
 
         try:
             yield
         finally:
             # ── shutdown ──────────────────────────────────────
             proc = state_process_holder.get("proc")
-            if proc:
+            if proc and not state_process_holder.get("external"):
                 logger.info("Stopping Simulation State Server...")
                 proc.terminate()
                 try:

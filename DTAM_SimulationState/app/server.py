@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,6 +28,20 @@ from .routes import ws_docs as ws_docs_router
 from .routes import camera as camera_router
 
 logger = logging.getLogger("sim_state.server")
+
+def _event_iso_timestamp(evt, payload) -> str:
+    value = None
+    if hasattr(payload, "timestamp"):
+        value = getattr(payload, "timestamp", None)
+    elif isinstance(payload, dict):
+        value = payload.get("timestamp")
+    if value:
+        return str(value)
+    try:
+        ts = float(getattr(evt, "ts", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        ts = 0.0
+    return datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
 def _build_tags_metadata():
     tags = []
@@ -115,12 +130,19 @@ def create_app(config: ServerConfig, db_root: str) -> FastAPI:
                 try:
                     # payload_preview 대신 실제 데이터를 저장해야 하지만
                     # 현재 구조상 hub에서 파일 저장을 위해 on_event로 전달받습니다.
-                    db.write_event(evt.mid, evt.payload_preview or {}, extra_bytes=b"")
+                    payload = evt.full_payload if isinstance(evt.full_payload, dict) else evt.payload_preview
+                    db.write_event(evt.mid, payload or {}, extra_bytes=evt.extra_bytes or b"")
                 except Exception as e:
                     logger.error(f"DB write error: {e}")
                     
             # 엔진 제어 명령 처리 (1002 Simulation Setup)
-            if evt.mid == "1002":
+            is_local_state_command = (
+                evt.peer_role == "sim_state"
+                and evt.proto == "local"
+                and evt.note == "local sink"
+            )
+
+            if is_local_state_command and evt.mid == "1002":
                 payload = evt.full_payload
                 # payload가 dataclass 객체일 수 있으므로 getattr 사용, 아니면 dict.get 사용
                 def get_val(obj, key):
@@ -132,14 +154,12 @@ def create_app(config: ServerConfig, db_root: str) -> FastAPI:
                 if action == "play":
                     engine.start_clock()
                     # [NEW] Play 시 2002(DTAM Execute)를 필요한 모든 모듈에 자동 브로드캐스트하여 즉시 비행 시작 유도
-                    logger.info(f"[AUTO-TRIGGER] Play Button Pressed. Sending Execute Command (2002) to mission & vehicle...")
-                    hub.push_to_role("mission", "2002", {"timestamp": evt.ts_iso or "", "flightPlanFolderName": "auto_sync"})
-                    hub.push_to_role("vehicle", "2002", {"timestamp": evt.ts_iso or "", "flightPlanFolderName": "auto_sync"})
+                    logger.info("[SIM] 1002 play received; simulation clock started")
                 elif action in ("pause", "stop", "reset"):
                     engine.stop_clock()
 
             # [NEW] 1001(모드 설정) 수신 시 Mission Planner에게 2001(비행계획 요청) 자동 트리거
-            if evt.mid == "1001":
+            if is_local_state_command and evt.mid == "1001":
                 try:
                     payload = evt.full_payload
                     def get_val(obj, key):
@@ -152,7 +172,7 @@ def create_app(config: ServerConfig, db_root: str) -> FastAPI:
                     scenario_file = get_val(scenario, "trafficScenario") if scenario else "default_scenario.json"
                     
                     req_2001 = {
-                        "timestamp": evt.ts_iso or "",
+                        "timestamp": _event_iso_timestamp(evt, payload),
                         "scenarioFileName": scenario_file or "default_scenario.json"
                     }
                     # Mission Planner에게 2001 전송

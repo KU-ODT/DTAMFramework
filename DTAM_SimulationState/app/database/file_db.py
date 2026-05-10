@@ -147,6 +147,11 @@ class DtamFileDb:
             if mid == "4001":
                 ts = _sanitize(payload.get("timestamp") or _utc_stamp()).replace(":", "")
                 written: List[Path] = []
+                single_aircraft_id = payload.get("aircraftId") or payload.get("vehicleId") or payload.get("vehicle_id")
+                if single_aircraft_id:
+                    acid = _sanitize(single_aircraft_id, "UAM0000")
+                    path = folder / f"{ts}_{acid}.json"
+                    return [self._write(path, payload)]
                 for key, value in payload.items():
                     if key == "timestamp" or not isinstance(value, dict):
                         continue

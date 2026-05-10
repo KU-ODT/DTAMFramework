@@ -9,7 +9,7 @@ description = "DTAM SDK for WebSocket-based ICD message exchange between modules
 readme = "README_ENG.md"
 requires-python = ">=3.10"
 authors = [{ name = "DTAM SDK Team" }]
-dependencies = []
+dependencies = ["websocket-client>=1.8"]
 
 [tool.setuptools.packages.find]
 include = ["dtam_client*"]

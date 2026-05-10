@@ -53,7 +53,7 @@ SDK (<code>dtam_client</code>) 가 핸드셰이크 / 재연결 / heartbeat / dat
   "type": "registered",
   "role": "vehicle",
   "source": "DTAMAirMobility",
-  "subscriptions": ["0003", "1002", "2002", "3001", "3002", "3003"]
+  "subscriptions": ["0003", "1002", "2002", "3001", "3002", "3003", "5001"]
 }</code></pre>
 <p>알 수 없는 role 이면 <code>{"type":"error","error":"unknown role: ...","allowed":[...]}</code> 응답 후 연결은 유지됩니다 (재시도 가능).</p>
 
@@ -100,9 +100,9 @@ SDK (<code>dtam_client</code>) 가 핸드셰이크 / 재연결 / heartbeat / dat
 <table>
 <tr><th>Role</th><th>SDK 베이스</th><th>모듈</th><th>수신 mid</th></tr>
 <tr><td><code>mission</code></td><td><code>MissionModule</code></td><td>DTAM_MissionPlanner</td><td>2001, 2002</td></tr>
-<tr><td><code>vehicle</code></td><td><code>VehicleModule</code></td><td>DTAMAirMobility</td><td>0003, 1002, 2002, 3001, 3002, 3003</td></tr>
+<tr><td><code>vehicle</code></td><td><code>VehicleModule</code></td><td>DTAMAirMobility</td><td>0003, 1002, 2002, 3001, 3002, 3003, 5001</td></tr>
 <tr><td><code>monitoring</code></td><td><code>MonitoringModule</code></td><td>DTAMOperationsConsole</td><td>0001, 0002, 2002, 4001, 4101</td></tr>
-<tr><td><code>visual</code></td><td><code>VisualModule</code></td><td>DTAMVisualization (Unreal)</td><td>0003, 1002, 2002, 4001</td></tr>
+<tr><td><code>visual</code></td><td><code>VisualModule</code></td><td>DTAMVisualization (Unreal)</td><td>0003, 1002, 1003, 2002, 3001, 4001, 5002</td></tr>
 <tr><td><code>sim_state</code></td><td>—</td><td>이 서버 자체 (DB sink)</td><td>1001, 1002, 1003</td></tr>
 </table>
 <p class="note">각 베이스 클래스의 ``@on_receive`` stub 집합이 <code>FORWARD_RULES</code> 와 일치하는지 import 시점에

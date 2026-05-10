@@ -9,7 +9,7 @@ DTAM_SDK_ROOT = FRAMEWORK_ROOT / "DTAM_SDK"
 # ``--db-root`` CLI 또는 ``DTAM_DSE_DB_ROOT`` ENV 로 override 가능.
 DEFAULT_DB_ROOT = MODULE_ROOT / "data" / "DB"
 
-DEFAULT_WS_URL = "ws://127.0.0.1:8095/ws/dtam"
+DEFAULT_WS_URL = "ws://127.0.0.1:8096/ws/dtam"
 ROLE_NAME = "sim_state"
 SOURCE_NAME = "DTAM_SimulationState"
 

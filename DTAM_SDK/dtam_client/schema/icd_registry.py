@@ -27,6 +27,10 @@ from .msg_phase6 import (
     Msg3002_StrategicSeparation,
     Msg3003_TacticalSeparation,
 )
+from .msg_phase7 import (
+    Msg5001_OperatorControlInput,
+    Msg5002_CameraControlCommand,
+)
 
 # mid → dataclass 매핑 (단일 권위)
 ICD_REGISTRY: Dict[str, Type] = {
@@ -43,6 +47,8 @@ ICD_REGISTRY: Dict[str, Type] = {
     "3003": Msg3003_TacticalSeparation,
     "4001": Msg4001_VehicleStatus,
     "4101": Msg4101_CameraImageFrame,
+    "5001": Msg5001_OperatorControlInput,
+    "5002": Msg5002_CameraControlCommand,
 }
 
 # 역방향 매핑: dataclass type → mid. DtamModule.send 가 dataclass 인스턴스

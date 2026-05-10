@@ -43,6 +43,13 @@ from DTAM_CoreServer.app.config import (  # noqa: E402
 )
 from DTAM_CoreServer.app.server import create_app  # noqa: E402
 
+RESERVED_DTAM_PORTS = {
+    8090,  # Mission Planner GUI
+    8096,  # SimulationState HTTP/WS
+    8097,  # Visualization GUI
+    8100,  # Air Mobility GUI
+}
+
 
 def find_browser() -> Optional[Path]:
     for command in ("msedge", "chrome", "chromium", "brave"):
@@ -107,9 +114,16 @@ def main() -> None:
 
     # Core 는 control plane (HTTP REST) 만 호스팅. 데이터 통신은 SimulationState (8096 WS) 가 담당.
     requested_port = int(cfg.gui_port)
-    cfg.gui_port = find_available_tcp_port(cfg.gui_host, requested_port)
+    cfg.gui_port = find_available_tcp_port(
+        cfg.gui_host,
+        requested_port,
+        exclude_ports=RESERVED_DTAM_PORTS,
+    )
     if cfg.gui_port != requested_port:
-        print(f"[DSE] GUI port {requested_port} is busy; using {cfg.gui_port}.")
+        print(
+            f"[DSE] GUI port {requested_port} is busy; using {cfg.gui_port}. "
+            "Reserved DTAM ports such as 8096 were skipped."
+        )
 
     url = f"http://{cfg.gui_host}:{cfg.gui_port}"
     print(f"[DSE] GUI    : {url}")

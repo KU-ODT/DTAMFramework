@@ -79,7 +79,7 @@ class MissionModule(DtamModule):
 class VehicleModule(DtamModule):
     """Air Mobility 역할의 base 클래스.
 
-    FORWARD_RULES: 0003, 1002, 2002, 3001, 3002, 3003.
+    FORWARD_RULES: 0003, 1002, 2002, 3001, 3002, 3003, 5001.
     """
     role = Role.VEHICLE
 
@@ -106,6 +106,10 @@ class VehicleModule(DtamModule):
     @on_receive("3003")
     def on_tactical_separation(self, msg: Any) -> None:
         """MSG 3003 — 전술적 분리 명령. Override to handle."""
+
+    @on_receive("5001")
+    def on_operator_control_input(self, msg: Any) -> None:
+        """MSG 5001 — 수동 조종 입력. Override to handle."""
 
 
 @_validate_role_base
@@ -141,7 +145,7 @@ class MonitoringModule(DtamModule):
 class VisualModule(DtamModule):
     """Visualization (Unreal) 역할의 base 클래스.
 
-    FORWARD_RULES: 0003, 1002, 2002, 4001.
+    FORWARD_RULES: 0003, 1002, 1003, 2002, 3001, 4001, 5002.
     현재 Visual 은 외부 Unreal Engine 바이너리이고 Python SDK 사용처가
     없지만, 향후 Python 시각화기를 만들 때를 위해 준비.
     """
@@ -155,13 +159,25 @@ class VisualModule(DtamModule):
     def on_simulation_setup(self, msg: Any) -> None:
         """MSG 1002 — 시뮬레이션 통제. Override to handle."""
 
+    @on_receive("1003")
+    def on_scenario_setup(self, msg: Any) -> None:
+        """MSG 1003 scenario setup. Override to handle."""
+
     @on_receive("2002")
     def on_dtam_execute(self, msg: Any) -> None:
         """MSG 2002 — DTAM 실행 명령. Override to handle."""
 
+    @on_receive("3001")
+    def on_scheduled_flight(self, msg: Any) -> None:
+        """MSG 3001 scheduled flight guide. Override to handle."""
+
     @on_receive("4001")
     def on_vehicle_status(self, msg: Any) -> None:
         """MSG 4001 — 비행체 10Hz 상태. Override to handle."""
+
+    @on_receive("5002")
+    def on_camera_control_command(self, msg: Any) -> None:
+        """MSG 5002 — 카메라 제어 명령. Override to handle."""
 
 
 __all__ = [

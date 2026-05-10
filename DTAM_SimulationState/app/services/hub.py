@@ -100,10 +100,12 @@ class ServerHub:
             self.registry.heartbeat({"source": source})
         logger.info("WS module registered: role=%s source=%s", role, source)
 
-    def unregister_ws_module(self, role: str) -> None:
+    def unregister_ws_module(self, role: str, ws: Any = None) -> None:
         """WebSocket 모듈 해제."""
         with self._lock:
-            self._ws_clients.pop(role, None)
+            current = self._ws_clients.get(role)
+            if ws is None or current is ws:
+                self._ws_clients.pop(role, None)
         logger.info("WS module unregistered: role=%s", role)
 
     def ws_connected_roles(self) -> List[str]:
@@ -166,6 +168,7 @@ class ServerHub:
             peer_ip="ws", peer_port=0, ok=True,
             note="ws", payload_preview=_preview(payload),
             full_payload=payload,
+            extra_bytes=image_bytes,
         )
         self._append_traffic(rx_evt)
 
@@ -179,6 +182,9 @@ class ServerHub:
     def push_to_role(self, role: str, mid: str, payload: Dict[str, Any],
                      *, image_bytes: bytes = b"") -> Dict[str, Any]:
         """특정 역할에 메시지 전송. WebSocket 연결이 있어야 송신 가능."""
+        if role == "sim_state":
+            return self._push_to_local_sink(role, mid, payload)
+
         with self._lock:
             ws = self._ws_clients.get(role)
 
@@ -220,6 +226,20 @@ class ServerHub:
         )
         self._append_traffic(evt)
         return {"ok": ok, "errors": errs, "target": f"ws:{role}"}
+
+    def _push_to_local_sink(self, role: str, mid: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Deliver SimulationState-targeted messages without a WebSocket client."""
+        self.registry.note_tx(role, mid, payload)
+        evt = TrafficEvent(
+            ts=time.time(), mid=mid,
+            name=str(MESSAGE_TABLE.get(mid, {}).get("name") or mid),
+            kind="tx", proto="local", peer_role=role,
+            peer_ip="local", peer_port=0, ok=True,
+            note="local sink", payload_preview=_preview(payload),
+            full_payload=payload,
+        )
+        self._append_traffic(evt)
+        return {"ok": True, "errors": [], "target": f"local:{role}"}
 
     # ── 조회 ──────────────────────────────────────────────────
     def snapshot(self) -> Dict[str, Any]:

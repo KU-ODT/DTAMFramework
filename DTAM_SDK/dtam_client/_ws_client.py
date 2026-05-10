@@ -7,7 +7,7 @@
     from dtam_client import DtamWsClient
 
     dtam = DtamWsClient(
-        url="ws://127.0.0.1:8095/ws/dtam",
+    url="ws://127.0.0.1:8096/ws/dtam",
         role="vehicle",
         source="DTAMAirMobility",
     )

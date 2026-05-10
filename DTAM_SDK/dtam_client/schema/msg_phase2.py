@@ -1,6 +1,6 @@
 """Phase 2/3 메시지 — 2001, 2002, 3001."""
 from __future__ import annotations
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import List, Optional
 
 from .icd_common import LLA
@@ -70,3 +70,14 @@ class Msg3001_ScheduledFlight:
     departure: DepartureInfo = field(default_factory=DepartureInfo)
     arrival: ArrivalInfo = field(default_factory=ArrivalInfo)
     enRoute: List[EnRouteSegment] = field(default_factory=list)
+
+    def to_wire(self) -> dict:
+        payload = asdict(self)
+        for segment in payload.get("enRoute", []) or []:
+            if not isinstance(segment, dict):
+                continue
+            if segment.get("turnDirection") is None:
+                segment.pop("turnDirection", None)
+            if segment.get("centerLLA") is None:
+                segment.pop("centerLLA", None)
+        return payload

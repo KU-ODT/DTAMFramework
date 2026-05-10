@@ -25,7 +25,7 @@ class MessageSpec:
     direction: str                 # "vehicle->server" — server forwarding 추출용
     rate_hz: float                 # 0.0 = 비주기
     phase: int                     # 시퀀스 다이어그램 phase 0..6
-    icd_proto: str                 # "udp" | "tcp" — ICD 명세 표기 (정보용)
+    icd_proto: str                 # "ws" transport metadata
     db_folder: str                 # 파일 DB 폴더명
     has_image_payload: bool = False  # 4101 처럼 binary tail 포함 여부
 
@@ -43,79 +43,91 @@ CATALOG: Dict[str, MessageSpec] = {
         mid="0001", alias="module_setting_info",
         name_en="Module Setting Info", name_ko="모듈 세팅 정보",
         direction="module->server", rate_hz=0.0, phase=0,
-        icd_proto="udp", db_folder="ModuleSettingInfo",
+        icd_proto="ws", db_folder="ModuleSettingInfo",
     ),
     "0002": MessageSpec(
         mid="0002", alias="module_status",
         name_en="Module Status", name_ko="모듈 상태",
         direction="module->server", rate_hz=1.0, phase=0,
-        icd_proto="udp", db_folder="ModuleStatus",
+        icd_proto="ws", db_folder="ModuleStatus",
     ),
     "0003": MessageSpec(
         mid="0003", alias="common_time_info",
         name_en="Common Time Info", name_ko="공통 시간 정보",
         direction="sim_state->server", rate_hz=1.0, phase=5,
-        icd_proto="udp", db_folder="CommonTimeInfo",
+        icd_proto="ws", db_folder="CommonTimeInfo",
     ),
     "1001": MessageSpec(
         mid="1001", alias="sim_mode_setup",
         name_en="Sim Mode Setup", name_ko="시뮬레이션 모드 설정",
         direction="user->server", rate_hz=0.0, phase=1,
-        icd_proto="udp", db_folder="SimModeSetup",
+        icd_proto="ws", db_folder="SimModeSetup",
     ),
     "1002": MessageSpec(
         mid="1002", alias="simulation_setup",
         name_en="Simulation Setup", name_ko="시뮬레이션 통제",
         direction="user->server", rate_hz=0.0, phase=4,
-        icd_proto="udp", db_folder="SimulationSetup",
+        icd_proto="ws", db_folder="SimulationSetup",
     ),
     "1003": MessageSpec(
         mid="1003", alias="scenario_setup",
         name_en="Scenario Setup", name_ko="시나리오 설정",
         direction="user->server", rate_hz=0.0, phase=1,
-        icd_proto="udp", db_folder="ScenarioSetup",
+        icd_proto="ws", db_folder="ScenarioSetup",
     ),
     "2001": MessageSpec(
         mid="2001", alias="flight_plan_request",
         name_en="Flight Plan Request", name_ko="비행계획 요청",
         direction="user->server", rate_hz=0.0, phase=2,
-        icd_proto="tcp", db_folder="FlightPlanRequest",
+        icd_proto="ws", db_folder="FlightPlanRequest",
     ),
     "2002": MessageSpec(
         mid="2002", alias="dtam_execute",
         name_en="DTAM Execute", name_ko="DTAM 실행",
         direction="user->server", rate_hz=0.0, phase=3,
-        icd_proto="tcp", db_folder="DtamExecute",
+        icd_proto="ws", db_folder="DtamExecute",
     ),
     "3001": MessageSpec(
         mid="3001", alias="scheduled_flight",
         name_en="Scheduled Flight", name_ko="계획 비행",
         direction="mission->server", rate_hz=0.0, phase=2,
-        icd_proto="tcp", db_folder="ScheduledFlight",
+        icd_proto="ws", db_folder="ScheduledFlight",
     ),
     "3002": MessageSpec(
         mid="3002", alias="strategic_separation",
         name_en="Strategic Separation", name_ko="전략적 분리",
         direction="mission->server", rate_hz=0.0, phase=6,
-        icd_proto="tcp", db_folder="ScheduledFlightModification",
+        icd_proto="ws", db_folder="ScheduledFlightModification",
     ),
     "3003": MessageSpec(
         mid="3003", alias="tactical_separation",
         name_en="Tactical Separation", name_ko="전술적 분리",
         direction="mission->server", rate_hz=0.0, phase=6,
-        icd_proto="tcp", db_folder="TacticalActionCommand",
+        icd_proto="ws", db_folder="TacticalActionCommand",
     ),
     "4001": MessageSpec(
         mid="4001", alias="vehicle_status",
         name_en="Vehicle Status", name_ko="비행체 상태 정보",
         direction="vehicle->server", rate_hz=10.0, phase=5,
-        icd_proto="udp", db_folder="VehicleStatus",
+        icd_proto="ws", db_folder="VehicleStatus",
     ),
     "4101": MessageSpec(
         mid="4101", alias="camera_image",
         name_en="Camera Image Frame", name_ko="카메라 이미지 프레임",
         direction="visual->server", rate_hz=5.0, phase=5,
-        icd_proto="tcp", db_folder="CameraImage", has_image_payload=True,
+        icd_proto="ws", db_folder="CameraImage", has_image_payload=True,
+    ),
+    "5001": MessageSpec(
+        mid="5001", alias="operator_control_input",
+        name_en="Operator Control Input", name_ko="수동 조종 입력",
+        direction="operator->server", rate_hz=20.0, phase=7,
+        icd_proto="ws", db_folder="OperatorControlInput",
+    ),
+    "5002": MessageSpec(
+        mid="5002", alias="camera_control_command",
+        name_en="Camera Control Command", name_ko="카메라 제어 명령",
+        direction="operator->server", rate_hz=0.0, phase=7,
+        icd_proto="ws", db_folder="CameraControlCommand",
     ),
 }
 
@@ -129,6 +141,7 @@ PHASE_INFO: Dict[int, Dict[str, str]] = {
     4: {"name": "시뮬레이션 통제 단계",  "name_en": "Simulation Control", "description": "시뮬레이션 통제(1002) → vehicle, visual 전달"},
     5: {"name": "상태정보 업데이트",     "name_en": "Status Update",      "description": "공통 시간(0003) 1Hz, 기체 상태(4001), 카메라(4101)"},
     6: {"name": "분리 명령",            "name_en": "Separation",         "description": "전략적 분리(3002), 전술적 분리(3003) → vehicle"},
+    7: {"name": "운용자 제어",           "name_en": "Operator Control",    "description": "수동 조종 입력(5001), 카메라 제어 명령(5002)"},
 }
 
 

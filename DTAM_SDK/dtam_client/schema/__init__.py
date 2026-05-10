@@ -62,6 +62,13 @@ from .msg_phase6 import (
     DirectToTarget, HoldAction, LandAction, TacticalAction,
 )
 
+# Phase 7: operator/manual control
+from .msg_phase7 import (
+    Msg5001_OperatorControlInput,
+    Msg5002_CameraControlCommand,
+    OperatorControlAxes,
+)
+
 # ── 레지스트리 + 직렬화 헬퍼 ───────────────────────────────────
 from .icd_registry import (
     ICD_REGISTRY,
@@ -82,6 +89,7 @@ __all__ = [
     "Msg2001_FlightPlanRequest", "Msg2002_DtamExecute", "Msg3001_ScheduledFlight",
     "Msg4001_VehicleStatus", "Msg4101_CameraImageFrame",
     "Msg3002_StrategicSeparation", "Msg3003_TacticalSeparation",
+    "Msg5001_OperatorControlInput", "Msg5002_CameraControlCommand",
     # Phase 1 sub-dataclass
     "VehicleSimType", "SingleFlight", "Traffic",
     "Precipitation", "Fog", "WeatherEffect", "Gust", "Wind",
@@ -93,6 +101,8 @@ __all__ = [
     "GPS", "IMU", "Barometer", "VehicleData",
     # Phase 6 sub-dataclass
     "DirectToTarget", "HoldAction", "LandAction", "TacticalAction",
+    # Phase 7 sub-dataclass
+    "OperatorControlAxes",
     # 레지스트리/헬퍼
     "ICD_REGISTRY",
     "get_icd_class",

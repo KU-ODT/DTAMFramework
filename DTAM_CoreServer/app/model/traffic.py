@@ -11,7 +11,7 @@ class TrafficEvent:
     mid: str
     name: str
     kind: str              # "rx" | "tx"
-    proto: str             # "udp" | "tcp" | "ws"
+    proto: str             # "ws"
     peer_role: Optional[str]
     peer_ip: str
     peer_port: int
@@ -19,6 +19,7 @@ class TrafficEvent:
     note: str = ""
     payload_preview: Any = None
     full_payload: Any = None
+    extra_bytes: bytes = b""
 
     def to_dict(self) -> Dict[str, Any]:
         return {

@@ -59,6 +59,7 @@ def default_modules() -> List[ModuleEndpoint]:
         ModuleEndpoint(role="monitoring",  display_name="Operations Console",  expected_source="DTAMOperationsConsole"),
         ModuleEndpoint(role="vehicle",     display_name="Air Mobility",        expected_source="DTAMAirMobility"),
         ModuleEndpoint(role="visual",      display_name="Visualization",       expected_source="DTAMVisualization"),
+        ModuleEndpoint(role="sim_state",   display_name="Simulation State",    expected_source="DTAM_SimulationState"),
     ]
 
 

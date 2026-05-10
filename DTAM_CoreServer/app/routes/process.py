@@ -1,10 +1,9 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import asyncio
+import os
 import subprocess
 import sys
-import requests
-import concurrent.futures
 import traceback
 from pathlib import Path
 from typing import Dict, List
@@ -13,36 +12,46 @@ from fastapi import APIRouter, HTTPException
 
 router = APIRouter(prefix="", tags=["🚀 프로세스 관리"])
 
+DTAM_TARGET_IP = os.environ.get("DTAM_TARGET_IP") or "127.0.0.1"
+DTAM_WS_PORT = os.environ.get("DTAM_WS_PORT") or "8096"
+
+
+def _creation_flags() -> int:
+    if sys.platform != "win32":
+        return 0
+    return int(getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
 # 모듈별 실행 스크립트 맵
 MODULE_MAP = {
-    "mission": {"name": "DTAM Mission Planner", "path": "DTAM_MissionPlanner/MP_main.py", "type": "python"},
-    "vehicle": {"name": "DTAM Air Mobility", "path": "DTAMAirMobility/AM_main.py", "type": "python"},
-    "visual": {"name": "DTAM Visualization", "path": "DTAMVisualizationModule/run.bat", "type": "bat"},
+    "mission": {
+        "name": "DTAM Mission Planner",
+        "path": "DTAM_MissionPlanner/MP_main.py",
+        "type": "python",
+        "args": ["--target-ip", DTAM_TARGET_IP, "--ws-port", DTAM_WS_PORT, "--port", "8090", "--no-browser"],
+    },
+    "vehicle": {
+        "name": "DTAM Air Mobility",
+        "path": "DTAMAirMobility/AM_main.py",
+        "type": "python",
+        "args": ["--target-ip", DTAM_TARGET_IP, "--ws-port", DTAM_WS_PORT, "--port", "8100", "--no-browser"],
+    },
+    "visual": {
+        "name": "DTAM Visualization",
+        "path": "DTAMVisualization/VM_main.py",
+        "type": "python",
+        "args": ["--gui-port", "8097", "--server-ip", DTAM_TARGET_IP, "--ws-port", DTAM_WS_PORT, "--no-browser"],
+    },
 }
 
 active_processes: Dict[str, subprocess.Popen] = {}
-_executor = concurrent.futures.ThreadPoolExecutor(max_workers=3)
 
-def _send_heartbeat_sync(role: str):
-    """상태 서버에 하트비트를 보내는 동기 함수"""
-    try:
-        requests.post(
-            "http://127.0.0.1:8096/api/heartbeat",
-            json={"source": f"DTAM_{role.upper()}"},
-            timeout=1.0
-        )
-    except Exception:
-        pass
 
 async def _process_heartbeat_loop():
-    """백그라운드에서 실행 중인 프로세스의 하트비트를 주기적으로 갱신"""
-    loop = asyncio.get_event_loop()
+    """Track child process liveness without faking module WebSocket heartbeats."""
     while True:
         try:
             for role, proc in list(active_processes.items()):
-                if proc.poll() is None:
-                    await loop.run_in_executor(_executor, _send_heartbeat_sync, role)
-                else:
+                if proc.poll() is not None:
                     active_processes.pop(role, None)
         except Exception:
             traceback.print_exc()
@@ -73,24 +82,19 @@ async def start_module(role: str):
 
         if info["type"] == "python":
             new_proc = subprocess.Popen(
-                [sys.executable, str(script_path)],
+                [sys.executable, str(script_path), *list(info.get("args", []))],
                 cwd=str(script_path.parent),
-                creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0
+                creationflags=_creation_flags(),
             )
         else:  # bat
             new_proc = subprocess.Popen(
-                [str(script_path)],
+                [str(script_path), *list(info.get("args", []))],
                 cwd=str(script_path.parent),
                 shell=True,
-                creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0
+                creationflags=_creation_flags(),
             )
         
         active_processes[role] = new_proc
-        
-        # 즉시 하트비트 전송
-        loop = asyncio.get_event_loop()
-        loop.run_in_executor(_executor, _send_heartbeat_sync, role)
-
         return {"ok": True, "message": f"{info['name']} started (PID: {new_proc.pid})"}
     except Exception as e:
         print(f"[DTAM Core] Error starting {role}:")
@@ -109,4 +113,13 @@ async def stop_module(role: str):
     proc = active_processes.pop(role)
     if proc.poll() is None:
         proc.terminate()
+        try:
+            proc.wait(timeout=5.0)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            try:
+                proc.wait(timeout=2.0)
+            except subprocess.TimeoutExpired:
+                pass
     return {"ok": True, "message": f"Stopped {role}"}
+

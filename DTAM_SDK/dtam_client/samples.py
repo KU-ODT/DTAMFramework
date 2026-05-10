@@ -332,6 +332,47 @@ def sample_camera_image_header(**overrides: Any) -> Dict[str, Any]:
     )
 
 
+def sample_operator_control_input(**overrides: Any) -> Dict[str, Any]:
+    return _merge(
+        {
+            "timestamp": ISO_TS,
+            "aircraftId": "UAM0001",
+            "source": "keyboard",
+            "controlMode": "keyboard",
+            "sequence": 1,
+            "active": True,
+            "axes": {
+                "roll": 0.0,
+                "pitch": 0.5,
+                "yaw": 0.0,
+                "throttle": 0.2,
+            },
+            "buttons": [],
+            "hats": [],
+            "rawAxes": {},
+        },
+        overrides,
+    )
+
+
+def sample_camera_control_command(**overrides: Any) -> Dict[str, Any]:
+    return _merge(
+        {
+            "timestamp": ISO_TS,
+            "aircraftId": "UAM0001",
+            "vehicleName": "",
+            "cameraName": "front_center",
+            "source": "joystick",
+            "action": "adjust",
+            "sequence": 1,
+            "yawDeltaDeg": 6.0,
+            "pitchDeltaDeg": 0.0,
+            "focalLengthDelta": 0.0,
+        },
+        overrides,
+    )
+
+
 def sample_camera_image_bytes() -> bytes:
     return b"\x00\x00\x00"
 
@@ -350,6 +391,8 @@ _SAMPLE_BUILDERS: Dict[str, Callable[..., Dict[str, Any]]] = {
     "3003": sample_tactical_separation,
     "4001": sample_vehicle_status,
     "4101": sample_camera_image_header,
+    "5001": sample_operator_control_input,
+    "5002": sample_camera_control_command,
 }
 
 _ALIASES = {
@@ -380,6 +423,11 @@ _ALIASES = {
     "camera_image": "4101",
     "camera_image_header": "4101",
     "push_camera_image": "4101",
+    "operator_control_input": "5001",
+    "push_operator_control_input": "5001",
+    "manual_control_input": "5001",
+    "camera_control_command": "5002",
+    "push_camera_control_command": "5002",
 }
 
 

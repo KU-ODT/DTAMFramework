@@ -21,14 +21,16 @@ FORWARD_RULES: Dict[str, List[Role]] = {
     "0003": [Role.VEHICLE, Role.VISUAL],                                                 # Phase 5 (1Hz)
     "1001": [Role.SIM_STATE],                                                            # Phase 1
     "1002": [Role.VEHICLE, Role.VISUAL, Role.SIM_STATE],                                 # Phase 4
-    "1003": [Role.SIM_STATE],                                                            # Phase 1
+    "1003": [Role.SIM_STATE, Role.VISUAL],                                                # Phase 1
     "2001": [Role.MISSION],                                                              # Phase 2
     "2002": [Role.MISSION, Role.MONITORING, Role.VEHICLE, Role.VISUAL],                  # Phase 3
-    "3001": [Role.VEHICLE],                                                              # Phase 2
+    "3001": [Role.VEHICLE, Role.VISUAL],                                                 # Phase 2
     "3002": [Role.VEHICLE],                                                              # Phase 6
     "3003": [Role.VEHICLE],                                                              # Phase 6
     "4001": [Role.MONITORING, Role.VISUAL],                                              # Phase 5
     "4101": [Role.MONITORING],                                                           # Phase 5
+    "5001": [Role.VEHICLE],                                                              # Phase 7
+    "5002": [Role.VISUAL],                                                               # Phase 7
 }
 
 

@@ -12,6 +12,7 @@ DTAM ICD 통신 자체는 WebSocket(/ws/dtam) 한 채널이라 별도 포트 검
 from __future__ import annotations
 
 import socket
+from collections.abc import Iterable
 
 
 def _socket_family(host: str) -> socket.AddressFamily:
@@ -29,14 +30,23 @@ def can_bind_tcp(host: str, port: int) -> bool:
         return False
 
 
-def find_available_tcp_port(host: str, preferred_port: int, *, max_tries: int = 100) -> int:
+def find_available_tcp_port(
+    host: str,
+    preferred_port: int,
+    *,
+    max_tries: int = 100,
+    exclude_ports: Iterable[int] | None = None,
+) -> int:
     """``preferred_port`` 또는 그 다음 사용 가능한 TCP 포트를 반환.
 
     ``max_tries`` 안에 가능한 포트가 없으면 ``RuntimeError``.
     """
     start = int(preferred_port)
+    excluded = {int(port) for port in (exclude_ports or ())}
     last_port = min(65535, start + int(max_tries) - 1)
     for port in range(start, last_port + 1):
+        if port in excluded:
+            continue
         if can_bind_tcp(host, port):
             return port
     raise RuntimeError(

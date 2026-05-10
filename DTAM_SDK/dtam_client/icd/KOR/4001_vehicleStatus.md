@@ -60,6 +60,11 @@
 
 ### 2.1 position (NED)
 
+`position`은 local NED 좌표이다. Mission replay 모드에서는 Air Mobility가
+첫 송출 trajectory point를 replay 원점으로 사용하므로 첫 `4001` 샘플은
+대략 `{ "north": 0, "east": 0, "down": 0 }`에서 시작한다.
+AirSim/Unreal spawn 좌표는 이 필드에 더하지 않는다.
+
 | 필드 | 타입 | 단위 | 범위 | 설명 |
 |---|---|---:|---:|---|
 | `north` | float | m | -10000 ~ 10000 | 북쪽 위치 |

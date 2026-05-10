@@ -88,4 +88,4 @@ async def ws_dtam(websocket: WebSocket) -> None:
         logger.exception("ws_dtam error")
     finally:
         if role:
-            hub.unregister_ws_module(role)
+            hub.unregister_ws_module(role, websocket)
