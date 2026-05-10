@@ -1,19 +1,20 @@
-"""UAM Flight Simulator — Async-capable eVTOL trajectory generator.
+"""UAM Flight Dynamics — DTAMAirMobility 의 비행 물리 / ICD 파싱 코어.
 
-A modular UAM (Urban Air Mobility) flight trajectory simulator that accepts
-ICD v1 mission plans and generates realistic flight data, either in batch
-mode or as a real-time async stream at configurable tick rates (default 10 Hz).
+DTAMAirMobility 의 ``IntegratedAirMobilityService`` (=``VehicleSession``) 가
+이 패키지의 ``DynamicsEngine`` 을 tick-by-tick 으로 호출해 4001 trajectory 를
+생성한다.
 
-Batch usage:
-    from simpleDynamics import UAMFlightSimulator
-    results = sim.run_from_file("mission.json")
+공개 API (``services/`` 에서 사용 중):
+  - ``core.types``         FlightPlan, FlightTrajectoryPoint, SimulationConfig 등
+  - ``core.flight_dynamics`` DynamicsEngine
+  - ``core.flight_profile`` build_kinematics
+  - ``core.path_builder``  build_segment_profiles
+  - ``core.wind_model``    WindModel
+  - ``io.icd_parser``      load_from_file, parse_flight_plans
 
-Async streaming usage:
-    from simpleDynamics import FlightStreamService, WallClockSource
-    service = FlightStreamService(clock_source=WallClockSource())
-    fid = await service.submit_plan(plan)
-    async for point in service.subscribe(fid):
-        ...
+이전 standalone ``simpleDynamics`` 패키지의 batch CLI / async streaming runtime
+(``UAMFlightSimulator``, ``FlightStreamService``, ``ClockSource``…) 은 통합
+서비스 ``IntegratedAirMobilityService`` 가 같은 역할을 직접 수행하므로 제거됨.
 """
 
 from .core.types import (
@@ -26,40 +27,21 @@ from .core.types import (
     FlightStatus,
     SimulationConfig,
 )
-from .simulator import UAMFlightSimulator, SimulationResult
-from .io.icd_parser import load_from_file, parse_flight_plans, ICDValidationError
 from .core.wind_model import WindModel
-from .runtime.async_runtime import (
-    FlightStreamService,
-    FlightSession,
-    ClockSource,
-    WallClockSource,
-    ExternalClockSource,
-    FreeRunClockSource,
-)
+from .io.icd_parser import load_from_file, parse_flight_plans, ICDValidationError
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 __all__ = [
-    # Batch API
-    "UAMFlightSimulator",
-    "SimulationResult",
-    "SimulationConfig",
+    "LLA",
+    "Phase",
+    "FlightMode",
     "FlightPlan",
     "FlightTrajectoryPoint",
-    "FlightMode",
-    "Phase",
-    "LLA",
+    "FlightState",
+    "FlightStatus",
+    "SimulationConfig",
     "WindModel",
     "load_from_file",
     "parse_flight_plans",
     "ICDValidationError",
-    # Async streaming API
-    "FlightStreamService",
-    "FlightSession",
-    "FlightState",
-    "FlightStatus",
-    "ClockSource",
-    "WallClockSource",
-    "ExternalClockSource",
-    "FreeRunClockSource",
 ]
