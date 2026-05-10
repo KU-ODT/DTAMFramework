@@ -11,6 +11,20 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 
+
+def cleanup_stale_stack() -> None:
+    """Clear the local DTAM ports before launching a fresh stack."""
+    console_root = ROOT / "DTAMOperationsConsole"
+    if str(console_root) not in sys.path:
+        sys.path.insert(0, str(console_root))
+    try:
+        from backend.app.services.module_process_service import shutdown_modules_for_console_exit
+
+        shutdown_modules_for_console_exit()
+    except Exception as exc:
+        print(f"[DTAM] stale stack cleanup skipped: {type(exc).__name__}: {exc}")
+
+
 def launch_console_window(name: str, cwd: Path, command: list[str]) -> subprocess.Popen:
     if os.name == "nt":
         command_line = subprocess.list2cmdline(command)
@@ -33,6 +47,7 @@ def main() -> int:
     python_exe = args.python
 
     print("[DTAM] Starting 2-Tier Architecture (WebSocket /ws/dtam)...")
+    cleanup_stale_stack()
 
     # 1. Start Core Server (which auto-starts Simulation State)
     server_cmd = [
@@ -49,6 +64,7 @@ def main() -> int:
     console_cmd = [
         python_exe,
         "DOC_main.py",
+        "--preserve-stack",
     ]
     launch_console_window(
         "DTAM Operations Console",

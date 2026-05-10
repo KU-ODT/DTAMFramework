@@ -1,7 +1,11 @@
 """DTAM 3001 송신·상태 라우트 (`/api/dtam/status`, `/api/dtam/config`, `/api/dtam/send`)."""
 from __future__ import annotations
 
+import json
+from datetime import datetime, timezone
 from typing import Any, Dict
+from urllib.request import Request as UrlRequest
+from urllib.request import urlopen
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
@@ -11,6 +15,31 @@ from ..services.mission_service import MissionService
 from ..state import state
 
 router = APIRouter(prefix="/api/dtam")
+
+
+def _iso_timestamp() -> str:
+    now = datetime.now(timezone.utc)
+    return now.strftime("%Y-%m-%dT%H:%M:%S.") + f"{now.microsecond // 1000:03d}Z"
+
+
+def _state_msg_url(mid: str) -> str:
+    host = str(state.settings.get("dtam_target_ip") or "127.0.0.1")
+    port = int(state.settings.get("dtam_ws_port") or 8096)
+    return f"http://{host}:{port}/api/msg/{mid}"
+
+
+def _push_state_message(mid: str, payload: Dict[str, Any], *, timeout_s: float = 3.0) -> Dict[str, Any]:
+    body = json.dumps({"payload": payload}).encode("utf-8")
+    req = UrlRequest(
+        _state_msg_url(mid),
+        data=body,
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+        method="POST",
+    )
+    with urlopen(req, timeout=timeout_s) as response:
+        raw = response.read().decode("utf-8")
+    result = json.loads(raw) if raw else {}
+    return result if isinstance(result, dict) else {"ok": False, "raw": result}
 
 
 @router.get("/status")
@@ -87,3 +116,34 @@ async def send_to_dtam(
     }
     status_code = 200 if send_result["ok"] else 502
     return JSONResponse(response, status_code=status_code)
+
+
+@router.post("/play")
+async def play_dtam(request: Request) -> JSONResponse:
+    """Send MSG 1002 play through SimulationState so vehicle/visual start replay."""
+    try:
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        speed = int(body.get("playbackSpeed") or body.get("playback_speed") or 1)
+        if speed not in (1, 2, 4, 8):
+            speed = 1
+        payload = {
+            "timestamp": str(body.get("timestamp") or _iso_timestamp()),
+            "playbackSpeed": speed,
+            "playState": "play",
+        }
+        result = _push_state_message("1002", payload)
+        ok = bool(result.get("ok", True))
+        return JSONResponse(
+            {
+                "ok": ok,
+                "target": _state_msg_url("1002"),
+                "payload": payload,
+                "result": result,
+            },
+            status_code=200 if ok else 502,
+        )
+    except Exception as exc:
+        return JSONResponse({"ok": False, "error": str(exc), "target": _state_msg_url("1002")}, status_code=502)

@@ -1,0 +1,34 @@
+{
+  "gui_host": "127.0.0.1",
+  "gui_port": 8097,
+  "log_level": "info",
+  "airsim": {
+    "host": "127.0.0.1",
+    "port": 41451,
+    "vehicle_prefix": "",
+    "ignore_collisions": true,
+    "vehicle_map": {
+      "UAM0001": "Drone1"
+    }
+  },
+  "dtam": {
+    "server_ip": "127.0.0.1",
+    "server_port": 8096
+  },
+  "streaming": {
+    "module_status_hz": 1.0,
+    "camera_enabled": false,
+    "camera_name": "front_center",
+    "camera_image_type": 0,
+    "camera_hz": 5.0,
+    "camera_quality": 80,
+    "camera_vehicle": ""
+  },
+  "unreal": {
+    "executable": "D:\\DTAMFramework\\DTAMVisualization\\Unreal\\Environments\\DTAMVisualization\\Binaries\\Win64\\DTAMVisualization.exe",
+    "args": [
+      "-windowed"
+    ],
+    "working_dir": "D:\\DTAMFramework\\DTAMVisualization\\Unreal\\Environments\\DTAMVisualization"
+  }
+}

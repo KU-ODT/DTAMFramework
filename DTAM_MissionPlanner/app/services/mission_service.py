@@ -36,6 +36,7 @@ if _SDK_ROOT.is_dir() and str(_SDK_ROOT) not in sys.path:
     sys.path.insert(0, str(_SDK_ROOT))
 
 from dtam_client import MissionModule, on_receive  # type: ignore
+from dtam_client.schema import parse_payload  # type: ignore
 
 from .mission_icd_export import build_mission_icd_export, validate_mission_icd_record
 from .route_planner import RoutePlanner
@@ -146,8 +147,25 @@ class MissionService(MissionModule):
 
         # Auto-3001 pipeline (helpers 가 self.route_planner 등을 사용)
         try:
-            scenario, _ = self._find_scenario_setup_payload(scenario_file_name)
-            mission_payload = self._build_auto_mission_payload_from_scenario(scenario)
+            scenario: Dict[str, Any] = {}
+            scenario_path: Optional[str] = None
+            scenario_error: Optional[Exception] = None
+            try:
+                scenario, scenario_path = self._find_scenario_setup_payload(scenario_file_name)
+            except Exception as exc:
+                scenario_error = exc
+            sim_mode, sim_mode_path = self._find_latest_sim_mode_payload()
+            mission_payload = (
+                self._build_mission_payload_from_sim_mode(sim_mode, scenario)
+                if sim_mode is not None
+                else None
+            )
+            source_label = str(sim_mode_path) if mission_payload is not None and sim_mode_path else ""
+            if mission_payload is None:
+                if scenario_error is not None:
+                    raise scenario_error
+                mission_payload = self._build_auto_mission_payload_from_scenario(scenario)
+                source_label = str(scenario_path) if scenario_path else "latest ScenarioSetup"
             export = self.build_mission_icd_bundle(mission_payload)
         except Exception as exc:
             err = f"pipeline raised: {type(exc).__name__}: {exc}"
@@ -178,7 +196,11 @@ class MissionService(MissionModule):
         with self._mc_lock:
             if ok:
                 self._auto_3001_count += count
-                self._last_auto_3001 = f"sent {count} scheduled flight(s)"
+                display_source = source_label or "latest SimModeSetup"
+                self._last_auto_3001 = (
+                    f"scenario={Path(scenario_file_name).name or display_source}, "
+                    f"source={display_source}, sent {count} scheduled flight(s)"
+                )
                 self._last_auto_3001_error = ""
                 logger.info("auto_3001 sent: count=%d", count)
             else:
@@ -255,7 +277,7 @@ class MissionService(MissionModule):
                 "errors": errors, "warnings": [],
             }
         try:
-            ok = self.send("scheduled_flight", payload)
+            ok = self.send(parse_payload("3001", payload))
         except Exception as exc:
             err = f"{type(exc).__name__}: {exc}"
             logger.exception("scheduled_flight send raised")
@@ -473,11 +495,101 @@ class MissionService(MissionModule):
             raise RuntimeError("server_http_get_fn not configured.")
         requested = Path(str(scenario_file_name or "")).name
         query = {"field": "scenarioFileName", "value": requested} if requested else None
-        data = self._server_http_get_fn("/api/db/messages/1003/latest", query)
+        try:
+            data = self._server_http_get_fn("/api/db/messages/1003/latest", query)
+        except Exception:
+            if not query:
+                raise
+            data = self._server_http_get_fn("/api/db/messages/1003/latest", None)
         payload = data.get("payload")
         if not isinstance(payload, dict):
             raise FileNotFoundError("No ScenarioSetup payload exists on DTAM server.")
         return payload, str(data.get("path") or "") or None
+
+    def _find_latest_sim_mode_payload(self) -> tuple[Optional[Dict[str, Any]], Optional[str]]:
+        if self._server_http_get_fn is None:
+            return None, None
+        try:
+            data = self._server_http_get_fn("/api/db/messages/1001/latest", None)
+        except Exception:
+            return None, None
+        payload = data.get("payload")
+        if not isinstance(payload, dict):
+            return None, str(data.get("path") or "") or None
+        return payload, str(data.get("path") or "") or None
+
+    @staticmethod
+    def _aircraft_id_from_name(name: Any, index: int) -> str:
+        text = str(name or "").strip()
+        import re
+
+        match = re.search(r"(\d+)$", text)
+        if match:
+            return f"UAM{int(match.group(1)):04d}"
+        return f"UAM{index + 1:04d}"
+
+    def _build_mission_payload_from_sim_mode(
+        self,
+        sim_mode: Dict[str, Any],
+        scenario: Optional[Dict[str, Any]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        single = sim_mode.get("singleFlight") if isinstance(sim_mode.get("singleFlight"), dict) else {}
+        planning = single.get("missionPlanning") if isinstance(single.get("missionPlanning"), dict) else {}
+        entries = planning.get("missions") if isinstance(planning.get("missions"), list) else []
+        valid_entries = [
+            entry for entry in entries
+            if isinstance(entry, dict) and isinstance(entry.get("routeData"), dict)
+        ]
+        if not valid_entries:
+            return None
+
+        operation_time = (
+            scenario.get("operationTime")
+            if isinstance(scenario, dict) and isinstance(scenario.get("operationTime"), dict)
+            else {}
+        )
+        std = str(operation_time.get("startTime") or datetime.datetime.now().strftime("%H:%M:%S"))
+        base_number = int(datetime.datetime.now().strftime("%m%d%H%M"))
+        missions: List[Dict[str, Any]] = []
+        fleet: List[Dict[str, Any]] = []
+
+        for index, entry in enumerate(valid_entries):
+            route_data = dict(entry.get("routeData") or {})
+            path = route_data.get("path") if isinstance(route_data.get("path"), list) else []
+            departure = str(entry.get("departureName") or (path[0] if path else "")).strip()
+            arrival = str(entry.get("arrivalName") or (path[-1] if path else "")).strip()
+            if not departure or not arrival:
+                continue
+            aircraft_name = str(entry.get("aircraftName") or f"UAM {index + 1}").strip()
+            aircraft_id = self._aircraft_id_from_name(aircraft_name, index)
+            flight_plan_number = base_number + index
+            fleet.append({
+                "aircraftId": aircraft_id,
+                "vehicleName": aircraft_name,
+                "flightPlanNumber": flight_plan_number,
+            })
+            missions.append({
+                "mode": "route",
+                "departureName": departure,
+                "arrivalName": arrival,
+                "routeData": route_data,
+                "options": {
+                    "std": std,
+                    "cruiseSpeedMps": float(self.settings.get("default_speed_mps", 30.0)),
+                },
+            })
+
+        if not missions:
+            return None
+        return {
+            "mode": "route",
+            "missions": missions,
+            "fleet": fleet,
+            "options": {
+                "std": std,
+                "cruiseSpeedMps": float(self.settings.get("default_speed_mps", 30.0)),
+            },
+        }
 
     def _scenario_vertiport_names(self, scenario: Dict[str, Any]) -> List[str]:
         names: List[str] = []
@@ -527,8 +639,8 @@ class MissionService(MissionModule):
             if departure == arrival:
                 arrival = vertiports[-1] if departure != vertiports[-1] else vertiports[0]
 
-            route = self.route_planner.find_route(departure, arrival, include_turn_arcs=True)
-            route_data = self._route_response_fn(departure, arrival, route)
+            route = self.route_planner.find_route(departure, arrival, include_turn_arcs=False)
+            route_data = self._route_response_fn(departure, arrival, route, include_turn_arcs=False)
             aircraft_id = f"UAM{index + 1:04d}"
             flight_plan_number = base_number + index
             fleet.append({

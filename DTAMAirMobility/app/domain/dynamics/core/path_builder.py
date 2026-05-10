@@ -181,6 +181,7 @@ def build_segment_profiles(
             target_speed_mps=seg.target_speed,
             distance_m=total_dist,
             duration_s=duration,
+            target_heading_deg=seg.target_heading_deg,
             points_lla=points,
             cum_dist_m=cum_dist,
         ))

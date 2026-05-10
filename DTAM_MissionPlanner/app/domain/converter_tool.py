@@ -11,13 +11,14 @@ from typing import Any, Dict, List, Optional
 from .coord_transform import wgs84_to_local_ned
 
 DEFAULT_AIRSIM_SETTINGS_PATH = Path.home() / "Documents" / "AirSim" / "settings.json"
-ROOT_DIR = Path(__file__).resolve().parents[1]
+ROOT_DIR = Path(__file__).resolve().parents[2]
 try:
-    from .config import DATA_DIR as _DATA_DIR  # type: ignore
+    from ..config import DATA_DIR as _DATA_DIR  # type: ignore
 except Exception:  # pragma: no cover — config 미가용 환경용 폴백
     _DATA_DIR = ROOT_DIR / "data"
 DEFAULT_VERTIPORT_UE_PATH = _DATA_DIR / "vertiport_UE.csv"
 DEFAULT_VERTIPORT_LAYOUT_PATH = _DATA_DIR / "groundmaps" / "Vertiport_round_KU_layout.csv"
+DEFAULT_VERTIPORT_MAP_PATH = _DATA_DIR / "vertiportMap_KU.csv"
 DEFAULT_CUSTOM_X_AXIS_HEADING_DEG = 90.0
 DEFAULT_CUSTOM_Y_AXIS_HEADING_DEG = 180.0
 BASE_LAYOUT_X_HEADING_DEG = DEFAULT_CUSTOM_X_AXIS_HEADING_DEG
@@ -131,6 +132,7 @@ def build_vertiport_spawn_layout(
         raise RuntimeError(f"No spawn-layout anchor matched {vertiport_name}.")
 
     layout_points = _load_layout_points(DEFAULT_VERTIPORT_LAYOUT_PATH)
+    pad_center_overrides = _load_pad_center_overrides(DEFAULT_VERTIPORT_MAP_PATH)
     # KU ground layout is authored with its local X/Y axes aligned to 90/180 deg.
     # Each vertiport's AngleDegrees is treated as an additive yaw offset from that base frame.
     x_axis_heading_deg = _normalize_heading_deg(anchor["angle_deg"] + BASE_LAYOUT_X_HEADING_DEG)
@@ -139,9 +141,13 @@ def build_vertiport_spawn_layout(
     base_ground_m = vertiport_ground_m if vertiport_ground_m is not None else 0.0
 
     for index, point in enumerate(layout_points, start=1):
-        local_x_m = point["local_x_cm"] / 100.0
-        local_y_m = point["local_y_cm"] / 100.0
-        local_z_m = point["local_z_cm"] / 100.0
+        override = pad_center_overrides.get(index)
+        local_x_cm = override["local_x_cm"] if override else point["local_x_cm"]
+        local_y_cm = override["local_y_cm"] if override else point["local_y_cm"]
+        local_z_cm = override["local_z_cm"] if override else point["local_z_cm"]
+        local_x_m = local_x_cm / 100.0
+        local_y_m = local_y_cm / 100.0
+        local_z_m = local_z_cm / 100.0
         north_m, east_m = _rotate_layout_to_ne_m(
             local_x_m,
             local_y_m,
@@ -166,6 +172,11 @@ def build_vertiport_spawn_layout(
             "layout_world_x_cm": point["world_x_cm"],
             "layout_world_y_cm": point["world_y_cm"],
             "layout_world_z_cm": point["world_z_cm"],
+            "pad_center_override": bool(override),
+            "source_local_x_cm": point["local_x_cm"],
+            "source_local_y_cm": point["local_y_cm"],
+            "source_local_z_cm": point["local_z_cm"],
+            "semantic_id": override.get("semantic_id") if override else None,
         })
 
     return {
@@ -297,6 +308,33 @@ def _load_layout_points(path: Path) -> List[Dict[str, Any]]:
             "world_z_cm": _to_float(row.get("world_z_cm")),
         })
     return sorted(points, key=lambda item: _label_sort_key(item["label"]))
+
+
+@lru_cache(maxsize=1)
+def _load_pad_center_overrides(path: Path) -> Dict[int, Dict[str, Any]]:
+    overrides: Dict[int, Dict[str, Any]] = {}
+    for row in _read_csv_rows(path):
+        node_type = str(row.get("node_type") or "").strip().lower()
+        semantic_id = str(row.get("semantic_id") or "").strip().upper()
+        if node_type != "pad" or semantic_id not in {"F1", "F2"}:
+            continue
+        try:
+            node_id = int(str(row.get("node_id") or "").strip())
+        except ValueError:
+            continue
+        local_x_cm = _to_float(row.get("local_x_cm"))
+        local_y_cm = _to_float(row.get("local_y_cm"))
+        local_z_cm = _to_float(row.get("local_z_cm"))
+        if local_x_cm is None or local_y_cm is None or local_z_cm is None:
+            continue
+        overrides[node_id] = {
+            "semantic_id": semantic_id,
+            "local_x_cm": local_x_cm,
+            "local_y_cm": local_y_cm,
+            "local_z_cm": local_z_cm,
+            "source_layout_marker": str(row.get("source_layout_marker") or "").strip(),
+        }
+    return overrides
 
 
 def _read_csv_rows(path: Path) -> List[Dict[str, Any]]:

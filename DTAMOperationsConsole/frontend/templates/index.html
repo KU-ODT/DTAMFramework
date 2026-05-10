@@ -1,0 +1,88 @@
+<!-- Main dashboard HTML template for the DTAM landing page. -->
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ page_title }}</title>
+    <link rel="stylesheet" href="/static/css/base.css?v=20260428-uam-marker6" />
+    <link rel="stylesheet" href="/static/css/dashboard.css?v=20260428-uam-marker7" />
+    <link rel="stylesheet" href="/static/vendor/maplibre-gl.css?v=20260428-uam-marker7" />
+    <link rel="stylesheet" href="/static/css/simulation-workspace.css?v=20260428-uam-marker7" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <main class="dashboard-layout">
+        <section class="hero-frame">
+          <section class="hero-panel">
+            <div class="hero-overlay"></div>
+            <a
+              class="brand-logo-link"
+              href="https://kada.konkuk.ac.kr"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open Konkuk Aerospace Design Airworthiness Institute website"
+            >
+              <img src="/resource/kada.png" alt="KADA" />
+              <span>Konkuk Aerospace Design Airworthiness Institute</span>
+            </a>
+            <button
+              id="language-toggle"
+              class="language-toggle"
+              type="button"
+              aria-label="Switch language to English"
+              aria-pressed="true"
+              data-current-language="ko"
+            >
+              <span class="language-toggle__option" data-language-option="en">EN</span>
+              <span class="language-toggle__divider" aria-hidden="true">/</span>
+              <span class="language-toggle__option" data-language-option="ko">KR</span>
+            </button>
+            <div class="hero-copy">
+              <h1 class="hero-title">Digital Twin Air Mobility</h1>
+              <p
+                id="hero-description"
+                data-description-en="An extensible aviation digital twin framework for any air vehicle, integrating flight simulation, mission operations, environment modeling, and system control into one comprehensive solution."
+                data-description-ko="모든 비행체로 확장 가능한 항공 디지털 트윈 프레임워크.&#10;비행체 시뮬레이션, 임무 운용, 환경 모델링, 시스템 제어를 하나로 통합한 종합 솔루션입니다."
+              >
+                모든 비행체로 확장 가능한 항공 디지털 트윈 프레임워크.
+                비행체 시뮬레이션, 임무 운용, 환경 모델링, 시스템 제어를 하나로 통합한 종합 솔루션입니다.
+              </p>
+              <section class="hero-note" aria-labelledby="patch-note-title">
+                <p id="patch-note-title" class="hero-note__label">패치노트</p>
+                <div id="patch-note-panel" class="patch-note-panel" aria-live="polite">
+                  <section class="patch-note-section">
+                    <h2 id="patch-release-heading">배포버전</h2>
+                    <p id="patch-release-version">Loading release version...</p>
+                  </section>
+                  <section class="patch-note-section">
+                    <h2 id="patch-updates-heading">업데이트 내용</h2>
+                    <ul id="patch-update-list">
+                      <li>Loading update notes...</li>
+                    </ul>
+                  </section>
+                </div>
+              </section>
+            </div>
+
+            <section class="module-dock-section" aria-label="Workspace modules">
+              <div id="module-grid" class="module-grid" aria-live="polite"></div>
+            </section>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <section id="simulation-workspace-root" class="simulation-workspace-root" hidden></section>
+
+    <section id="detail-modal" class="detail-modal" hidden>
+      <div class="detail-modal__backdrop" data-close-modal></div>
+      <section class="detail-window" role="dialog" aria-modal="true" aria-labelledby="detail-modal-title">
+        <button id="detail-close" class="detail-close" type="button" aria-label="Close module window">Close</button>
+        <div id="detail-panel" class="detail-panel" aria-live="polite"></div>
+      </section>
+    </section>
+
+    <script type="module" src="/static/js/app.js?v=20260429-dtam-flow2"></script>
+  </body>
+</html>

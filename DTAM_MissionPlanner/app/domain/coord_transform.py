@@ -15,8 +15,12 @@ JSON_XY_DIV = 100.0
 JSON_Z_DIV = 100.0
 AIRSIM_D_BIAS = 3.0
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
-DEFAULT_RESOURCES_VP = ROOT_DIR / "data" / "resources_vp.csv"
+try:
+    from ..config import DATA_DIR as _DATA_DIR
+except Exception:
+    _DATA_DIR = Path(__file__).resolve().parents[2] / "data"
+
+DEFAULT_RESOURCES_VP = _DATA_DIR / "resources_vp.csv"
 
 GCP_LIST = [
     ("SEOUL_CITY_HALL", 37.566831, 126.978445, (217063.379391, -1013419.868553, -220649.796452)),

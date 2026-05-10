@@ -43,33 +43,33 @@ ODT.Simulator = (function () {
   function messages() {
     if (ODT.I18n?.getLanguage?.() === 'ko') {
       return {
-        ready: 'DTAM 서버 준비됨. 하단 Send 3001 을 눌러 송신하세요.',
+        ready: 'DTAM 서버 준비됨. 하단 Play 를 누르면 3001 송신 후 재생을 시작합니다.',
         notReady: 'DTAM 송신기가 초기화되지 않았습니다.',
         sendingTitle: '3001 송신',
-        sendingOk: (count) => `3001 ${count}건 송신 완료.`,
+        sendingOk: (count) => `3001 ${count}건 송신 후 재생 시작 완료.`,
         sendingFail: '3001 송신 실패.',
         validationFail: 'Mission ICD validation 에 실패했습니다.',
         noMission: '먼저 route 를 계산하거나 free mission waypoint 를 구성하세요.',
         statusConnected: 'DTAM',
         statusDisconnected: 'DTAM 미설정',
-        sendBtn: 'Send 3001',
-        sendBtnBusy: '송신 중...',
+        sendBtn: 'Play',
+        sendBtnBusy: '시작 중...',
         noFleet: '편대를 아직 구성하지 않았습니다.',
         fleetCount: (count) => `기체 ${count}대`,
       };
     }
     return {
-      ready: 'DTAM sender is ready. Use Send 3001 to push plans.',
+      ready: 'DTAM sender is ready. Use Play to push 3001 and start replay.',
       notReady: 'DTAM sender is not initialised.',
       sendingTitle: '3001 send',
-      sendingOk: (count) => `Pushed ${count} scheduled-flight record(s).`,
+      sendingOk: (count) => `Pushed ${count} scheduled-flight record(s) and started replay.`,
       sendingFail: 'Failed to push 3001 message(s).',
       validationFail: 'Mission ICD validation failed.',
       noMission: 'Compute a route or create a free mission first.',
       statusConnected: 'DTAM',
       statusDisconnected: 'DTAM offline',
-      sendBtn: 'Send 3001',
-      sendBtnBusy: 'Sending…',
+      sendBtn: 'Play',
+      sendBtnBusy: 'Starting...',
       noFleet: 'No fleet configured yet.',
       fleetCount: (count) => `${count} aircraft`,
     };
@@ -144,6 +144,15 @@ ODT.Simulator = (function () {
           || result?.results?.map((item) => (item.errors || []).join('; ')).filter(Boolean).join('\n')
           || result?.error
           || text.sendingFail;
+        ODT.OperatorLog?.error(text.sendingTitle, detail);
+        return result;
+      }
+      const playResult = await ODT.postJSON('/api/dtam/play', {
+        playbackSpeed: getPlaybackSpeed(),
+      });
+      result.play = playResult;
+      if (!playResult?.ok) {
+        const detail = playResult?.error || playResult?.result?.error || '1002 play send failed.';
         ODT.OperatorLog?.error(text.sendingTitle, detail);
         return result;
       }

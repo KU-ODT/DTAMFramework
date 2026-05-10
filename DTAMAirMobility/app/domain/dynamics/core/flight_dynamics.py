@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 from bisect import bisect_left, bisect_right
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import Dict, List, Optional, Tuple
 
 from .types import (
@@ -29,6 +29,17 @@ from .flight_profile import (
 )
 
 _LOCKED_XY_PHASES = {Phase.B.value, Phase.J.value}
+
+
+@dataclass
+class _VehicleState:
+    x_m: float
+    y_m: float
+    alt_m: float
+    speed_mps: float
+    heading_deg: float
+    track_heading_deg: float
+    vertical_speed_mps: float = 0.0
 
 
 def _exp_smooth_alpha(dt: float, tau: float) -> float:
@@ -174,6 +185,82 @@ def _signed_heading_delta_deg(value_deg: float, reference_deg: float) -> float:
     return ((float(value_deg) - float(reference_deg) + 180.0) % 360.0) - 180.0
 
 
+def _move_towards(value: float, target: float, max_step: float) -> float:
+    step = abs(float(max_step))
+    delta = float(target) - float(value)
+    if abs(delta) <= step:
+        return float(target)
+    return float(value) + math.copysign(step, delta)
+
+
+def _slew_heading(value_deg: float, target_deg: float, max_delta_deg: float) -> float:
+    delta = _signed_heading_delta_deg(target_deg, value_deg)
+    limit = abs(float(max_delta_deg))
+    if abs(delta) <= limit:
+        return wrap_heading(target_deg)
+    return wrap_heading(value_deg + math.copysign(limit, delta))
+
+
+def _xy_to_m(xy: XY) -> Tuple[float, float]:
+    return float(xy.x) * 1000.0, float(xy.y) * 1000.0
+
+
+def _lla_xy_m(proj: LocalProjection, lla: LLA) -> Tuple[float, float]:
+    return _xy_to_m(proj.lla_to_xy(lla))
+
+
+def _xy_m_to_lla(proj: LocalProjection, x_m: float, y_m: float, alt_m: float) -> LLA:
+    return proj.xy_to_lla(XY(float(x_m) / 1000.0, float(y_m) / 1000.0), float(alt_m))
+
+
+def _distance_xy_m(ax_m: float, ay_m: float, bx_m: float, by_m: float) -> float:
+    return math.hypot(float(bx_m) - float(ax_m), float(by_m) - float(ay_m))
+
+
+def _heading_between_xy_m(ax_m: float, ay_m: float, bx_m: float, by_m: float) -> float:
+    return heading_between(
+        XY(float(ax_m) / 1000.0, float(ay_m) / 1000.0),
+        XY(float(bx_m) / 1000.0, float(by_m) / 1000.0),
+    )
+
+
+def _is_vertical_segment(seg_profile: SegmentProfile, proj: LocalProjection) -> bool:
+    if seg_profile.phase in (Phase.B, Phase.J):
+        return True
+    start_x, start_y = _lla_xy_m(proj, seg_profile.start_lla)
+    end_x, end_y = _lla_xy_m(proj, seg_profile.end_lla)
+    return _distance_xy_m(start_x, start_y, end_x, end_y) < 0.5
+
+
+def _rate_limit_heading_series(
+    values: List[float],
+    points: List[FlightTrajectoryPoint],
+    max_rate_deg_s: float,
+) -> List[float]:
+    if len(values) < 2 or max_rate_deg_s <= 0.0:
+        return [wrap_heading(value) for value in values]
+
+    reset_phases = {Phase.A.value, Phase.B.value, Phase.J.value, Phase.K.value}
+    limited: List[float] = [wrap_heading(values[0])]
+
+    for idx in range(1, len(values)):
+        target = wrap_heading(values[idx])
+        point = points[idx]
+        if point.phase in reset_phases:
+            limited.append(target)
+            continue
+
+        prev = limited[-1]
+        dt = max(0.0, float(point.time_s) - float(points[idx - 1].time_s))
+        max_delta = max_rate_deg_s * dt
+        delta = _signed_heading_delta_deg(target, prev)
+        if max_delta > 0.0:
+            delta = max(-max_delta, min(max_delta, delta))
+        limited.append(wrap_heading(prev + delta))
+
+    return limited
+
+
 def _ema_pass(values: List[float], alpha: float, locked: List[bool]) -> List[float]:
     if not values:
         return []
@@ -301,6 +388,9 @@ def _resolve_vertical_segment_heading(
     proj: LocalProjection,
 ) -> float:
     seg = segments[seg_idx]
+    if seg.target_heading_deg is not None:
+        return float(seg.target_heading_deg)
+
     search_specs: List[tuple[range, bool]]
     if seg.phase == Phase.B:
         search_specs = [
@@ -359,8 +449,9 @@ def _smooth_trajectory_points(
         alts_m.append(float(point.alt_m))
         crab_deg.append(_signed_heading_delta_deg(point.heading_deg, point.track_heading_deg))
         endpoint = idx == 0 or idx == len(points) - 1
-        locked_xy.append(endpoint or point.phase in _LOCKED_XY_PHASES)
-        locked_alt.append(endpoint)
+        near_stationary = float(point.speed_mps) <= 0.2
+        locked_xy.append(endpoint or near_stationary or point.phase in _LOCKED_XY_PHASES)
+        locked_alt.append(endpoint or near_stationary or point.phase in _LOCKED_XY_PHASES)
         if idx > 0:
             prev_xy = XY(xs_km[idx - 1], ys_km[idx - 1])
             curr_xy = XY(xs_km[idx], ys_km[idx])
@@ -377,6 +468,23 @@ def _smooth_trajectory_points(
         points,
         float(config.trajectory_heading_lookahead_m),
     )
+    preserve_vehicle_heading = bool(getattr(config, "vehicle_dynamics_enabled", False))
+
+    raw_track_values: List[float] = []
+    raw_heading_values: List[float] = []
+    for idx, point in enumerate(points):
+        if preserve_vehicle_heading or locked_xy[idx]:
+            raw_track_values.append(float(point.track_heading_deg))
+            raw_heading_values.append(float(point.heading_deg))
+            continue
+        track_heading = smooth_track[idx]
+        heading = wrap_heading(track_heading + smooth_crab[idx])
+        raw_track_values.append(wrap_heading(track_heading))
+        raw_heading_values.append(wrap_heading(heading))
+
+    max_heading_rate = float(getattr(config, "turn_rate_deg_s", 0.0) or 0.0)
+    limited_track = _rate_limit_heading_series(raw_track_values, points, max_heading_rate)
+    limited_heading = _rate_limit_heading_series(raw_heading_values, points, max_heading_rate)
 
     smoothed: List[FlightTrajectoryPoint] = []
     for idx, point in enumerate(points):
@@ -384,12 +492,12 @@ def _smooth_trajectory_points(
             smoothed.append(point)
             continue
         lon, lat = proj.to_lonlat(smooth_x[idx], smooth_y[idx])
-        if point.phase in _LOCKED_XY_PHASES:
+        if preserve_vehicle_heading or locked_xy[idx]:
             track_heading = float(point.track_heading_deg)
             heading = float(point.heading_deg)
         else:
-            track_heading = smooth_track[idx]
-            heading = wrap_heading(track_heading + smooth_crab[idx])
+            track_heading = limited_track[idx]
+            heading = limited_heading[idx]
         smoothed.append(replace(
             point,
             lat=lat,
@@ -447,6 +555,17 @@ class DynamicsEngine:
         self._t = 0.0
         self._airborne_time = 0.0
         self._finished = False
+        self._vehicle_enabled = bool(getattr(config, "vehicle_dynamics_enabled", False))
+        self._vehicle_segment_index = 0
+        self._vehicle_waypoint_index = 1
+        self._vehicle_state: Optional[_VehicleState] = None
+        self._vehicle_end_emitted = False
+        self._vehicle_max_time_s = (
+            max(1.0, self.total_time_s)
+            * max(1.0, float(getattr(config, "vehicle_max_sim_time_factor", 4.0) or 4.0))
+            + max(0.0, float(getattr(config, "vehicle_max_extra_time_s", 300.0) or 300.0))
+        )
+        self._reset_vehicle_state()
 
     # ── Properties ──────────────────────────────────────────────
 
@@ -478,6 +597,10 @@ class DynamicsEngine:
         self._prev_wind_n = 0.0
         self._prev_track_deg = 0.0
         self._vertical_heading_overrides = _build_vertical_heading_overrides(self.segments, self.proj)
+        self._vehicle_segment_index = 0
+        self._vehicle_waypoint_index = 1
+        self._vehicle_end_emitted = False
+        self._reset_vehicle_state()
 
     def _seconds_to_clock(self, total_s: float) -> str:
         s = int(total_s) % 86400
@@ -564,6 +687,369 @@ class DynamicsEngine:
 
         return perturbed, speed_out, heading_out, track_heading, w_e, w_n
 
+    # Vehicle follower -------------------------------------------------
+
+    def _reset_vehicle_state(self) -> None:
+        if not self.segments:
+            self._vehicle_state = None
+            return
+        first = self.segments[0]
+        x_m, y_m = _lla_xy_m(self.proj, first.start_lla)
+        heading = self._initial_vehicle_heading()
+        self._vehicle_state = _VehicleState(
+            x_m=x_m,
+            y_m=y_m,
+            alt_m=float(first.start_lla.alt),
+            speed_mps=0.0,
+            heading_deg=wrap_heading(heading),
+            track_heading_deg=wrap_heading(heading),
+            vertical_speed_mps=0.0,
+        )
+
+    def _initial_vehicle_heading(self) -> float:
+        for seg in self.segments:
+            if seg.phase == Phase.B and seg.target_heading_deg is not None:
+                return float(seg.target_heading_deg)
+        for seg in self.segments:
+            if seg.phase in (Phase.A, Phase.B, Phase.J, Phase.K):
+                continue
+            heading = _segment_nominal_heading(seg, self.proj, prefer_end=False)
+            if heading is not None:
+                return float(heading)
+        for seg in self.segments:
+            heading = _segment_nominal_heading(seg, self.proj, prefer_end=False)
+            if heading is not None:
+                return float(heading)
+        return 0.0
+
+    def _segment_target_speed(self, seg: SegmentProfile) -> float:
+        target = max(0.0, float(seg.target_speed_mps))
+        if seg.phase in (Phase.A, Phase.K):
+            taxi_speed = max(0.0, float(self.config.taxi_speed_mps))
+            return min(target, taxi_speed) if target > 0.0 else taxi_speed
+        return target
+
+    def _segment_exit_speed(self, seg_idx: int) -> float:
+        if seg_idx >= len(self.segments) - 1:
+            return 0.0
+        next_seg = self.segments[seg_idx + 1]
+        if _is_vertical_segment(next_seg, self.proj):
+            return 0.0
+        return self._segment_target_speed(next_seg)
+
+    def _vertical_target_heading(self, seg_idx: int, seg: SegmentProfile) -> Optional[float]:
+        if seg.target_heading_deg is not None:
+            return float(seg.target_heading_deg)
+
+        if seg.phase == Phase.B:
+            return None
+        elif seg.phase == Phase.J:
+            search = range(seg_idx - 1, -1, -1)
+            prefer_end = True
+        else:
+            return None
+
+        for idx in search:
+            candidate = self.segments[idx]
+            if _is_vertical_segment(candidate, self.proj):
+                continue
+            heading = _segment_nominal_heading(candidate, self.proj, prefer_end=prefer_end)
+            if heading is not None:
+                return float(heading)
+        return None
+
+    def _segment_point_xy_m(self, seg: SegmentProfile, point_index: int) -> Tuple[float, float, float]:
+        if seg.points_lla and 0 <= point_index < len(seg.points_lla):
+            lla = seg.points_lla[point_index]
+        else:
+            lla = seg.end_lla
+        x_m, y_m = _lla_xy_m(self.proj, lla)
+        return x_m, y_m, float(lla.alt)
+
+    def _current_target_xy_m(self, seg: SegmentProfile) -> Tuple[float, float, float, bool]:
+        if not seg.points_lla or len(seg.points_lla) < 2:
+            x_m, y_m = _lla_xy_m(self.proj, seg.end_lla)
+            return x_m, y_m, float(seg.end_lla.alt), True
+        idx = min(max(1, self._vehicle_waypoint_index), len(seg.points_lla) - 1)
+        x_m, y_m, alt_m = self._segment_point_xy_m(seg, idx)
+        return x_m, y_m, alt_m, idx >= len(seg.points_lla) - 1
+
+    def _remaining_distance_in_segment_m(self, seg: SegmentProfile, state: _VehicleState) -> float:
+        target_x, target_y, _target_alt, at_last = self._current_target_xy_m(seg)
+        remaining = _distance_xy_m(state.x_m, state.y_m, target_x, target_y)
+        if at_last or not seg.points_lla or not seg.cum_dist_m:
+            return remaining
+        idx = min(max(1, self._vehicle_waypoint_index), len(seg.cum_dist_m) - 1)
+        return remaining + max(0.0, float(seg.cum_dist_m[-1]) - float(seg.cum_dist_m[idx]))
+
+    def _advance_vehicle_segment(self) -> None:
+        self._vehicle_segment_index += 1
+        self._vehicle_waypoint_index = 1
+        if self._vehicle_state is not None:
+            self._vehicle_state.vertical_speed_mps = 0.0
+            if self._vehicle_segment_index >= len(self.segments):
+                self._vehicle_state.speed_mps = 0.0
+
+    def _vehicle_battery_pct(self) -> float:
+        battery_cap = float(self.config.battery_capacity_s)
+        if battery_cap <= 0:
+            return 100.0
+        return max(0.0, 100.0 * (1.0 - self._airborne_time / battery_cap))
+
+    def _build_vehicle_point(self, seg: SegmentProfile) -> FlightTrajectoryPoint:
+        state = self._vehicle_state
+        if state is None:
+            raise RuntimeError("Vehicle state is not initialized.")
+
+        lla = _xy_m_to_lla(self.proj, state.x_m, state.y_m, state.alt_m)
+        speed = max(0.0, float(state.speed_mps))
+        heading = wrap_heading(state.heading_deg)
+        track_heading = wrap_heading(state.track_heading_deg)
+
+        if _is_vertical_segment(seg, self.proj):
+            speed = abs(float(state.vertical_speed_mps))
+
+        wind_e, wind_n = 0.0, 0.0
+        lateral_dev = 0.0
+        if seg.phase in (Phase.C, Phase.D, Phase.E, Phase.F, Phase.G, Phase.H, Phase.I):
+            lla, speed, heading, _wind_track, wind_e, wind_n = self._apply_wind(
+                lla,
+                speed,
+                heading,
+                self._t,
+                float(self.config.tick_s),
+            )
+            lateral_dev = self._wind_cross_m
+        else:
+            self._wind_cross_m = 0.0
+            self._wind_along_m = 0.0
+
+        return FlightTrajectoryPoint(
+            time_s=round(self._t, 3),
+            clock=self._seconds_to_clock(self.start_time_s + self._t),
+            phase=seg.phase.value,
+            mode=_phase_to_flight_mode(seg.phase).value,
+            lat=lla.lat,
+            lon=lla.lon,
+            alt_m=round(lla.alt, 2),
+            speed_mps=round(speed, 2),
+            heading_deg=round(wrap_heading(heading), 2),
+            track_heading_deg=round(wrap_heading(track_heading), 2),
+            wind_e_mps=round(wind_e, 3),
+            wind_n_mps=round(wind_n, 3),
+            lateral_dev_m=round(lateral_dev, 3),
+            battery_pct=round(self._vehicle_battery_pct(), 2),
+        )
+
+    def _build_vehicle_end_point(self) -> FlightTrajectoryPoint:
+        state = self._vehicle_state
+        last_seg = self.segments[-1]
+        if state is None:
+            x_m, y_m = _lla_xy_m(self.proj, last_seg.end_lla)
+            state = _VehicleState(
+                x_m=x_m,
+                y_m=y_m,
+                alt_m=float(last_seg.end_lla.alt),
+                speed_mps=0.0,
+                heading_deg=0.0,
+                track_heading_deg=0.0,
+            )
+        lla = _xy_m_to_lla(self.proj, state.x_m, state.y_m, state.alt_m)
+        return FlightTrajectoryPoint(
+            time_s=round(self._t, 3),
+            clock=self._seconds_to_clock(self.start_time_s + self._t),
+            phase=last_seg.phase.value,
+            mode=FlightMode.ENDED.value,
+            lat=lla.lat,
+            lon=lla.lon,
+            alt_m=round(lla.alt, 2),
+            speed_mps=0.0,
+            heading_deg=round(wrap_heading(state.heading_deg), 2),
+            track_heading_deg=round(wrap_heading(state.track_heading_deg), 2),
+            battery_pct=round(self._vehicle_battery_pct(), 2),
+        )
+
+    def _step_vehicle_vertical(self, seg: SegmentProfile, dt: float) -> None:
+        state = self._vehicle_state
+        if state is None:
+            return
+
+        start_x, start_y = _lla_xy_m(self.proj, seg.start_lla)
+        target_x, target_y = _lla_xy_m(self.proj, seg.end_lla)
+        if _distance_xy_m(state.x_m, state.y_m, start_x, start_y) < 0.5:
+            state.x_m = start_x
+            state.y_m = start_y
+        else:
+            state.x_m = target_x
+            state.y_m = target_y
+
+        state.speed_mps = 0.0
+        target_heading = self._vertical_target_heading(self._vehicle_segment_index, seg)
+        if target_heading is not None:
+            state.track_heading_deg = wrap_heading(target_heading)
+            state.heading_deg = _slew_heading(
+                state.heading_deg,
+                target_heading,
+                float(self.config.turn_rate_deg_s) * dt,
+            )
+        else:
+            state.track_heading_deg = state.heading_deg
+
+        target_alt = float(seg.end_lla.alt)
+        if (
+            seg.phase == Phase.J
+            and target_heading is not None
+            and abs(_signed_heading_delta_deg(target_heading, state.heading_deg)) > 0.5
+            and abs(state.alt_m - target_alt) > 0.01
+        ):
+            state.vertical_speed_mps = 0.0
+            return
+
+        climb_rate = float(self.config.vertical_climb_rate_mps)
+        descent_rate = float(self.config.vertical_descent_rate_mps)
+        rate = climb_rate if target_alt >= state.alt_m else descent_rate
+        max_step = max(0.0, abs(rate) * dt)
+        prev_alt = state.alt_m
+        state.alt_m = _move_towards(state.alt_m, target_alt, max_step)
+        state.vertical_speed_mps = (state.alt_m - prev_alt) / dt if dt > 0 else 0.0
+
+        if abs(state.alt_m - target_alt) <= 0.01:
+            state.alt_m = target_alt
+            state.vertical_speed_mps = 0.0
+            self._advance_vehicle_segment()
+
+    def _step_vehicle_horizontal(self, seg: SegmentProfile, dt: float) -> None:
+        state = self._vehicle_state
+        if state is None:
+            return
+
+        target_x, target_y, target_alt, at_last = self._current_target_xy_m(seg)
+        dist = _distance_xy_m(state.x_m, state.y_m, target_x, target_y)
+        acceptance_m = max(
+            0.5,
+            float(getattr(self.config, "vehicle_waypoint_acceptance_m", 6.0) or 6.0),
+        )
+        final_snap_m = max(acceptance_m, state.speed_mps * dt + 0.2)
+        if at_last and dist <= final_snap_m and abs(state.alt_m - float(seg.end_lla.alt)) <= 0.5:
+            state.x_m = target_x
+            state.y_m = target_y
+            state.alt_m = float(seg.end_lla.alt)
+            state.speed_mps = 0.0 if self._vehicle_segment_index >= len(self.segments) - 1 else state.speed_mps
+            self._advance_vehicle_segment()
+            return
+        if dist <= acceptance_m and not at_last:
+            rate = (
+                float(self.config.vertical_climb_rate_mps)
+                if target_alt >= state.alt_m
+                else float(self.config.vertical_descent_rate_mps)
+            )
+            prev_alt = state.alt_m
+            state.alt_m = _move_towards(state.alt_m, target_alt, max(0.0, abs(rate) * dt))
+            state.vertical_speed_mps = (state.alt_m - prev_alt) / dt if dt > 0 else 0.0
+            if at_last and abs(state.alt_m - float(seg.end_lla.alt)) <= 0.5:
+                state.alt_m = float(seg.end_lla.alt)
+                self._advance_vehicle_segment()
+            else:
+                self._vehicle_waypoint_index += 1
+            return
+        if dist <= 1e-6:
+            return
+
+        desired_track = _heading_between_xy_m(state.x_m, state.y_m, target_x, target_y)
+        state.track_heading_deg = wrap_heading(desired_track)
+        state.heading_deg = _slew_heading(
+            state.heading_deg,
+            desired_track,
+            float(self.config.turn_rate_deg_s) * dt,
+        )
+        if (
+            state.speed_mps <= 0.2
+            and abs(_signed_heading_delta_deg(desired_track, state.heading_deg)) > 0.5
+        ):
+            state.speed_mps = 0.0
+            state.vertical_speed_mps = 0.0
+            return
+
+        target_speed = self._segment_target_speed(seg)
+        exit_speed = self._segment_exit_speed(self._vehicle_segment_index) if at_last else target_speed
+        remaining = self._remaining_distance_in_segment_m(seg, state)
+        accel = max(1e-6, float(self.config.accel_mps2))
+        braking_dist = 0.0
+        if state.speed_mps > exit_speed:
+            braking_dist = ((state.speed_mps ** 2) - (exit_speed ** 2)) / (2.0 * accel)
+        desired_speed = exit_speed if remaining <= braking_dist + max(1.0, state.speed_mps * dt) else target_speed
+        desired_speed = max(0.0, desired_speed)
+        vertical_rate = (
+            float(self.config.vertical_climb_rate_mps)
+            if target_alt >= state.alt_m
+            else float(self.config.vertical_descent_rate_mps)
+        )
+        alt_remaining_m = abs(float(target_alt) - float(state.alt_m))
+        if alt_remaining_m > 0.5 and abs(vertical_rate) > 1e-6:
+            vertical_time_needed_s = alt_remaining_m / abs(vertical_rate)
+            if vertical_time_needed_s > dt:
+                desired_speed = min(
+                    desired_speed,
+                    max(0.5, remaining / vertical_time_needed_s),
+                )
+        state.speed_mps = _move_towards(state.speed_mps, desired_speed, accel * dt)
+
+        step_m = max(0.0, state.speed_mps * dt)
+        move_m = min(dist, step_m)
+        if move_m > 0.0:
+            ratio = move_m / dist
+            state.x_m += (target_x - state.x_m) * ratio
+            state.y_m += (target_y - state.y_m) * ratio
+
+        prev_alt = state.alt_m
+        state.alt_m = _move_towards(state.alt_m, target_alt, max(0.0, abs(vertical_rate) * dt))
+        state.vertical_speed_mps = (state.alt_m - prev_alt) / dt if dt > 0 else 0.0
+
+        reached = move_m >= dist - 1e-6
+        if reached:
+            state.x_m = target_x
+            state.y_m = target_y
+            if at_last:
+                final_alt = float(seg.end_lla.alt)
+                if abs(state.alt_m - final_alt) <= 0.5:
+                    state.alt_m = final_alt
+                    self._advance_vehicle_segment()
+            else:
+                self._vehicle_waypoint_index += 1
+
+    def _step_vehicle(self, dt: float) -> None:
+        if self._vehicle_segment_index >= len(self.segments):
+            return
+        seg = self.segments[self._vehicle_segment_index]
+        if _is_vertical_segment(seg, self.proj):
+            self._step_vehicle_vertical(seg, dt)
+            return
+        self._step_vehicle_horizontal(seg, dt)
+
+    def _tick_vehicle(self) -> Optional[FlightTrajectoryPoint]:
+        if self._finished or not self.segments:
+            return None
+
+        if self._vehicle_segment_index >= len(self.segments):
+            if self._vehicle_end_emitted:
+                self._finished = True
+                return None
+            self._vehicle_end_emitted = True
+            self._finished = True
+            return self._build_vehicle_end_point()
+
+        seg = self.segments[self._vehicle_segment_index]
+        tick = max(1e-3, float(self.config.tick_s))
+        if seg.phase not in (Phase.A, Phase.K):
+            self._airborne_time += tick
+        point = self._build_vehicle_point(seg)
+
+        self._step_vehicle(tick)
+        self._t += tick
+        if self._t > self._vehicle_max_time_s:
+            self._vehicle_segment_index = len(self.segments)
+        return point
+
     # ── Tick-by-tick interface ──────────────────────────────────
 
     def tick(self) -> Optional[FlightTrajectoryPoint]:
@@ -573,6 +1059,9 @@ class DynamicsEngine:
         points to emit.  After returning ``None``, ``is_finished`` is
         ``True``.
         """
+        if self._vehicle_enabled:
+            return self._tick_vehicle()
+
         if self._finished or not self.kinematics:
             return None
 

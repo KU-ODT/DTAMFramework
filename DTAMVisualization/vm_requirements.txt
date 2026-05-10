@@ -1,0 +1,5 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+websockets>=12
+msgpack-rpc-python>=0.4.1
+numpy>=1.24

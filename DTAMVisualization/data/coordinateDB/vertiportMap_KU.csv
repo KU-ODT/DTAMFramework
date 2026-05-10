@@ -1,0 +1,30 @@
+template_id,node_id,semantic_id,node_type,local_x_cm,local_y_cm,local_z_cm,out_links,source_layout_marker,notes
+KU,1,G8,gate,3900,-2050,160,5,Cube,g8 stand marker
+KU,2,G7,gate,5600,-2050,160,6,Cube2,g7 stand marker
+KU,3,G6,gate,7285,-2050,160,7,Cube3,g6 stand marker
+KU,4,G5,gate,8970,-2050,160,8,Cube4,g5 stand marker
+KU,5,,taxi,3900,-805,160,1|17|21,Cube5,south inner 5
+KU,6,,taxi,5600,-805,160,2|18|21|22,Cube6,south inner 6
+KU,7,,taxi,7285,-805,160,3|19|22|23,Cube7,south inner 7
+KU,8,,taxi,8970,-805,160,4|20|23|24,Cube8,south inner 8
+KU,9,,taxi,3900,775,160,13|17|21,Cube9,north inner 9 mirrored from node 5 about center axis
+KU,10,,taxi,5600,775,160,14|18|21|22,Cube10,north inner 10 mirrored from node 6 about center axis
+KU,11,,taxi,7285,775,160,15|19|22|23,Cube11,north inner 11 mirrored from node 7 about center axis
+KU,12,,taxi,8970,775,160,16|20|23|24,Cube12,north inner 12 mirrored from node 8 about center axis
+KU,13,G4,gate,3900,2020,160,9,Cube13,g4 stand marker mirrored from node 1 about center axis
+KU,14,G3,gate,5600,2020,160,10,Cube14,g3 stand marker mirrored from node 2 about center axis
+KU,15,G2,gate,7285,2020,160,11,Cube15,g2 stand marker mirrored from node 3 about center axis
+KU,16,G1,gate,8970,2020,160,12,Cube16,g1 stand marker mirrored from node 4 about center axis
+KU,17,,connector,3900,-15,160,5|9|21,Cube17,left spine 17
+KU,18,,connector,5600,-15,160,6|10|21|22,Cube18,spine 18
+KU,19,,connector,7285,-15,160,7|11|22|23,Cube19,spine 19
+KU,20,,connector,8970,-15,160,8|12|23|24,Cube20,right spine 20
+KU,21,,connector,4750,-15,160,5|6|17|18|22,Cube21,crossover 21 aligned between 17 and 18
+KU,22,,connector,6443,-15,160,6|7|18|19|21|23,Cube22,crossover 22 aligned between 18 and 19
+KU,23,,connector,8128,-15,160,7|8|19|20|22|24,Cube23,crossover 23 aligned between 19 and 20
+KU,24,,connector,10015,-15,160,8|20|23|27,Cube24,right connector 24 aligned between 20 and 27
+KU,25,F2,pad,11860,-2050,160,28,Cube25,f2 pad marker snapped to fato column
+KU,26,F1,pad,11860,2020,160,29,Cube26,f1 pad marker mirrored from node 25 about center axis and snapped to fato column
+KU,27,,branch,11060,-15,160,24|28|29,Cube27,splitter 27
+KU,28,,branch,11860,-655,160,25|27,Cube28,f2 branch 28 snapped to fato column
+KU,29,,branch,11860,625,160,26|27,Cube29,f1 branch 29 mirrored from node 28 about center axis and snapped to fato column

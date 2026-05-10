@@ -1,8 +1,30 @@
-/DTAMVisualization/
 /DTAMVisualization - 복사본/
 
+.dtam_migration_backup/
 .dtam_runtime/
+DTAMVisualization_Source/
+reference/
+DB/ServerStart_*/
+DTAM_SimulationState/data/DB/
+
+DTAMVisualization/.git/
+DTAMVisualization/**/Source/
+DTAMVisualization/**/Intermediate/
+DTAMVisualization/**/DerivedDataCache/
+DTAMVisualization/**/Saved/
+DTAMVisualization/**/Content/
+DTAMVisualization/**/Binaries/
+DTAMVisualization/**/Binaries/**/*.pdb
+DTAMVisualization/**/cesium-request-cache.sqlite*
 **/.git/
+**/.claude/
+**/.claude/**
+**/.vscode/
+**/.vscode/**
+*.claude/
+*.vscode/
+.claude/
+.vscode/
 **/.venv/
 **/venv/
 **/node_modules/
@@ -19,28 +41,8 @@
 *.tmp
 *.bak
 *.swp
+token.txt
 
 reference/**/log/
 _tmp_*.png
 DTAMVisualizationModule/**/cesium-request-cache.sqlite
-
-# pip / setuptools 산출물
-**/*.egg-info/
-
-# Claude Code / IDE 로컬 설정
-.claude/
-**/.vscode/
-**/.idea/
-
-# Unreal Engine 사용자별 / 일시 데이터
-DTAMVisualizationModule/**/Saved/Crashes/
-DTAMVisualizationModule/**/Saved/Logs/
-DTAMVisualizationModule/**/Saved/Config/Windows/GameUserSettings.ini
-DTAMVisualizationModule/**/Saved/Config/CrashReportClient/
-
-# DTAM 서버 런타임 산출물 (DB 가 어디에 있든 ServerStart_* 폴더 ignore)
-**/DB/ServerStart_*/
-
-# DTAM SDK 빌드 산출물
-DTAM_SDK/build/
-DTAM_SDK/dist/

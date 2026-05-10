@@ -12,6 +12,7 @@ from ..domain.converter_tool import (
     load_airsim_settings_summary,
 )
 from .. import server
+from ..state import state
 
 router = APIRouter(prefix="/api/converter")
 
@@ -79,9 +80,9 @@ async def convert_coordinates(request: Request) -> JSONResponse:
 
 @router.get("/vertiport-spawns")
 async def get_converter_vertiport_spawns(name: str) -> JSONResponse:
-    if server.route_planner is None:
+    if state.route_planner is None:
         return JSONResponse({"error": "Route planner not loaded."}, status_code=500)
-    port = server.route_planner.ports.get(name)
+    port = state.route_planner.ports.get(name)
     if port is None:
         return JSONResponse({"error": f"Unknown vertiport: {name}"}, status_code=404)
     try:

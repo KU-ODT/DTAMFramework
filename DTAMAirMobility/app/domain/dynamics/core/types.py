@@ -13,6 +13,8 @@ FT_TO_M = 0.3048
 M_TO_FT = 1.0 / FT_TO_M
 KNOT_TO_MPS = 0.514444
 MPS_TO_KNOT = 1.0 / KNOT_TO_MPS
+DEFAULT_SIMULATION_HZ = 30.0
+DEFAULT_SIMULATION_TICK_S = 1.0 / DEFAULT_SIMULATION_HZ
 
 
 # ── ICD Phase codes ─────────────────────────────────────────────
@@ -106,6 +108,7 @@ class EnRouteSegment:
     target_speed: float           # m/s
     turn_direction: Optional[str] = None   # "CW" or "CCW"
     center_lla: Optional[LLA] = None
+    target_heading_deg: Optional[float] = None
 
 
 @dataclass
@@ -127,6 +130,7 @@ class SegmentProfile:
     target_speed_mps: float
     distance_m: float             # 3-D path length
     duration_s: float             # estimated time to traverse
+    target_heading_deg: Optional[float] = None
     points_lla: List[LLA] = field(default_factory=list)  # densified waypoints
     cum_dist_m: List[float] = field(default_factory=list)
 
@@ -153,9 +157,9 @@ class FlightTrajectoryPoint:
 @dataclass
 class SimulationConfig:
     """Tuneable simulation parameters."""
-    tick_s: float = 0.1             # simulation time step (seconds)
+    tick_s: float = DEFAULT_SIMULATION_TICK_S  # simulation time step (seconds)
     accel_mps2: float = 1.5        # longitudinal acceleration
-    turn_rate_deg_s: float = 3.0   # standard rate turn
+    turn_rate_deg_s: float = 12.0  # yaw/heading slew limit
     vertical_climb_rate_mps: float = 2.54   # ~500 fpm
     vertical_descent_rate_mps: float = 2.54
     transition_speed_mps: float = 35.97     # ~70 knots
@@ -182,8 +186,14 @@ class SimulationConfig:
     trajectory_smoothing_enabled: bool = True
     trajectory_smoothing_tau_s: float = 0.45
     trajectory_smoothing_passes: int = 2
-    trajectory_turn_smoothing_radius_m: float = 400.0
+    trajectory_turn_smoothing_radius_m: float = 0.0
     trajectory_heading_lookahead_m: float = 400.0
+
+    # Vehicle follower
+    vehicle_dynamics_enabled: bool = True
+    vehicle_waypoint_acceptance_m: float = 6.0
+    vehicle_max_sim_time_factor: float = 4.0
+    vehicle_max_extra_time_s: float = 300.0
 
 
 # ── Async runtime types ────────────────────────────────────────

@@ -156,6 +156,14 @@
       "note": "save latest per module"
     },
     {
+      "from": "sim_state",
+      "to": "monitoring",
+      "id": "0002",
+      "name": "Module Status",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
       "group": "1. Setting Phase"
     },
     {
@@ -201,6 +209,14 @@
       "name": "Scenario Setup",
       "proto": "file",
       "note": "save"
+    },
+    {
+      "from": "sim_state",
+      "to": "visual",
+      "id": "1003",
+      "name": "Scenario Setup",
+      "proto": "ws",
+      "note": "forward"
     },
     {
       "group": "2. Planning Phase"
@@ -270,6 +286,14 @@
     {
       "from": "sim_state",
       "to": "vehicle",
+      "id": "3001",
+      "name": "Scheduled Flight",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "from": "sim_state",
+      "to": "visual",
       "id": "3001",
       "name": "Scheduled Flight",
       "proto": "ws",
@@ -537,6 +561,71 @@
       "to": "vehicle",
       "id": "3003",
       "name": "Tactical Separation",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "group": "7. Operator Control"
+    },
+    {
+      "from": "user",
+      "to": "monitoring",
+      "name": "keyboard / joystick input",
+      "proto": "UI",
+      "note": "manual input"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "5001",
+      "name": "Operator Control Input",
+      "proto": "ws",
+      "note": "send to server"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "5001",
+      "name": "Operator Control Input",
+      "proto": "file",
+      "note": "save"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "5001",
+      "name": "Operator Control Input",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "from": "user",
+      "to": "monitoring",
+      "name": "camera hat input",
+      "proto": "UI",
+      "note": "manual input"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "5002",
+      "name": "Camera Control Command",
+      "proto": "ws",
+      "note": "send to server"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "5002",
+      "name": "Camera Control Command",
+      "proto": "file",
+      "note": "save"
+    },
+    {
+      "from": "sim_state",
+      "to": "visual",
+      "id": "5002",
+      "name": "Camera Control Command",
       "proto": "ws",
       "note": "forward"
     }

@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import ast; [ast.parse\\(open\\(f,encoding='utf8'\\).read\\(\\)\\) for f in ['app/main.py','app/comm.py','app/state.py','app/messages.py','run.py']]; print\\('syntax OK'\\)\")",
+      "Bash(python -c \"from app.main import app\")",
+      "Bash(mkdir -p message/icd/KOR message/icd/ENG)",
+      "Bash(mv message/icd/0401_vehicleStatus/ICD_KR.md message/icd/KOR/0401_vehicleStatus.md)",
+      "Bash(mv message/icd/0401_vehicleStatus/ICD_EN.md message/icd/ENG/0401_vehicleStatus.md)",
+      "Bash(rm -rf message/icd/0401_vehicleStatus)",
+      "Bash(python -c ' *)",
+      "Bash(rm -f config.json)",
+      "Bash(python run.py --port 8099)",
+      "Bash(python -c \"import sys, json; d=json.load\\(sys.stdin\\); [print\\(m['id'], repr\\(m.get\\('name'\\)\\), repr\\(m.get\\('name_en'\\)\\)\\) for m in d['messages']]\" pkill -f \"port 8099\")",
+      "Bash(wait)"
+    ]
+  }
+}

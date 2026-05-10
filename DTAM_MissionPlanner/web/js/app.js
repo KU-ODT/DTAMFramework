@@ -56,7 +56,7 @@ window.ODT = window.ODT || {};
 
   // Bottom-bar buttons are repurposed for DTAM:
   //   connect-btn : shows current target (click = refresh status)
-  //   play-btn    : Send 3001 for the current mission
+  //   play-btn    : send 3001 for the current mission, then push 1002 play
   //   stop-btn    : hidden
   //   speed-btn   : refresh status
   const connectBtn = document.getElementById('connect-btn');

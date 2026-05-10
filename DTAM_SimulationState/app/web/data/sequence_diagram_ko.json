@@ -156,6 +156,14 @@
       "note": "모듈별 최신 상태 저장"
     },
     {
+      "from": "sim_state",
+      "to": "monitoring",
+      "id": "0002",
+      "name": "?? ??",
+      "proto": "ws",
+      "note": "???"
+    },
+    {
       "group": "1. 세팅 페이즈"
     },
     {
@@ -201,6 +209,14 @@
       "name": "시나리오 세팅",
       "proto": "file",
       "note": "저장"
+    },
+    {
+      "from": "sim_state",
+      "to": "visual",
+      "id": "1003",
+      "name": "???? ??",
+      "proto": "ws",
+      "note": "???"
     },
     {
       "group": "2. 계획 페이즈"
@@ -274,6 +290,14 @@
       "name": "계획 비행 데이터",
       "proto": "ws",
       "note": "포워딩"
+    },
+    {
+      "from": "sim_state",
+      "to": "visual",
+      "id": "3001",
+      "name": "?? ??",
+      "proto": "ws",
+      "note": "???"
     },
     {
       "group": "3. 실행 페이즈"
@@ -539,6 +563,71 @@
       "name": "전술적 분리",
       "proto": "ws",
       "note": "포워딩"
+    },
+    {
+      "group": "7. ??? ??"
+    },
+    {
+      "from": "user",
+      "to": "monitoring",
+      "name": "??? / ???? ??",
+      "proto": "UI",
+      "note": "?? ??"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "5001",
+      "name": "??? ?? ??",
+      "proto": "ws",
+      "note": "?? ??"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "5001",
+      "name": "??? ?? ??",
+      "proto": "file",
+      "note": "??"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "5001",
+      "name": "??? ?? ??",
+      "proto": "ws",
+      "note": "???"
+    },
+    {
+      "from": "user",
+      "to": "monitoring",
+      "name": "??? hat ??",
+      "proto": "UI",
+      "note": "?? ??"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "5002",
+      "name": "??? ?? ??",
+      "proto": "ws",
+      "note": "?? ??"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "5002",
+      "name": "??? ?? ??",
+      "proto": "file",
+      "note": "??"
+    },
+    {
+      "from": "sim_state",
+      "to": "visual",
+      "id": "5002",
+      "name": "??? ?? ??",
+      "proto": "ws",
+      "note": "???"
     }
   ]
 }

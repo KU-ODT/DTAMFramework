@@ -19,12 +19,12 @@ async def compute_route(
     body = await request.json()
     start = body.get("start")
     end = body.get("end")
-    include_arcs = body.get("include_arcs", True)
+    include_arcs = False
     if not start or not end:
         return JSONResponse({"error": "start and end required"}, status_code=400)
     try:
         result = rp.find_route(start, end, include_turn_arcs=include_arcs)
-        return JSONResponse(server._route_payload_response(start, end, result))
+        return JSONResponse(server._route_payload_response(start, end, result, include_turn_arcs=include_arcs))
     except Exception as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
 
@@ -38,11 +38,11 @@ async def compute_route_via(
     start = body.get("start")
     end = body.get("end")
     via = body.get("via", [])
-    include_arcs = body.get("include_arcs", True)
+    include_arcs = False
     if not start or not end:
         return JSONResponse({"error": "start and end required"}, status_code=400)
     try:
         result = rp.find_route_via(start, end, via, include_turn_arcs=include_arcs)
-        return JSONResponse(server._route_payload_response(start, end, result))
+        return JSONResponse(server._route_payload_response(start, end, result, include_turn_arcs=include_arcs))
     except Exception as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)

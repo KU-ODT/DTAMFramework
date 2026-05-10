@@ -10,7 +10,11 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
-from ..domain.converter_tool import get_vertiport_spawn_point
+from ..domain.converter_tool import (
+    DEFAULT_CUSTOM_X_AXIS_HEADING_DEG,
+    DEFAULT_CUSTOM_Y_AXIS_HEADING_DEG,
+    get_vertiport_spawn_point,
+)
 from .route_planner import RoutePlanner
 
 
@@ -27,6 +31,9 @@ PHASE_MIN_DURATION_SEC = {
     "I": 50.0,
     "J": 35.0,
     "K": 45.0,
+}
+RESOURCE_VERTIPORT_ALIASES = {
+    "여의도": "영등포",
 }
 
 
@@ -156,6 +163,7 @@ def _build_route_record(
     warnings: List[str],
 ) -> Dict[str, Any]:
     route_data = payload.get("routeData") or {}
+    include_turn_arcs = False
     path = list(route_data.get("path") or [])
     if len(path) < 2:
         raise ValueError("Route data must include at least a departure and arrival node.")
@@ -178,12 +186,18 @@ def _build_route_record(
     arr_fallback_ground = _coerce_float(waypoint_map.get(arrival_name, {}).get("ground_m")) or 0.0
 
     dep_gate = _pick_resource_point(resources, departure_name, "GATE")
-    dep_fato = _pick_resource_point(resources, departure_name, "FATO")
+    dep_fato = _pick_resource_point(resources, departure_name, "FATO", preferred_label="FATO 2")
     arr_gate = _pick_resource_point(resources, arrival_name, "GATE")
-    arr_fato = _pick_resource_point(resources, arrival_name, "FATO")
+    arr_fato = _pick_resource_point(resources, arrival_name, "FATO", preferred_label="FATO 1")
 
     dep_gate_lla = _resource_or_port_lla(dep_gate, dep_port, dep_fallback_ground, warnings, "departure gate")
-    dep_fato_lla = _resource_or_port_lla(dep_fato, dep_port, dep_fallback_ground, warnings, "departure FATO")
+    dep_fato_lla = _resolve_departure_takeoff(
+        route_data,
+        departure_name,
+        dep_port,
+        dep_fallback_ground,
+        warnings,
+    ) or _resource_or_port_lla(dep_fato, dep_port, dep_fallback_ground, warnings, "departure FATO")
     arr_fato_lla = _resource_or_port_lla(arr_fato, arr_port, arr_fallback_ground, warnings, "arrival FATO")
     arr_gate_lla = _resource_or_port_lla(arr_gate, arr_port, arr_fallback_ground, warnings, "arrival gate")
     arrival_touchdown = _resolve_arrival_touchdown(
@@ -192,7 +206,9 @@ def _build_route_record(
         arr_port,
         arr_fallback_ground,
         warnings,
-    )
+    ) or dict(arr_fato_lla)
+    departure_takeoff_heading = _heading_from_waypoint(dep_fato_lla)
+    departure_takeoff_frame_yaw = _frame_yaw_from_waypoint(dep_fato_lla)
 
     dep_ground_alt = float(dep_fato_lla["alt"])
     arr_ground_alt = float(arrival_touchdown["alt"] if arrival_touchdown else arr_fato_lla["alt"])
@@ -210,8 +226,16 @@ def _build_route_record(
 
     next_node_name = path[1] if len(path) > 1 else None
     prev_node_name = path[-2] if len(path) > 1 else None
-    dep_turn = _build_departure_turn(route_planner, departure_name, next_node_name, dep_turn_alt)
-    arr_turn = _build_arrival_turn(route_planner, prev_node_name, arrival_name, arr_turn_alt)
+    dep_turn = (
+        _build_departure_turn(route_planner, departure_name, next_node_name, dep_turn_alt)
+        if include_turn_arcs
+        else None
+    )
+    arr_turn = (
+        _build_arrival_turn(route_planner, prev_node_name, arrival_name, arr_turn_alt)
+        if include_turn_arcs
+        else None
+    )
 
     segments: List[Dict[str, Any]] = []
     seq = 1
@@ -220,11 +244,26 @@ def _build_route_record(
     seq = _append_segment(segments, seq, "A", current, dict(dep_fato_lla), _phase_speed("A", context["cruiseSpeedMps"]))
     current = dict(dep_fato_lla)
     dep_vertical_end = _lla(current["lat"], current["lon"], dep_vertical_alt)
-    seq = _append_segment(segments, seq, "B", current, dep_vertical_end, _phase_speed("B", context["cruiseSpeedMps"]))
+    seq = _append_segment(
+        segments,
+        seq,
+        "B",
+        current,
+        dep_vertical_end,
+        _phase_speed("B", context["cruiseSpeedMps"]),
+        target_heading_deg=departure_takeoff_heading,
+        target_frame_yaw_deg=departure_takeoff_frame_yaw,
+    )
     current = dep_vertical_end
 
     first_corridor = corridor_nodes[0] if corridor_nodes else _lla(arr_port.lat, arr_port.lon, cruise_alt)
-    dep_transition_target = dep_turn["startLLA"] if dep_turn else _lla(first_corridor["lat"], first_corridor["lon"], dep_turn_alt)
+    has_climb_leg = dep_turn is not None or len(corridor_nodes) > 1
+    dep_transition_alt = dep_turn_alt if has_climb_leg else cruise_alt
+    dep_transition_target = dep_turn["startLLA"] if dep_turn else _lla(
+        first_corridor["lat"],
+        first_corridor["lon"],
+        dep_transition_alt,
+    )
     seq = _append_segment(segments, seq, "C", current, dep_transition_target, _phase_speed("C", context["cruiseSpeedMps"]))
     current = dep_transition_target
 
@@ -239,20 +278,33 @@ def _build_route_record(
         seq += 1
         current = dict(dep_turn_segment["endLLA"])
 
-    climb_target = _lla(first_corridor["lat"], first_corridor["lon"], cruise_alt)
-    seq = _append_segment(segments, seq, "E", current, climb_target, _phase_speed("E", context["cruiseSpeedMps"]))
-    current = climb_target
+    cruise_start_index = 1
+    if dep_turn or len(corridor_nodes) > 1:
+        climb_ref = corridor_nodes[1] if len(corridor_nodes) > 1 else first_corridor
+        climb_target = _lla(climb_ref["lat"], climb_ref["lon"], cruise_alt)
+        if _horizontal_distance_between_lla_m(current, climb_target) > 1.0:
+            seq = _append_segment(segments, seq, "E", current, climb_target, _phase_speed("E", context["cruiseSpeedMps"]))
+            current = climb_target
+            cruise_start_index = 2 if len(corridor_nodes) > 1 else 1
+        elif abs(float(current["alt"]) - cruise_alt) > 0.5:
+            current = _lla(current["lat"], current["lon"], cruise_alt)
+            segments[-1]["endLLA"] = dict(current)
+            cruise_start_index = 1
 
-    for corridor_node in corridor_nodes[1:]:
+    for corridor_node in corridor_nodes[cruise_start_index:]:
         cruise_target = _lla(corridor_node["lat"], corridor_node["lon"], cruise_alt)
         seq = _append_segment(segments, seq, "F", current, cruise_target, _phase_speed("F", context["cruiseSpeedMps"]))
         current = cruise_target
 
-    arrival_transition_target = arr_turn["startLLA"] if arr_turn else _lla(
-        (arrival_touchdown or arr_fato_lla)["lat"],
-        (arrival_touchdown or arr_fato_lla)["lon"],
-        arr_turn_alt,
+    arrival_landing_ref = arrival_touchdown or arr_fato_lla
+    arrival_landing_heading = _heading_from_waypoint(arrival_landing_ref)
+    arrival_landing_frame_yaw = _frame_yaw_from_waypoint(arrival_landing_ref)
+    approach_start = (
+        arr_turn["startLLA"]
+        if arr_turn
+        else _build_arrival_approach_start(current, arrival_landing_ref, arr_turn_alt)
     )
+    arrival_transition_target = approach_start
     seq = _append_segment(segments, seq, "G", current, arrival_transition_target, _phase_speed("G", context["cruiseSpeedMps"]))
     current = arrival_transition_target
 
@@ -267,16 +319,33 @@ def _build_route_record(
         seq += 1
         current = dict(arr_turn_segment["endLLA"])
 
-    arrival_landing_ref = arrival_touchdown or arr_fato_lla
     final_approach_target = _lla(arrival_landing_ref["lat"], arrival_landing_ref["lon"], arr_approach_alt)
     seq = _append_segment(segments, seq, "I", current, final_approach_target, _phase_speed("I", context["cruiseSpeedMps"]))
     current = final_approach_target
 
     landing_target = _lla(arrival_landing_ref["lat"], arrival_landing_ref["lon"], arr_ground_alt)
-    seq = _append_segment(segments, seq, "J", current, landing_target, _phase_speed("J", context["cruiseSpeedMps"]))
+    seq = _append_segment(
+        segments,
+        seq,
+        "J",
+        current,
+        landing_target,
+        _phase_speed("J", context["cruiseSpeedMps"]),
+        target_heading_deg=arrival_landing_heading,
+        target_frame_yaw_deg=arrival_landing_frame_yaw,
+    )
     current = landing_target
 
-    _append_segment(segments, seq, "K", current, dict(arr_gate_lla), _phase_speed("K", context["cruiseSpeedMps"]))
+    _append_segment(
+        segments,
+        seq,
+        "K",
+        current,
+        _lla(arrival_landing_ref["lat"], arrival_landing_ref["lon"], arrival_landing_ref["alt"]),
+        _phase_speed("K", context["cruiseSpeedMps"]),
+        target_heading_deg=arrival_landing_heading,
+        target_frame_yaw_deg=arrival_landing_frame_yaw,
+    )
 
     return _finalize_record(
         context,
@@ -458,8 +527,20 @@ def _pick_resource_point(
     catalog: Dict[str, Dict[str, List[ResourcePoint]]],
     vertiport_name: str,
     category: str,
+    *,
+    preferred_label: Optional[str] = None,
 ) -> Optional[ResourcePoint]:
-    points = catalog.get(vertiport_name, {}).get(category.upper(), [])
+    resource_name = str(vertiport_name or "").strip()
+    if resource_name not in catalog:
+        alias = RESOURCE_VERTIPORT_ALIASES.get(resource_name)
+        if alias in catalog:
+            resource_name = alias
+    points = catalog.get(resource_name, {}).get(category.upper(), [])
+    if preferred_label:
+        target = str(preferred_label).strip().upper()
+        for point in points:
+            if point.label.strip().upper() == target:
+                return point
     return points[0] if points else None
 
 
@@ -476,6 +557,76 @@ def _resource_or_port_lla(
     return _lla(port.lat, port.lon, fallback_ground_m)
 
 
+def _spawn_lla_for_port(
+    *,
+    vertiport_name: str,
+    port: Any,
+    fallback_ground_m: float,
+    spawn_point_id: str,
+) -> Optional[Dict[str, float]]:
+    try:
+        spawn = get_vertiport_spawn_point(
+            vertiport_name=vertiport_name,
+            vertiport_lat=float(port.lat),
+            vertiport_lon=float(port.lon),
+            vertiport_ground_m=fallback_ground_m,
+            spawn_point_id=spawn_point_id,
+        )
+    except Exception:
+        spawn = None
+    if spawn is None:
+        return None
+
+    result = _lla(
+        float(spawn["lat"]),
+        float(spawn["lon"]),
+        float(spawn.get("alt_m") or fallback_ground_m),
+    )
+    frame_yaw = _frame_yaw_from_waypoint(spawn)
+    heading = _heading_from_waypoint(spawn)
+    if frame_yaw is not None:
+        result["yaw_deg"] = frame_yaw
+    elif heading is not None:
+        result["heading_deg"] = heading
+    return result
+
+
+def _resolve_departure_takeoff(
+    route_data: Dict[str, Any],
+    departure_name: str,
+    dep_port: Any,
+    fallback_ground_m: float,
+    warnings: List[str],
+) -> Optional[Dict[str, float]]:
+    takeoff = route_data.get("departureTakeoff") or {}
+    takeoff_ground = _coerce_float(takeoff.get("ground_m"))
+    spawn_ground_m = takeoff_ground if takeoff_ground is not None else fallback_ground_m
+    spawn_result = _spawn_lla_for_port(
+        vertiport_name=departure_name,
+        port=dep_port,
+        fallback_ground_m=spawn_ground_m,
+        spawn_point_id="S25",
+    )
+    if spawn_result is not None:
+        return spawn_result
+
+    lat = _coerce_float(takeoff.get("lat"))
+    lon = _coerce_float(takeoff.get("lon"))
+    alt = _coerce_float(takeoff.get("alt_m"))
+    if lat is not None and lon is not None:
+        result = _lla(lat, lon, alt if alt is not None else fallback_ground_m)
+        frame_yaw = _frame_yaw_from_waypoint(takeoff)
+        heading = _heading_from_waypoint(takeoff)
+        if frame_yaw is not None:
+            result["yaw_deg"] = frame_yaw
+        elif heading is not None:
+            result["heading_deg"] = heading
+        return result
+
+    warnings.append(f"Departure takeoff spawn S25 is unavailable for {departure_name}; using departure FATO.")
+    return None
+
+
 def _resolve_arrival_touchdown(
     route_data: Dict[str, Any],
     arrival_name: str,
@@ -488,29 +639,31 @@ def _resolve_arrival_touchdown(
     lon = _coerce_float(touchdown.get("lon"))
     alt = _coerce_float(touchdown.get("alt_m"))
     spawn_id = str(touchdown.get("spawn_point_id") or touchdown.get("spawnPointId") or "").strip().upper()
-    if lat is not None and lon is not None:
-        return _lla(lat, lon, alt if alt is not None else fallback_ground_m)
-
-    try:
-        spawn = get_vertiport_spawn_point(
-            vertiport_name=arrival_name,
-            vertiport_lat=float(arr_port.lat),
-            vertiport_lon=float(arr_port.lon),
-            vertiport_ground_m=fallback_ground_m,
-            spawn_point_id=spawn_id or "S26",
-        )
-    except Exception:
-        spawn = None
-
-    if spawn is None:
-        warnings.append(f"Arrival touchdown spawn S26 is unavailable for {arrival_name}; using arrival FATO.")
-        return None
-
-    return _lla(
-        float(spawn["lat"]),
-        float(spawn["lon"]),
-        float(spawn.get("alt_m") or fallback_ground_m),
+    touchdown_ground = _coerce_float(touchdown.get("ground_m"))
+    spawn_ground_m = touchdown_ground if touchdown_ground is not None else fallback_ground_m
+    spawn_result = _spawn_lla_for_port(
+        vertiport_name=arrival_name,
+        port=arr_port,
+        fallback_ground_m=spawn_ground_m,
+        spawn_point_id=spawn_id or "S26",
     )
+    if spawn_result is not None:
+        return spawn_result
+
+    if lat is not None and lon is not None:
+        result = _lla(lat, lon, alt if alt is not None else fallback_ground_m)
+        frame_yaw = _frame_yaw_from_waypoint(touchdown)
+        heading = _heading_from_waypoint(touchdown)
+        if frame_yaw is not None:
+            result["yaw_deg"] = frame_yaw
+        elif heading is not None:
+            result["heading_deg"] = heading
+        if bool(touchdown.get("landing_calibration_applied", False)):
+            result["landing_calibration_applied"] = True
+        return result
+
+    warnings.append(f"Arrival touchdown spawn S26 is unavailable for {arrival_name}; using arrival FATO.")
+    return None
 
 
 def _derive_cruise_altitude(
@@ -596,14 +749,22 @@ def _append_segment(
     start: Dict[str, float],
     end: Dict[str, float],
     speed_mps: float,
+    *,
+    target_heading_deg: Optional[float] = None,
+    target_frame_yaw_deg: Optional[float] = None,
 ) -> int:
-    segments.append({
+    segment = {
         "seq": seq,
         "phase": phase,
-        "startLLA": dict(start),
-        "endLLA": dict(end),
+        "startLLA": _lla_from_mapping(start),
+        "endLLA": _lla_from_mapping(end),
         "targetSpeed": round(speed_mps, 1),
-    })
+    }
+    if target_heading_deg is not None:
+        segment["targetHeadingDeg"] = round(float(target_heading_deg) % 360.0, 2)
+    if target_frame_yaw_deg is not None:
+        segment["targetFrameYawDeg"] = round(float(target_frame_yaw_deg) % 360.0, 2)
+    segments.append(segment)
     return seq + 1
 
 
@@ -613,6 +774,10 @@ def _lla(lat: float, lon: float, alt: float) -> Dict[str, float]:
         "lon": round(float(lon), 6),
         "alt": round(float(alt), 1),
     }
+
+
+def _lla_from_mapping(point: Dict[str, float]) -> Dict[str, float]:
+    return _lla(float(point["lat"]), float(point["lon"]), float(point["alt"]))
 
 
 def _stage_altitude(ground_alt_m: float, cruise_alt_m: float, step_above_ground_m: float) -> float:
@@ -647,6 +812,35 @@ def _estimate_segment_duration_sec(segment: Dict[str, Any]) -> float:
     distance_m = math.hypot(horizontal_m, vertical_m)
     phase = str(segment.get("phase") or "")
     return max(PHASE_MIN_DURATION_SEC.get(phase, 30.0), distance_m / speed_mps)
+
+
+def _horizontal_distance_between_lla_m(start: Dict[str, Any], end: Dict[str, Any]) -> float:
+    return _haversine_m(
+        float(start["lon"]),
+        float(start["lat"]),
+        float(end["lon"]),
+        float(end["lat"]),
+    )
+
+
+def _build_arrival_approach_start(
+    current: Dict[str, Any],
+    landing_ref: Dict[str, Any],
+    altitude_m: float,
+) -> Dict[str, float]:
+    distance_m = _horizontal_distance_between_lla_m(current, landing_ref)
+    if distance_m <= 1.0:
+        return _lla(float(current["lat"]), float(current["lon"]), altitude_m)
+
+    if distance_m < 1000.0:
+        approach_distance_m = max(100.0, distance_m * 0.5)
+    else:
+        approach_distance_m = min(1500.0, max(500.0, distance_m * 0.35))
+
+    ratio = max(0.0, min(0.95, (distance_m - approach_distance_m) / distance_m))
+    lat = float(current["lat"]) + ((float(landing_ref["lat"]) - float(current["lat"])) * ratio)
+    lon = float(current["lon"]) + ((float(landing_ref["lon"]) - float(current["lon"])) * ratio)
+    return _lla(lat, lon, altitude_m)
 
 
 def _haversine_m(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
@@ -693,6 +887,56 @@ def _coerce_float(value: Any) -> Optional[float]:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _heading_from_waypoint(data: Dict[str, Any]) -> Optional[float]:
+    for key in (
+        "heading_deg",
+        "headingDeg",
+        "targetHeadingDeg",
+        "target_heading_deg",
+    ):
+        if key not in data:
+            continue
+        value = _coerce_float(data.get(key))
+        if value is not None:
+            return float(value) % 360.0
+
+    frame_yaw = _frame_yaw_from_waypoint(data)
+    if frame_yaw is not None:
+        return _frame_yaw_to_mission_heading(frame_yaw)
+    return None
+
+
+def _frame_yaw_from_waypoint(data: Dict[str, Any]) -> Optional[float]:
+    for key in (
+        "yaw_deg",
+        "yawDeg",
+        "targetFrameYawDeg",
+        "target_frame_yaw_deg",
+        "AngleDegrees",
+        "angle_deg",
+    ):
+        if key not in data:
+            continue
+        value = _coerce_float(data.get(key))
+        if value is not None:
+            return float(value) % 360.0
+    return None
+
+
+def _heading_to_ne_unit(heading_deg: float) -> tuple[float, float]:
+    radians = math.radians(float(heading_deg))
+    return math.cos(radians), math.sin(radians)
+
+
+def _frame_yaw_to_mission_heading(frame_yaw_deg: float) -> float:
+    yaw_rad = math.radians(float(frame_yaw_deg))
+    x_axis_n, x_axis_e = _heading_to_ne_unit(DEFAULT_CUSTOM_X_AXIS_HEADING_DEG)
+    y_axis_n, y_axis_e = _heading_to_ne_unit(DEFAULT_CUSTOM_Y_AXIS_HEADING_DEG)
+    north = (math.cos(yaw_rad) * x_axis_n) + (math.sin(yaw_rad) * y_axis_n)
+    east = (math.cos(yaw_rad) * x_axis_e) + (math.sin(yaw_rad) * y_axis_e)
+    return math.degrees(math.atan2(east, north)) % 360.0
 
 
 def _coerce_int(value: Any) -> Optional[int]:

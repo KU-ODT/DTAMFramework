@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 from ..core.types import (
     Arrival,
@@ -39,6 +39,21 @@ def _parse_lla(data: dict, path: str) -> LLA:
     lon = _require(data, "lon", (int, float), path)
     alt = _require(data, "alt", (int, float), path)
     return LLA(lat=float(lat), lon=float(lon), alt=float(alt))
+
+
+def _optional_number(data: dict, keys: List[str], path: str) -> Optional[float]:
+    for key in keys:
+        if key not in data:
+            continue
+        value = data.get(key)
+        if value is None:
+            continue
+        if not isinstance(value, (int, float)):
+            raise ICDValidationError(
+                f"Field {path}.{key} expected number, got {type(value).__name__}"
+            )
+        return float(value)
+    return None
 
 
 def _parse_time(val: str, field_name: str) -> str:
@@ -99,6 +114,11 @@ def parse_flight_plan(data: dict) -> FlightPlan:
         end_lla = _parse_lla(_require(seg_raw, "endLLA", (dict,), prefix),
                              f"{prefix}.endLLA")
         target_speed = _require(seg_raw, "targetSpeed", (int, float), prefix)
+        target_heading_deg = _optional_number(
+            seg_raw,
+            ["targetHeadingDeg", "target_heading_deg", "endHeadingDeg", "yawDeg", "yaw_deg"],
+            prefix,
+        )
 
         turn_dir = None
         center_lla = None
@@ -127,6 +147,7 @@ def parse_flight_plan(data: dict) -> FlightPlan:
             target_speed=float(target_speed),
             turn_direction=turn_dir,
             center_lla=center_lla,
+            target_heading_deg=target_heading_deg,
         ))
 
     # Validation: seq must be 1-based consecutive

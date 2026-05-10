@@ -1,10 +1,11 @@
-"""DTAM MSG 4001 (Vehicle Status) payload builder.
+﻿"""DTAM MSG 4001 (Vehicle Status) payload builder.
 
 Trajectory 포인트 + 좌표 변환 프레임 → 4001 dict.
 """
 from __future__ import annotations
 
 import math
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
@@ -95,15 +96,29 @@ def build_vehicle_payload(
     phase: str = "",
     seq: Optional[int] = None,
     battery_pct: Optional[float] = None,
+    actuator: Optional[Dict[str, Any]] = None,
+    propulsion: Optional[Dict[str, Any]] = None,
+    gps: Optional[Dict[str, Any]] = None,
+    imu: Optional[Dict[str, Any]] = None,
+    barometer: Optional[Dict[str, Any]] = None,
+    position_ned: Optional[Dict[str, float]] = None,
+    attitude_yaw_deg: Optional[float] = None,
+    pose_frame: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Trajectory 한 포인트 → 4001 의 한 비행체 서브-dict."""
-    north_m, east_m, down_m = context.origin_frame.to_ned(lat, lon, alt_m)
+    if isinstance(position_ned, dict):
+        north_m = float(position_ned.get("north", 0.0) or 0.0)
+        east_m = float(position_ned.get("east", 0.0) or 0.0)
+        down_m = float(position_ned.get("down", 0.0) or 0.0)
+    else:
+        north_m, east_m, down_m = context.origin_frame.to_ned(lat, lon, alt_m)
     # 스키마 범위 방어 — 스키마는 -10000..10000 m 제한
     north_m = _clamp(north_m, -9999.9, 9999.9)
     east_m = _clamp(east_m, -9999.9, 9999.9)
     down_m = _clamp(down_m, -4999.9, 499.9)
 
-    yaw_rad = _wrap_pi(math.radians(float(heading_deg)))
+    yaw_source_deg = float(attitude_yaw_deg) if attitude_yaw_deg is not None else float(heading_deg)
+    yaw_rad = _wrap_pi(math.radians(yaw_source_deg))
     pitch_clamped = _clamp(float(pitch_rad), -math.pi / 2, math.pi / 2)
     roll_clamped = _clamp(_wrap_pi(float(roll_rad)), -math.pi, math.pi)
 
@@ -126,7 +141,40 @@ def build_vehicle_payload(
         else:
             waypoint_id = f"{context.flight_plan_number}-1"
 
-    return {
+    default_actuator = {
+        "tilt_left": 0.5,
+        "tilt_right": 0.5,
+        "aileron": 0.0,
+        "rudder_left": 0.0,
+        "rudder_right": 0.0,
+    }
+    default_propulsion = {
+        "motor_rpm": [float(r) for r in motor_rpm],
+    }
+    default_gps = {
+        "is_valid": True,
+        "fix_type": 3,
+        "latitude": _clamp(float(lat), -90.0, 90.0),
+        "longitude": _clamp(float(lon), -180.0, 180.0),
+        "altitude": _clamp(float(alt_m), -1000.0, 20000.0),
+        "velocity_north": _clamp(float(vn), -1000.0, 1000.0),
+        "velocity_east": _clamp(float(ve), -1000.0, 1000.0),
+        "velocity_down": _clamp(float(vd), -1000.0, 1000.0),
+        "eph": 0.8,
+        "epv": 1.2,
+    }
+    default_imu = {
+        "orientation": _yaw_to_quaternion(yaw_rad),
+        "angular_velocity": {"x": 0.0, "y": 0.0, "z": 0.0},
+        "linear_acceleration": {"x": 0.0, "y": 0.0, "z": -9.8},
+    }
+    default_barometer = {
+        "altitude": _clamp(float(alt_m), -1000.0, 20000.0),
+        "pressure": 101325.0,
+        "qnh": 1013.25,
+    }
+
+    payload = {
         "currentWaypointId": str(waypoint_id),
         "position": {
             "north": float(north_m),
@@ -138,40 +186,16 @@ def build_vehicle_payload(
             "pitch": float(pitch_clamped),
             "yaw": float(yaw_rad),
         },
-        "actuator": {
-            "tilt_left": 0.5,
-            "tilt_right": 0.5,
-            "aileron": 0.0,
-            "rudder_left": 0.0,
-            "rudder_right": 0.0,
-        },
-        "propulsion": {
-            "motor_rpm": [float(r) for r in motor_rpm],
-        },
-        "gps": {
-            "is_valid": True,
-            "fix_type": 3,
-            "latitude": _clamp(float(lat), -90.0, 90.0),
-            "longitude": _clamp(float(lon), -180.0, 180.0),
-            "altitude": _clamp(float(alt_m), -1000.0, 20000.0),
-            "velocity_north": _clamp(float(vn), -1000.0, 1000.0),
-            "velocity_east": _clamp(float(ve), -1000.0, 1000.0),
-            "velocity_down": _clamp(float(vd), -1000.0, 1000.0),
-            "eph": 0.8,
-            "epv": 1.2,
-        },
-        "imu": {
-            "orientation": _yaw_to_quaternion(yaw_rad),
-            "angular_velocity": {"x": 0.0, "y": 0.0, "z": 0.0},
-            "linear_acceleration": {"x": 0.0, "y": 0.0, "z": -9.8},
-        },
-        "barometer": {
-            "altitude": _clamp(float(alt_m), -1000.0, 20000.0),
-            "pressure": 101325.0,
-            "qnh": 1013.25,
-        },
+        "actuator": deepcopy(actuator) if isinstance(actuator, dict) else default_actuator,
+        "propulsion": deepcopy(propulsion) if isinstance(propulsion, dict) else default_propulsion,
+        "gps": deepcopy(gps) if isinstance(gps, dict) else default_gps,
+        "imu": deepcopy(imu) if isinstance(imu, dict) else default_imu,
+        "barometer": deepcopy(barometer) if isinstance(barometer, dict) else default_barometer,
         "_battery_pct": float(batt),  # 내부 추적용(4001 스키마 외)
     }
+    if isinstance(pose_frame, dict):
+        payload["poseFrame"] = deepcopy(pose_frame)
+    return payload
 
 
 def build_4001_message(
@@ -186,3 +210,4 @@ def build_4001_message(
         scrubbed = {k: v for k, v in payload.items() if not k.startswith("_")}
         message[str(vid)] = scrubbed
     return message
+

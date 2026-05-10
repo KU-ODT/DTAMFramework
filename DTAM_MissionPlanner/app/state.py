@@ -37,7 +37,7 @@ def _default_settings() -> Dict[str, Any]:
         "dtam_target_ip": DTAM_TARGET_IP,
         "dtam_ws_port": DTAM_WS_PORT,
         "server_http_host": os.getenv("DTAM_MP_SERVER_HTTP_HOST", DTAM_TARGET_IP),
-        "server_http_port": int(os.getenv("DTAM_MP_SERVER_HTTP_PORT", "8095")),
+        "server_http_port": int(os.getenv("DTAM_MP_SERVER_HTTP_PORT", str(DTAM_WS_PORT))),
         "default_speed_mps": 30.0,
         "default_altitude_m": 300.0,
         "auto_plan_max_aircraft": int(os.getenv("DTAM_MP_AUTO_PLAN_MAX_AIRCRAFT", "8")),

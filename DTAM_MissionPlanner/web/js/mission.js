@@ -39,7 +39,7 @@ ODT.Mission = (function () {
   const FREE_MISSION_NODE_SIZE_M = 14;
   const FREE_MISSION_NODE_TOP_BUFFER_M = 22;
   const FREE_WAYPOINT_DEFAULT_ALT_M = 300;
-  const ROUTE_TURN_RADIUS_M = 500;
+  const ROUTE_TURN_RADIUS_M = 400;
   const ROUTE_ARC_STEP_M = 40;
   const CORRIDOR_3D_PITCH_THRESHOLD = 14;
   const CORRIDOR_3D_ZOOM_THRESHOLD = 9.8;
@@ -1567,8 +1567,16 @@ ODT.Mission = (function () {
   }
 
   function buildRouteRenderPoints(data) {
-    const originalPoints = normalizeRoutePointList(data?.points);
+    const missionPoints = normalizeRoutePointList(data?.missionWaypoints);
+    const originalPoints = missionPoints.length >= 2
+      ? missionPoints
+      : normalizeRoutePointList(data?.points);
     const waypoints = normalizeRoutePointList(getPrimaryRouteWaypoints(data));
+    if (!data?.includeTurnArcs) {
+      return originalPoints.length >= 3
+        ? buildRoundedRoutePoints(originalPoints)
+        : originalPoints;
+    }
     if (originalPoints.length < 2) {
       return originalPoints;
     }

@@ -50,6 +50,9 @@ from .state import state
 
 
 MISSION_ICD_RESOURCE_CSV = DATA_DIR / "resources_vp.csv"
+ROUTE_RESOURCE_ALIASES = {
+    "여의도": "영등포",
+}
 # 런타임 상태 (mbtiles, route_planner, dem_provider, mission_service, settings) 는
 # app.state 모듈의 ``state`` 컨테이너 (싱글턴) 에 보관. helpers 와 routes 모두
 # 이 컨테이너를 단일 소스로 읽는다 — ``global`` 키워드 사용 없음.
@@ -145,6 +148,17 @@ def _build_route_point_payload(
     return payload
 
 
+def _polyline_distance_km(points: List[tuple[float, float]]) -> float:
+    if len(points) < 2:
+        return 0.0
+    distance_m = 0.0
+    for idx in range(1, len(points)):
+        lon1, lat1 = points[idx - 1]
+        lon2, lat2 = points[idx]
+        distance_m += _haversine_m(lon1, lat1, lon2, lat2)
+    return distance_m / 1000.0
+
+
 def _build_route_waypoint(
     *,
     name: str,
@@ -154,6 +168,7 @@ def _build_route_waypoint(
     alt_m: float,
     waypoint_type: str,
     spawn_point_id: Optional[str] = None,
+    yaw_deg: Optional[float] = None,
 ) -> Dict[str, Any]:
     payload: Dict[str, Any] = {
         "name": name,
@@ -166,6 +181,8 @@ def _build_route_waypoint(
     }
     if spawn_point_id:
         payload["spawn_point_id"] = spawn_point_id
+    if yaw_deg is not None:
+        payload["yaw_deg"] = float(yaw_deg) % 360.0
     return payload
 
 
@@ -232,7 +249,12 @@ def _pick_route_resource_point(
     preferred_label: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     catalog = _load_route_resource_catalog()
-    points = catalog.get(vertiport_name, {}).get(str(category or "").strip().upper(), [])
+    resource_name = str(vertiport_name or "").strip()
+    if resource_name not in catalog:
+        alias = ROUTE_RESOURCE_ALIASES.get(resource_name)
+        if alias in catalog:
+            resource_name = alias
+    points = catalog.get(resource_name, {}).get(str(category or "").strip().upper(), [])
     if preferred_label:
         target = str(preferred_label).strip().upper()
         for point in points:
@@ -249,6 +271,17 @@ def _resolve_departure_takeoff_waypoint(
     port = route_planner.ports.get(departure_name)
     if port is None:
         return None
+
+    spawn = _get_route_spawn_waypoint(
+        route_planner,
+        departure_name,
+        "S25",
+        fallback_ground_m,
+        waypoint_type="departure_takeoff",
+        display_label="F2",
+    )
+    if spawn is not None:
+        return spawn
 
     resource = _pick_route_resource_point(departure_name, "FATO", preferred_label="FATO 2")
     if resource is None:
@@ -271,6 +304,90 @@ def _resolve_departure_takeoff_waypoint(
         ground_m=fallback_ground_m,
         alt_m=fallback_ground_m,
         waypoint_type="departure_takeoff",
+    )
+
+
+def _resolve_arrival_landing_waypoint(
+    route_planner: RoutePlanner,
+    arrival_name: str,
+    fallback_ground_m: float,
+) -> Optional[Dict[str, Any]]:
+    port = route_planner.ports.get(arrival_name)
+    if port is None:
+        return None
+
+    spawn = _get_route_spawn_waypoint(
+        route_planner,
+        arrival_name,
+        "S26",
+        fallback_ground_m,
+        waypoint_type="arrival_touchdown",
+        display_label="F1",
+    )
+    if spawn is not None:
+        return spawn
+
+    resource = _pick_route_resource_point(arrival_name, "FATO", preferred_label="FATO 1")
+    if resource is None:
+        resource = _pick_route_resource_point(arrival_name, "FATO")
+    if resource is not None:
+        label = str(resource.get("label") or "FATO")
+        return _build_route_waypoint(
+            name=f"{arrival_name} {label}",
+            lat=float(resource["lat"]),
+            lon=float(resource["lon"]),
+            ground_m=float(resource.get("ground_m") or fallback_ground_m),
+            alt_m=float(resource.get("alt_m") or resource.get("ground_m") or fallback_ground_m),
+            waypoint_type="arrival_touchdown",
+            spawn_point_id=label,
+        )
+
+    return _build_route_waypoint(
+        name=arrival_name,
+        lat=float(port.lat),
+        lon=float(port.lon),
+        ground_m=fallback_ground_m,
+        alt_m=fallback_ground_m,
+        waypoint_type="arrival_touchdown",
+    )
+
+
+def _get_route_spawn_waypoint(
+    route_planner: RoutePlanner,
+    vertiport_name: str,
+    spawn_point_id: str,
+    fallback_ground_m: float,
+    *,
+    waypoint_type: str,
+    display_label: str,
+) -> Optional[Dict[str, Any]]:
+    port = route_planner.ports.get(vertiport_name)
+    if port is None:
+        return None
+    ground_m = _sample_ground_optional_m(port.lon, port.lat)
+    if ground_m is None:
+        ground_m = fallback_ground_m
+    try:
+        spawn = get_vertiport_spawn_point(
+            vertiport_name=vertiport_name,
+            vertiport_lat=float(port.lat),
+            vertiport_lon=float(port.lon),
+            vertiport_ground_m=float(ground_m),
+            spawn_point_id=spawn_point_id,
+        )
+    except Exception:
+        spawn = None
+    if spawn is None:
+        return None
+    return _build_route_waypoint(
+        name=f"{vertiport_name} {spawn_point_id} {display_label}",
+        lat=float(spawn["lat"]),
+        lon=float(spawn["lon"]),
+        ground_m=float(spawn.get("ground_m") or ground_m or 0.0),
+        alt_m=float(spawn.get("alt_m") or ground_m or 0.0),
+        waypoint_type=waypoint_type,
+        spawn_point_id=spawn_point_id,
+        yaw_deg=_to_float(spawn.get("yaw_deg")),
     )
 
 
@@ -324,6 +441,30 @@ def _build_quadratic_connector_points(
     return points
 
 
+def _replace_final_route_point_with_touchdown(
+    base_points: List[tuple[float, float]],
+    touchdown_point: tuple[float, float],
+    *,
+    include_turn_arcs: bool,
+) -> List[tuple[float, float]]:
+    updated_points = list(base_points)
+    if not updated_points:
+        return [touchdown_point]
+
+    if include_turn_arcs:
+        if len(updated_points) >= 2:
+            return updated_points[:-2] + _build_quadratic_connector_points(
+                updated_points[-2],
+                updated_points[-1],
+                touchdown_point,
+            )
+        updated_points[-1] = touchdown_point
+        return updated_points
+
+    updated_points[-1] = touchdown_point
+    return updated_points
+
+
 def _append_arrival_touchdown(
     *,
     route_planner: RoutePlanner,
@@ -333,6 +474,7 @@ def _append_arrival_touchdown(
     route_points: List[tuple[float, float]],
     route_alt_m: float,
     base_distance_km: float,
+    include_turn_arcs: bool,
 ) -> Dict[str, Any]:
     departure_ground_m = float(waypoints_with_alt[0].get("ground_m") or 0.0) if waypoints_with_alt else 0.0
     departure_takeoff = _resolve_departure_takeoff_waypoint(
@@ -345,16 +487,24 @@ def _append_arrival_touchdown(
     if departure_takeoff is not None and base_waypoints:
         base_waypoints[0] = departure_takeoff
     if departure_takeoff is not None and len(base_points) >= 2:
-        base_points = _build_quadratic_connector_points(
-            (float(departure_takeoff["lon"]), float(departure_takeoff["lat"])),
-            base_points[0],
-            base_points[1],
-        ) + base_points[2:]
+        if include_turn_arcs:
+            base_points = _build_quadratic_connector_points(
+                (float(departure_takeoff["lon"]), float(departure_takeoff["lat"])),
+                base_points[0],
+                base_points[1],
+            ) + base_points[2:]
+        else:
+            base_points[0] = (float(departure_takeoff["lon"]), float(departure_takeoff["lat"]))
     elif departure_takeoff is not None and base_points:
         base_points[0] = (float(departure_takeoff["lon"]), float(departure_takeoff["lat"]))
 
-    port = route_planner.ports.get(arrival_name)
-    if port is None:
+    arrival_ground_m = float(waypoints_with_alt[-1].get("ground_m") or 0.0) if waypoints_with_alt else 0.0
+    landing = _resolve_arrival_landing_waypoint(
+        route_planner,
+        arrival_name,
+        arrival_ground_m,
+    )
+    if landing is None:
         return {
             "waypoints": base_waypoints,
             "mission_waypoints": _build_route_mission_waypoints(base_waypoints, route_alt_m),
@@ -363,82 +513,39 @@ def _append_arrival_touchdown(
             "departure_takeoff": departure_takeoff,
             "arrival_touchdown": None,
         }
-
-    touchdown = get_vertiport_spawn_point(
-        vertiport_name=port.name,
-        vertiport_lat=port.lat,
-        vertiport_lon=port.lon,
-        vertiport_ground_m=_sample_ground_optional_m(port.lon, port.lat),
-        spawn_point_id="S26",
-    )
-    if touchdown is None:
-        return {
-            "waypoints": base_waypoints,
-            "mission_waypoints": _build_route_mission_waypoints(base_waypoints, route_alt_m),
-            "points": _build_route_point_payload(base_points, route_alt_m),
-            "distance_km": base_distance_km,
-            "departure_takeoff": departure_takeoff,
-            "arrival_touchdown": None,
-        }
-
-    touchdown_ground_m = float(touchdown.get("ground_m") or 0.0)
-    touchdown_alt_m = float(touchdown.get("alt_m") or touchdown_ground_m)
-    waypoint = _build_route_waypoint(
-        name=f"{arrival_name} S26",
-        lat=float(touchdown["lat"]),
-        lon=float(touchdown["lon"]),
-        ground_m=touchdown_ground_m,
-        alt_m=touchdown_alt_m,
-        waypoint_type="arrival_touchdown",
-        spawn_point_id="S26",
-    )
 
     updated_waypoints = list(base_waypoints)
-    updated_waypoints.append(waypoint)
+    updated_waypoints.append(landing)
 
-    updated_points = list(base_points)
-    touchdown_point = (float(touchdown["lon"]), float(touchdown["lat"]))
-    if len(updated_points) >= 2:
-        updated_points = updated_points[:-2] + _build_quadratic_connector_points(
-            updated_points[-2],
-            updated_points[-1],
-            touchdown_point,
-        )
-    elif not updated_points or (
-        _haversine_m(
-            updated_points[-1][0],
-            updated_points[-1][1],
-            touchdown_point[0],
-            touchdown_point[1],
-        ) > 0.5
-    ):
-        updated_points.append(touchdown_point)
+    touchdown_point = (float(landing["lon"]), float(landing["lat"]))
+    updated_points = _replace_final_route_point_with_touchdown(
+        base_points,
+        touchdown_point,
+        include_turn_arcs=include_turn_arcs,
+    )
 
-    extra_distance_km = 0.0
-    if route_points:
-        extra_distance_km = _haversine_m(
-            route_points[-1][0],
-            route_points[-1][1],
-            float(touchdown["lon"]),
-            float(touchdown["lat"]),
-        ) / 1000.0
+    arrival_touchdown = {
+        "name": arrival_name,
+        "spawn_point_id": str(landing.get("spawn_point_id") or "FATO 1"),
+        "label": str(landing.get("name") or f"{arrival_name} FATO 1"),
+        "lat": float(landing["lat"]),
+        "lon": float(landing["lon"]),
+        "ground_m": float(landing.get("ground_m") or 0.0),
+        "alt_m": float(landing.get("alt_m") or landing.get("ground_m") or 0.0),
+        "landing_calibration_applied": bool(landing.get("landing_calibration_applied", False)),
+    }
+    landing_yaw = _to_float(landing.get("yaw_deg"))
+    if landing_yaw is not None:
+        arrival_touchdown["yaw_deg"] = float(landing_yaw) % 360.0
 
     return {
         "waypoints": updated_waypoints,
         "mission_waypoints": _build_route_mission_waypoints(updated_waypoints, route_alt_m),
         "points": _build_route_point_payload(updated_points, route_alt_m),
-        "distance_km": base_distance_km + extra_distance_km,
+        "distance_km": _polyline_distance_km(updated_points) or base_distance_km,
         "departure_takeoff": departure_takeoff,
-        "arrival_touchdown": {
-            "name": arrival_name,
-            "spawn_point_id": "S26",
-            "label": waypoint["name"],
-            "lat": float(touchdown["lat"]),
-            "lon": float(touchdown["lon"]),
-            "ground_m": touchdown_ground_m,
-            "alt_m": touchdown_alt_m,
-            "yaw_deg": float(touchdown.get("yaw_deg") or 0.0),
-        },
+        "arrival_touchdown": arrival_touchdown,
+        "include_turn_arcs": include_turn_arcs,
     }
 
 
@@ -573,6 +680,8 @@ def _route_payload_response(
     start: Any,
     end: Any,
     result: Any,
+    *,
+    include_turn_arcs: bool = False,
 ) -> Dict[str, Any]:
     rp = state.route_planner
     waypoints_with_alt: List[Dict[str, Any]] = []
@@ -610,6 +719,7 @@ def _route_payload_response(
         route_points=result.points,
         route_alt_m=route_alt_m,
         base_distance_km=result.distance_km,
+        include_turn_arcs=include_turn_arcs,
     )
     return {
         "path": result.path,
@@ -619,6 +729,7 @@ def _route_payload_response(
         "missionWaypoints": route_payload["mission_waypoints"],
         "departureTakeoff": route_payload["departure_takeoff"],
         "arrivalTouchdown": route_payload["arrival_touchdown"],
+        "includeTurnArcs": include_turn_arcs,
     }
 
 
