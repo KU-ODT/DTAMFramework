@@ -1,0 +1,234 @@
+{
+  "flightPlanNumber": 810001,
+  "planVersion": 1,
+  "planStatus": "active",
+  "aircraftId": "UAM0073",
+  "departure": {
+    "vertiport": "사당",
+    "std": "07:30:00",
+    "depGateNumber": "gate-4",
+    "eobt": "07:30:00",
+    "depFatoNumber": "fato-1",
+    "etot": "07:39:50"
+  },
+  "enRoute": [
+    {
+      "seq": 1,
+      "phase": "A",
+      "startLLA": {
+        "lat": 37.475767,
+        "lon": 126.982185,
+        "alt": 0.0
+      },
+      "endLLA": {
+        "lat": 37.475767,
+        "lon": 126.982185,
+        "alt": 0.0
+      },
+      "targetSpeed": 3.0
+    },
+    {
+      "seq": 2,
+      "phase": "B",
+      "startLLA": {
+        "lat": 37.475767,
+        "lon": 126.982185,
+        "alt": 0.0
+      },
+      "endLLA": {
+        "lat": 37.475767,
+        "lon": 126.982185,
+        "alt": 15.0
+      },
+      "targetSpeed": 10.0
+    },
+    {
+      "seq": 3,
+      "phase": "C",
+      "startLLA": {
+        "lat": 37.475767,
+        "lon": 126.982185,
+        "alt": 15.0
+      },
+      "endLLA": {
+        "lat": 37.480646,
+        "lon": 126.97001,
+        "alt": 100.0
+      },
+      "targetSpeed": 36.0
+    },
+    {
+      "seq": 4,
+      "phase": "E",
+      "startLLA": {
+        "lat": 37.480646,
+        "lon": 126.97001,
+        "alt": 100.0
+      },
+      "endLLA": {
+        "lat": 37.492877,
+        "lon": 126.93949,
+        "alt": 275.53
+      },
+      "targetSpeed": 51.4
+    },
+    {
+      "seq": 5,
+      "phase": "E",
+      "startLLA": {
+        "lat": 37.492877,
+        "lon": 126.93949,
+        "alt": 275.53
+      },
+      "endLLA": {
+        "lat": 37.495955,
+        "lon": 126.935259,
+        "alt": 305.0
+      },
+      "targetSpeed": 51.4
+    },
+    {
+      "seq": 6,
+      "phase": "F",
+      "startLLA": {
+        "lat": 37.495955,
+        "lon": 126.935259,
+        "alt": 305.0
+      },
+      "endLLA": {
+        "lat": 37.515965,
+        "lon": 126.907756,
+        "alt": 305.0
+      },
+      "targetSpeed": 51.4
+    },
+    {
+      "seq": 7,
+      "phase": "F",
+      "startLLA": {
+        "lat": 37.515965,
+        "lon": 126.907756,
+        "alt": 305.0
+      },
+      "endLLA": {
+        "lat": 37.542307,
+        "lon": 126.90249,
+        "alt": 305.0
+      },
+      "targetSpeed": 51.4
+    },
+    {
+      "seq": 8,
+      "phase": "F",
+      "startLLA": {
+        "lat": 37.542307,
+        "lon": 126.90249,
+        "alt": 305.0
+      },
+      "endLLA": {
+        "lat": 37.552574,
+        "lon": 126.891431,
+        "alt": 305.0
+      },
+      "targetSpeed": 51.4
+    },
+    {
+      "seq": 9,
+      "phase": "F",
+      "startLLA": {
+        "lat": 37.552574,
+        "lon": 126.891431,
+        "alt": 305.0
+      },
+      "endLLA": {
+        "lat": 37.583699,
+        "lon": 126.886697,
+        "alt": 305.0
+      },
+      "targetSpeed": 51.4
+    },
+    {
+      "seq": 10,
+      "phase": "G",
+      "startLLA": {
+        "lat": 37.583699,
+        "lon": 126.886697,
+        "alt": 305.0
+      },
+      "endLLA": {
+        "lat": 37.586283,
+        "lon": 126.886304,
+        "alt": 288.16
+      },
+      "targetSpeed": 36.0
+    },
+    {
+      "seq": 11,
+      "phase": "G",
+      "startLLA": {
+        "lat": 37.586283,
+        "lon": 126.886304,
+        "alt": 288.16
+      },
+      "endLLA": {
+        "lat": 37.60526,
+        "lon": 126.914121,
+        "alt": 100.0
+      },
+      "targetSpeed": 36.0
+    },
+    {
+      "seq": 12,
+      "phase": "I",
+      "startLLA": {
+        "lat": 37.60526,
+        "lon": 126.914121,
+        "alt": 100.0
+      },
+      "endLLA": {
+        "lat": 37.611145,
+        "lon": 126.922747,
+        "alt": 15.0
+      },
+      "targetSpeed": 30.0
+    },
+    {
+      "seq": 13,
+      "phase": "J",
+      "startLLA": {
+        "lat": 37.611145,
+        "lon": 126.922747,
+        "alt": 15.0
+      },
+      "endLLA": {
+        "lat": 37.611145,
+        "lon": 126.922747,
+        "alt": 0.0
+      },
+      "targetSpeed": 10.0
+    },
+    {
+      "seq": 14,
+      "phase": "K",
+      "startLLA": {
+        "lat": 37.611145,
+        "lon": 126.922747,
+        "alt": 0.0
+      },
+      "endLLA": {
+        "lat": 37.611145,
+        "lon": 126.922747,
+        "alt": 0.0
+      },
+      "targetSpeed": 3.0
+    }
+  ],
+  "arrival": {
+    "vertiport": "연신내",
+    "sta": "07:59:22",
+    "arrGateNumber": "gate-3",
+    "eibt": "07:59:22",
+    "arrFatoNumber": "fato-3",
+    "eldt": "07:52:02"
+  }
+}

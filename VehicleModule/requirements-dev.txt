@@ -1,0 +1,4 @@
+# VehicleModule development/test dependencies.
+-c ../constraints.txt
+-r requirements.txt
+pytest>=8,<9

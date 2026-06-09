@@ -1,0 +1,41 @@
+﻿{
+  "server": {
+    "bind_ip": "0.0.0.0"
+  },
+  "gui_host": "127.0.0.1",
+  "gui_port": 8095,
+  "db_root": "../DB",
+  "heartbeat_timeout_s": 3.5,
+  "modules": [
+    {
+      "role": "mission",
+      "display_name": "MissionModule",
+      "expected_source": "MissionModule"
+    },
+    {
+      "role": "monitoring",
+      "display_name": "OperationModule",
+      "expected_source": "OperationModule"
+    },
+    {
+      "role": "vehicle",
+      "display_name": "VehicleModule",
+      "expected_source": "VehicleModule"
+    },
+    {
+      "role": "visual",
+      "display_name": "VisualizationModule",
+      "expected_source": "VisualizationModule"
+    },
+    {
+      "role": "situation_awareness",
+      "display_name": "SituationAwareness",
+      "expected_source": "SituationAwareness"
+    },
+    {
+      "role": "sim_state",
+      "display_name": "StateServerModule",
+      "expected_source": "StateServerModule"
+    }
+  ]
+}

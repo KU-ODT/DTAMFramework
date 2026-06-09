@@ -1,0 +1,4 @@
+# TestStream plug-in runtime dependencies.
+-c ../../constraints.txt
+fastapi>=0.110,<1.0
+uvicorn>=0.29,<1.0

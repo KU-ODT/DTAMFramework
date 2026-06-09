@@ -1,0 +1,324 @@
+{
+  "diagram_type": "real_time_visualization_architecture",
+  "analysis_basis": "user_provided_image_only",
+  "interpretation_note": "직접 보이는 화살표는 observed_relations에, 배치와 명칭에 근거한 해석은 inferred_relations에 분리했다.",
+  "containers": [
+    {
+      "id": "overall_visualization_system",
+      "original_label": null,
+      "interpreted_label": "전체 시각화 시스템",
+      "confidence": "medium",
+      "children": [
+        "rendering_runtime",
+        "state_command_runtime",
+        "visualization_gateway"
+      ]
+    },
+    {
+      "id": "rendering_runtime",
+      "original_label": null,
+      "interpreted_label": "상단 렌더링 계층",
+      "confidence": "medium",
+      "children": [
+        "actor_spawn_update",
+        "vehicle_rendering",
+        "collision_event",
+        "visual_effect",
+        "camera_and_hud",
+        "env_rendering"
+      ]
+    },
+    {
+      "id": "state_command_runtime",
+      "original_label": null,
+      "interpreted_label": "하단 상태/명령 계층",
+      "confidence": "medium",
+      "children": [
+        "visual_command_generator",
+        "vehicle_pose_interpolation",
+        "visual_effect_command",
+        "vehicle_state_manager",
+        "camera_image_publisher"
+      ]
+    }
+  ],
+  "entities": [
+    {
+      "id": "model_asset_store",
+      "name": "3D Model",
+      "kind": "external_asset",
+      "role": "3D 자산 저장소"
+    },
+    {
+      "id": "visualization_gateway",
+      "name": "Visualization Gateway",
+      "kind": "interface",
+      "role": "상태 입력 및 영상 출력의 게이트웨이"
+    },
+    {
+      "id": "monitor",
+      "name": "Monitor",
+      "kind": "external_output",
+      "role": "최종 디스플레이 장치"
+    }
+  ],
+  "modules": [
+    {
+      "id": "actor_spawn_update",
+      "name": "Actor Spawn/Update",
+      "layer": "rendering_runtime",
+      "role": "3D 모델을 참조해 장면 객체를 생성하거나 갱신"
+    },
+    {
+      "id": "vehicle_rendering",
+      "name": "Vehicle Rendering",
+      "layer": "rendering_runtime",
+      "role": "차량 객체를 실제 화면용으로 렌더링"
+    },
+    {
+      "id": "collision_event",
+      "name": "Collision Event",
+      "layer": "rendering_runtime",
+      "role": "충돌 관련 이벤트를 감지하거나 집계하는 노드로 해석됨"
+    },
+    {
+      "id": "visual_effect",
+      "name": "Visual Effect",
+      "layer": "rendering_runtime",
+      "role": "시각 효과 또는 화면 오버레이 효과"
+    },
+    {
+      "id": "camera_and_hud",
+      "name": "Camera & HUD",
+      "layer": "rendering_runtime",
+      "role": "차량/환경/효과를 합성해 최종 카메라 화면과 HUD를 생성"
+    },
+    {
+      "id": "env_rendering",
+      "name": "Env Rendering",
+      "layer": "rendering_runtime",
+      "role": "배경, 지형, 구조물 등 환경 요소를 렌더링"
+    },
+    {
+      "id": "visual_command_generator",
+      "name": "Visual Command Generator",
+      "layer": "state_command_runtime",
+      "role": "상태 기반으로 시각화 명령을 생성하는 허브로 해석됨"
+    },
+    {
+      "id": "vehicle_pose_interpolation",
+      "name": "Vehicle Pose Interpolation",
+      "layer": "state_command_runtime",
+      "role": "불연속 차량 자세/위치 업데이트를 부드럽게 보간"
+    },
+    {
+      "id": "visual_effect_command",
+      "name": "Visual Effect Command",
+      "layer": "state_command_runtime",
+      "role": "시각 효과 명령 또는 트리거를 생성/관리하는 보조 모듈로 해석됨"
+    },
+    {
+      "id": "vehicle_state_manager",
+      "name": "Vehicle State Manager",
+      "layer": "state_command_runtime",
+      "role": "차량 상태의 저장 및 관리 중심점"
+    },
+    {
+      "id": "camera_image_publisher",
+      "name": "Camera Image Publisher",
+      "layer": "state_command_runtime",
+      "role": "생성된 카메라 영상을 외부로 퍼블리시"
+    }
+  ],
+  "observed_relations": [
+    {
+      "from": "model_asset_store",
+      "to": "actor_spawn_update",
+      "direction": "bidirectional",
+      "type": "asset_reference_or_sync",
+      "confidence": "high"
+    },
+    {
+      "from": "state_command_runtime",
+      "to": "actor_spawn_update",
+      "direction": "one_way",
+      "type": "control_or_state_feed",
+      "confidence": "medium"
+    },
+    {
+      "from": "actor_spawn_update",
+      "to": "vehicle_rendering",
+      "direction": "one_way",
+      "type": "scene_object_feed",
+      "confidence": "high"
+    },
+    {
+      "from": "state_command_runtime",
+      "to": "vehicle_rendering",
+      "direction": "one_way",
+      "type": "control_or_state_feed",
+      "confidence": "medium"
+    },
+    {
+      "from": "vehicle_rendering",
+      "to": "collision_event",
+      "direction": "one_way",
+      "type": "collision_related_event_input",
+      "confidence": "high"
+    },
+    {
+      "from": "vehicle_rendering",
+      "to": "camera_and_hud",
+      "direction": "one_way",
+      "type": "render_feed",
+      "confidence": "high"
+    },
+    {
+      "from": "visual_effect",
+      "to": "camera_and_hud",
+      "direction": "one_way",
+      "type": "effect_overlay_feed",
+      "confidence": "high"
+    },
+    {
+      "from": "env_rendering",
+      "to": "camera_and_hud",
+      "direction": "one_way",
+      "type": "render_feed",
+      "confidence": "high"
+    },
+    {
+      "from": "env_rendering",
+      "to": "collision_event",
+      "direction": "one_way",
+      "type": "collision_related_context_feed",
+      "confidence": "high"
+    },
+    {
+      "from": "visualization_gateway",
+      "to": "vehicle_state_manager",
+      "direction": "one_way",
+      "type": "state_ingress",
+      "confidence": "high"
+    },
+    {
+      "from": "camera_and_hud",
+      "to": "camera_image_publisher",
+      "direction": "one_way",
+      "type": "image_feed",
+      "confidence": "high"
+    },
+    {
+      "from": "camera_image_publisher",
+      "to": "visualization_gateway",
+      "direction": "one_way",
+      "type": "image_publish",
+      "confidence": "high"
+    },
+    {
+      "from": "camera_and_hud",
+      "to": "monitor",
+      "direction": "one_way",
+      "type": "display_output",
+      "confidence": "high"
+    }
+  ],
+  "inferred_relations": [
+    {
+      "from": "vehicle_state_manager",
+      "to": "visual_command_generator",
+      "type": "state_source",
+      "confidence": "medium",
+      "reason": "하단 계층의 배치상 상태 관리 결과를 최종 시각 명령 생성기가 사용할 가능성이 높음"
+    },
+    {
+      "from": "vehicle_state_manager",
+      "to": "vehicle_pose_interpolation",
+      "type": "pose_source",
+      "confidence": "medium",
+      "reason": "차량 자세 보간은 상태 값을 입력으로 삼는 것이 자연스러움"
+    },
+    {
+      "from": "vehicle_pose_interpolation",
+      "to": "visual_command_generator",
+      "type": "smoothed_pose_feed",
+      "confidence": "medium",
+      "reason": "보간된 자세 값이 최종 시각 명령 생성에 반영되는 구조로 해석 가능"
+    },
+    {
+      "from": "vehicle_state_manager",
+      "to": "visual_effect_command",
+      "type": "state_or_event_source",
+      "confidence": "low",
+      "reason": "이펙트 명령도 상태 변화나 이벤트를 바탕으로 생성될 가능성이 높음"
+    },
+    {
+      "from": "visual_effect_command",
+      "to": "visual_effect",
+      "type": "effect_trigger",
+      "confidence": "low",
+      "reason": "명칭상 자연스럽지만 도면에 직접 연결선은 없음"
+    },
+    {
+      "from": "visual_command_generator",
+      "to": "actor_spawn_update",
+      "type": "spawn_update_command",
+      "confidence": "medium",
+      "reason": "하단 상태/명령 계층에서 Actor Spawn/Update로 올라가는 선이 존재"
+    },
+    {
+      "from": "visual_command_generator",
+      "to": "vehicle_rendering",
+      "type": "render_command_or_update",
+      "confidence": "medium",
+      "reason": "하단 상태/명령 계층에서 Vehicle Rendering으로 올라가는 선이 존재"
+    }
+  ],
+  "main_paths": [
+    {
+      "name": "상태 기반 시각화 경로",
+      "path": [
+        "visualization_gateway",
+        "vehicle_state_manager",
+        "visual_command_generator",
+        "actor_spawn_update",
+        "vehicle_rendering",
+        "camera_and_hud",
+        "monitor"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "name": "영상 퍼블리시 경로",
+      "path": [
+        "camera_and_hud",
+        "camera_image_publisher",
+        "visualization_gateway"
+      ],
+      "confidence": "high"
+    },
+    {
+      "name": "충돌 이벤트 경로",
+      "path": [
+        "vehicle_rendering",
+        "collision_event"
+      ],
+      "confidence": "high"
+    },
+    {
+      "name": "환경 기반 충돌 보조 경로",
+      "path": [
+        "env_rendering",
+        "collision_event"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "ambiguities_and_gaps": [
+    "Collision Event와 Visual Effect 사이의 직접 관계가 그려져 있지 않다.",
+    "Visual Effect Command가 실제 어느 모듈로 전달되는지 선으로 명시되지 않는다.",
+    "가장 바깥 박스, 상단 박스, 하단 박스의 이름이 없다.",
+    "좌측에서 들어오는 일부 입력선의 출발 모듈명이 잘려 있거나 미표기 상태다.",
+    "3D Model과 Actor Spawn/Update 사이가 양방향으로 표현되지만, 실제 의미가 자산 조회인지 메타데이터 동기화인지는 명확하지 않다."
+  ]
+}

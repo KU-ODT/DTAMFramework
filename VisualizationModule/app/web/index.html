@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DTAM Visualization Manager</title>
+  <link rel="stylesheet" href="/css/main.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-logo">VM</div>
+      <div class="brand-text">
+        <div class="brand-title">DTAM Visualization Manager</div>
+        <div class="brand-sub" id="brand-subtitle">standby</div>
+      </div>
+    </div>
+    <div class="topbar-stats">
+      <div class="stat">
+        <div class="stat-label">AirSim</div>
+        <div class="stat-value" id="stat-airsim">--</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">DTAM RX</div>
+        <div class="stat-value" id="stat-dtam-rx">--</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">DTAM TX</div>
+        <div class="stat-value" id="stat-dtam-tx">--</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Uptime</div>
+        <div class="stat-value" id="stat-uptime">--</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel panel-dtam">
+      <div class="panel-header">
+        <h2>DTAM WebSocket ICD</h2>
+        <span class="tag" id="dtam-running-tag">offline</span>
+      </div>
+
+      <div class="card">
+        <div class="card-title">SimulationState Endpoint</div>
+          <div class="form-grid">
+            <label>Server IP<input id="dtam-server-ip" type="text" value="127.0.0.1" /></label>
+            <label>WS/HTTP port<input id="dtam-server-port" type="number" min="1" max="65535" /></label>
+          </div>
+        <div class="card-actions">
+          <button class="btn btn-primary" id="btn-dtam-apply">Apply</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Inbound to Visualization</div>
+        <table class="msg-table" id="tbl-inbound">
+          <thead><tr><th>MID</th><th>Name</th><th>RX</th><th>Hz</th><th>Last</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Outbound from Visualization</div>
+        <div class="form-grid">
+          <label>0002 Hz<input id="status-hz" type="number" min="0.1" step="0.1" /></label>
+          <label class="toggle"><input type="checkbox" id="camera-enabled" />4101 camera stream</label>
+          <label>Camera name<input id="camera-name" type="text" /></label>
+          <label>Image type<input id="camera-image-type" type="number" min="0" /></label>
+          <label>Camera Hz<input id="camera-hz" type="number" min="0.1" max="2" step="0.1" /></label>
+          <label>Quality<input id="camera-quality" type="number" min="1" max="100" /></label>
+          <label>Camera vehicle<input id="camera-vehicle" type="text" placeholder="default" /></label>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-primary" id="btn-streaming-apply">Apply</button>
+          <button class="btn btn-ghost" id="btn-capture-once">Capture 1 frame</button>
+        </div>
+        <table class="msg-table" id="tbl-outbound">
+          <thead><tr><th>MID</th><th>Name</th><th>TX</th><th>Last</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel panel-airsim">
+      <div class="panel-header">
+        <h2>AirSim / Unreal</h2>
+        <span class="tag" id="airsim-conn-tag">disconnected</span>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Unreal Runtime</div>
+        <div class="card-actions">
+          <button class="btn btn-primary" id="btn-unreal-launch">Launch Unreal</button>
+        </div>
+        <dl class="kv">
+          <dt>Status</dt><dd id="unreal-status">-</dd>
+          <dt>PID</dt><dd id="unreal-pid">-</dd>
+          <dt>Executable</dt><dd id="unreal-exe">-</dd>
+        </dl>
+      </div>
+
+      <div class="card">
+        <div class="card-title">AirSim RPC</div>
+        <div class="form-grid">
+          <label>Host<input id="airsim-host" type="text" value="127.0.0.1" /></label>
+          <label>Port<input id="airsim-port" type="number" value="41451" /></label>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-primary" id="btn-airsim-connect">Connect</button>
+          <button class="btn btn-ghost" id="btn-airsim-disconnect">Disconnect</button>
+        </div>
+        <dl class="kv">
+          <dt>Ping</dt><dd id="airsim-ping">--</dd>
+          <dt>Server Ver</dt><dd id="airsim-server-ver">--</dd>
+          <dt>Client Ver</dt><dd id="airsim-client-ver">--</dd>
+          <dt>Last error</dt><dd id="airsim-last-error" class="err">--</dd>
+        </dl>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Vehicle mapping</div>
+        <table class="msg-table" id="tbl-vehicle-map">
+          <thead><tr><th>UAM ID</th><th>AirSim name</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="form-inline">
+          <input id="map-uam" placeholder="UAM0001" />
+          <input id="map-name" placeholder="Drone1" />
+          <button class="btn btn-primary btn-sm" id="btn-map-add">Add / Update</button>
+        </div>
+      </div>
+
+    </section>
+
+    <section class="panel panel-events">
+      <div class="panel-header">
+        <h2>Translation / Event Log</h2>
+        <div class="filters">
+          <label class="filter-chip"><input type="checkbox" id="filter-rx" checked />RX</label>
+          <label class="filter-chip"><input type="checkbox" id="filter-tx" checked />TX</label>
+          <label class="filter-chip"><input type="checkbox" id="filter-translate" checked />TRANSLATE</label>
+          <label class="filter-chip"><input type="checkbox" id="filter-airsim" checked />AIRSIM</label>
+          <label class="filter-chip"><input type="checkbox" id="filter-error" checked />ERROR</label>
+          <button class="btn btn-ghost btn-sm" id="btn-clear-events">Clear</button>
+        </div>
+      </div>
+      <div class="event-feed" id="event-feed"></div>
+    </section>
+  </main>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

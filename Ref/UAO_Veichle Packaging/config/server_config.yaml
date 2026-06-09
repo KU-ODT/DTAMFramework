@@ -1,0 +1,26 @@
+# Server Configuration
+# Mission Dispatch System 서버 설정
+
+server:
+  host: "0.0.0.0"
+  port: 8000
+
+# File Watcher 설정
+file_watcher:
+  inbox_path: "./inbox"
+  poll_interval_sec: 2
+  enabled: true
+
+mission_scheduler:
+  enabled: true
+  timezone: "Asia/Seoul"
+  time_field: "departure.std"
+  arming_lead_sec: 5
+
+# 출력 디렉토리
+output:
+  script_dir: "./output"
+
+# 로깅
+logging:
+  level: "INFO"

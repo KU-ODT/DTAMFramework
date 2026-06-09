@@ -1,0 +1,26 @@
+# Server Configuration
+# VFDS Dynamics Dispatch System
+
+server:
+  host: "0.0.0.0"
+  port: 8098
+
+# File watcher settings
+file_watcher:
+  inbox_path: "./inbox"
+  poll_interval_sec: 2
+  enabled: true
+
+mission_scheduler:
+  enabled: true
+  timezone: "Asia/Seoul"
+  time_field: "departure.std"
+  arming_lead_sec: 5
+
+# Output directory
+output:
+  script_dir: "./output"
+
+# Logging
+logging:
+  level: "INFO"

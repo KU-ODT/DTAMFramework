@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dtam-sdk"
+version = "0.0.1"
+description = "DTAM SDK for WebSocket-based ICD message exchange between modules"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "DTAM SDK Team" }]
+dependencies = ["websocket-client>=1.8,<2"]
+
+[tool.setuptools.packages.find]
+include = ["dtam_client*"]
+
+[tool.setuptools.package-data]
+dtam_client = [
+  "NEW_MESSAGE_PROMPT.md",
+  "icd/KOR/*.md",
+  "icd/ENG/*.md",
+]

@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PSU Monitoring SW</title>
+    <script>
+      (() => {
+        try {
+          const savedTheme = localStorage.getItem("psu-theme");
+          document.documentElement.dataset.theme = savedTheme === "light" ? "light" : "dark";
+        } catch (_) {
+          document.documentElement.dataset.theme = "dark";
+        }
+      })();
+    </script>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/static/vendor/maplibre-gl.css" />
+    <link rel="stylesheet" href="/static/css/styles.css" />
+  </head>
+  <body>
+    <main class="psu-shell">
+      <header class="topbar">
+        <div>
+          <h1>PSU Console</h1>
+        </div>
+        <div class="topbar__actions">
+          <button class="theme-toggle" type="button" data-theme-toggle aria-label="밝은 테마로 전환" title="밝은 테마로 전환">
+            <span class="theme-toggle__icon theme-toggle__icon--sun" aria-hidden="true">☀</span>
+            <span class="theme-toggle__icon theme-toggle__icon--moon" aria-hidden="true">☾</span>
+          </button>
+          <div class="connection-indicator is-checking" data-health-status aria-label="DTAM 서버 연결 상태 확인 중" title="DTAM 서버 연결 상태 확인 중"></div>
+        </div>
+      </header>
+
+      <nav class="tabs" aria-label="PSU 화면 탭">
+        <button class="tab is-active" type="button" data-tab="overview" aria-selected="true">Overview</button>
+        <button class="tab" type="button" data-tab="traffic-map" aria-selected="false">Traffic Map / Conflict</button>
+        <button class="tab" type="button" data-tab="flow-capacity" aria-selected="false">Flow & Capacity</button>
+        <button class="tab" type="button" data-tab="decision-support" aria-selected="false">Decision Support</button>
+        <button class="tab" type="button" data-tab="replay-report" aria-selected="false">Replay / Report</button>
+      </nav>
+
+      <section class="grid">
+        <article class="panel panel--wide is-active-panel" data-panel="overview">
+          <div class="panel__header">
+            <h3>PSU 통합 상황판</h3>
+          </div>
+          <div class="overview-strip" data-overview-strip>
+            <div>
+              <span>Scenario</span>
+              <strong data-scenario-name>--</strong>
+            </div>
+            <div>
+              <span>Simulation Time</span>
+              <strong data-scenario-time>--</strong>
+            </div>
+            <div>
+              <span>Top Priority</span>
+              <strong data-top-priority>--</strong>
+            </div>
+          </div>
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <span>Active UAM</span>
+              <strong data-kpi="active_uam">--</strong>
+              <small>현재 ACTIVE 트랙 기준</small>
+            </div>
+            <div class="kpi-card">
+              <span>Pending Intent</span>
+              <strong data-kpi="pending_intent">--</strong>
+              <small>검토 대기 운항 의도</small>
+            </div>
+            <div class="kpi-card">
+              <span>Conflict Alert</span>
+              <strong data-kpi="conflict_alert">--</strong>
+              <small>Warning/Caution 이벤트</small>
+            </div>
+            <div class="kpi-card">
+              <span>Capacity Alert</span>
+              <strong data-kpi="capacity_alert">--</strong>
+              <small>수용량 초과/주의 지표</small>
+            </div>
+            <div class="kpi-card">
+              <span>Avg Delay</span>
+              <strong data-kpi="average_delay">--</strong>
+              <small>버티포트 평균 지연</small>
+            </div>
+            <div class="kpi-card">
+              <span>Data Link</span>
+              <strong data-kpi="data_link_health">--</strong>
+              <small>시뮬레이션 데이터셋</small>
+            </div>
+            <div class="kpi-card">
+              <span>Max Delay</span>
+              <strong data-kpi="max_delay">--</strong>
+              <small>최대 버티포트 지연</small>
+            </div>
+            <div class="kpi-card">
+              <span>Off-nominal</span>
+              <strong data-kpi="off_nominal_event">--</strong>
+              <small>주의/위험 운영 이벤트</small>
+            </div>
+          </div>
+          <div class="overview-lists">
+            <section>
+              <div class="section-heading">
+                <h4>Priority Event List</h4>
+                <span data-event-count>--</span>
+              </div>
+              <ol class="event-list" data-priority-events>
+                <li>시나리오 이벤트 로딩 중...</li>
+              </ol>
+            </section>
+            <section>
+              <div class="section-heading">
+                <h4>Vertiport Status Summary</h4>
+                <span data-vertiport-count>--</span>
+              </div>
+              <ul class="vertiport-list" data-vertiport-summary>
+                <li>버티포트 상태 로딩 중...</li>
+              </ul>
+            </section>
+          </div>
+          <div class="overview-analytics">
+            <section>
+              <div class="section-heading">
+                <h4>Traffic Trend</h4>
+                <span>Active / Delay / Conflict</span>
+              </div>
+              <div class="trend-chart" data-traffic-trend>
+                <p>교통 추세 로딩 중...</p>
+              </div>
+            </section>
+            <section>
+              <div class="section-heading">
+                <h4>Operational Snapshot</h4>
+                <span>Health & Hotspots</span>
+              </div>
+              <div class="snapshot-grid" data-operational-snapshot>
+                <p>운영 스냅샷 로딩 중...</p>
+              </div>
+            </section>
+          </div>
+        </article>
+
+        <article class="panel" data-panel="traffic-map" hidden>
+          <div class="panel__header">
+            <h3>Strategic Conflict Map</h3>
+          </div>
+          <div class="map-stage">
+            <div id="psu-map" class="psu-map" aria-label="PSU traffic situation map"></div>
+            <div class="map-status" data-map-status>
+              MissionModule 지도 자산 로딩 중...
+            </div>
+          </div>
+          <div class="mini-map-summary" data-mini-map-summary>
+            지도 객체 요약 로딩 중...
+          </div>
+          <div class="traffic-workspace">
+            <section class="traffic-card">
+              <div class="section-heading">
+                <h4>Flight Filter</h4>
+                <span data-traffic-count>--</span>
+              </div>
+              <div class="filter-row" role="group" aria-label="Traffic severity filter">
+                <button type="button" class="chip is-active" data-traffic-filter="ALL">All</button>
+                <button type="button" class="chip" data-traffic-filter="WARNING">Warning</button>
+                <button type="button" class="chip" data-traffic-filter="CAUTION">Caution</button>
+                <button type="button" class="chip" data-traffic-filter="ACTIVE">Active</button>
+              </div>
+              <div class="flight-list" data-flight-list>
+                <p>운항 목록 로딩 중...</p>
+              </div>
+            </section>
+            <section class="traffic-card">
+              <div class="section-heading">
+                <h4>Conflict Timeline</h4>
+                <span data-conflict-count>--</span>
+              </div>
+              <div class="conflict-timeline" data-conflict-timeline>
+                <p>충돌 타임라인 로딩 중...</p>
+              </div>
+            </section>
+            <section class="traffic-card traffic-card--wide">
+              <div class="section-heading">
+                <h4>Conflict Detail Panel</h4>
+                <span data-conflict-selected>--</span>
+              </div>
+              <div class="conflict-detail" data-conflict-detail>
+                <p>충돌 이벤트를 선택하면 상세 분석이 표시됩니다.</p>
+              </div>
+              <div class="suggested-actions" data-suggested-actions></div>
+            </section>
+          </div>
+        </article>
+
+        <article class="panel panel--flow" data-panel="flow-capacity" hidden>
+          <div class="panel__header">
+            <h3>Demand-Capacity & Bottleneck Analysis</h3>
+          </div>
+          <div class="flow-summary-strip">
+            <div>
+              <span>Network D/C</span>
+              <strong data-flow-summary="network_utilization">--</strong>
+            </div>
+            <div>
+              <span>Warning</span>
+              <strong data-flow-summary="warning_count">--</strong>
+            </div>
+            <div>
+              <span>Main Bottleneck</span>
+              <strong data-flow-summary="main_bottleneck">--</strong>
+            </div>
+            <div>
+              <span>Delay Chain</span>
+              <strong data-flow-summary="delay_event_count">--</strong>
+            </div>
+          </div>
+          <div class="flow-workspace">
+            <section class="flow-card flow-card--condition">
+              <div class="section-heading">
+                <h4>Analysis Condition</h4>
+                <span data-flow-generated>--</span>
+              </div>
+              <div class="condition-grid" data-flow-condition>
+                <p>분석 조건 로딩 중...</p>
+              </div>
+            </section>
+            <section class="flow-card flow-card--wide">
+              <div class="section-heading">
+                <h4>Demand-Capacity Balance Chart</h4>
+                <span data-dcb-count>--</span>
+              </div>
+              <div class="dcb-chart" data-dcb-chart>
+                <p>수요-수용량 차트 로딩 중...</p>
+              </div>
+            </section>
+            <section class="flow-card">
+              <div class="section-heading">
+                <h4>Corridor Density Heatmap</h4>
+                <span data-corridor-density-count>--</span>
+              </div>
+              <div class="capacity-list" data-corridor-density>
+                <p>회랑 밀도 로딩 중...</p>
+              </div>
+            </section>
+            <section class="flow-card">
+              <div class="section-heading">
+                <h4>Vertiport Throughput Panel</h4>
+                <span data-vertiport-throughput-count>--</span>
+              </div>
+              <div class="capacity-list" data-vertiport-throughput>
+                <p>버티포트 처리량 로딩 중...</p>
+              </div>
+            </section>
+            <section class="flow-card">
+              <div class="section-heading">
+                <h4>Delay Propagation Timeline</h4>
+                <span data-delay-count>--</span>
+              </div>
+              <div class="delay-timeline" data-delay-propagation>
+                <p>지연 전파 로딩 중...</p>
+              </div>
+            </section>
+            <section class="flow-card">
+              <div class="section-heading">
+                <h4>Bottleneck Diagnosis</h4>
+                <span data-bottleneck-status>--</span>
+              </div>
+              <div class="bottleneck-panel" data-bottleneck-diagnosis>
+                <p>병목 진단 로딩 중...</p>
+              </div>
+            </section>
+            <section class="flow-card flow-card--wide">
+              <div class="section-heading">
+                <h4>Selected Capacity Detail</h4>
+                <span data-capacity-selected>--</span>
+              </div>
+              <div class="capacity-detail" data-capacity-detail>
+                <p>회랑 또는 버티포트를 선택하면 상세 분석이 표시됩니다.</p>
+              </div>
+            </section>
+          </div>
+        </article>
+
+        <article class="panel panel--decision" data-panel="decision-support" hidden>
+          <div class="panel__header">
+            <h3>Suggested Action & Mitigation Evaluation</h3>
+          </div>
+          <div class="decision-summary-strip">
+            <div>
+              <span>Candidate Actions</span>
+              <strong data-decision-summary="candidate_count">--</strong>
+            </div>
+            <div>
+              <span>Baseline Conflict</span>
+              <strong data-decision-summary="baseline_conflict">--</strong>
+            </div>
+            <div>
+              <span>Recommended After</span>
+              <strong data-decision-summary="recommended_conflict">--</strong>
+            </div>
+            <div>
+              <span>Operation Preview</span>
+              <strong data-decision-summary="handoff_status">--</strong>
+            </div>
+          </div>
+          <div class="decision-workspace">
+            <section class="decision-card">
+              <div class="section-heading">
+                <h4>Action Candidate List</h4>
+                <span data-recommendation-count>--</span>
+              </div>
+              <div class="recommendation-list" data-recommendation-list>
+                <p>조치 후보 로딩 중...</p>
+              </div>
+            </section>
+            <section class="decision-card decision-card--wide">
+              <div class="section-heading">
+                <h4>Before / After Comparison</h4>
+                <span data-comparison-count>--</span>
+              </div>
+              <div class="comparison-chart" data-effect-comparison>
+                <p>완화 시나리오 비교 로딩 중...</p>
+              </div>
+            </section>
+            <section class="decision-card">
+              <div class="section-heading">
+                <h4>Selected Action Detail</h4>
+                <span data-recommendation-selected>--</span>
+              </div>
+              <div class="recommendation-detail" data-recommendation-detail>
+                <p>조치 후보를 선택하면 예상 효과와 실행 단계가 표시됩니다.</p>
+              </div>
+            </section>
+            <section class="decision-card">
+              <div class="section-heading">
+                <h4>OperationModule Preview</h4>
+                <span data-operation-handoff-status>--</span>
+              </div>
+              <div class="operation-handoff" data-operation-handoff>
+                <p>운항 재계획 preview 패키지 로딩 중...</p>
+              </div>
+            </section>
+            <section class="decision-card decision-card--wide">
+              <div class="section-heading">
+                <h4>Scenario Result Report Preview</h4>
+                <span data-report-id>--</span>
+              </div>
+              <div class="report-preview" data-report-preview>
+                <p>리포트 preview 로딩 중...</p>
+              </div>
+            </section>
+          </div>
+        </article>
+
+        <article class="panel panel--replay" data-panel="replay-report" hidden>
+          <div class="panel__header">
+            <h3>Scenario Replay & Final Output</h3>
+          </div>
+          <div class="replay-summary-strip">
+            <div>
+              <span>Replay Frames</span>
+              <strong data-replay-summary="frame_count">--</strong>
+            </div>
+            <div>
+              <span>Decision Candidates</span>
+              <strong data-replay-summary="candidate_count">--</strong>
+            </div>
+            <div>
+              <span>Report</span>
+              <strong data-replay-summary="report_id">--</strong>
+            </div>
+            <div>
+              <span>Final Validation</span>
+              <strong data-replay-summary="validation">--</strong>
+            </div>
+          </div>
+          <div class="replay-controls" aria-label="Scenario replay controls">
+            <button type="button" class="chip" data-replay-control="prev">Prev</button>
+            <button type="button" class="chip is-active" data-replay-control="play">Play</button>
+            <button type="button" class="chip" data-replay-control="pause">Pause</button>
+            <button type="button" class="chip" data-replay-control="next">Next</button>
+            <button type="button" class="chip" data-replay-control="reset">Reset</button>
+            <label class="speed-select">
+              <span>Speed</span>
+              <select data-replay-speed>
+                <option value="1600">1x</option>
+                <option value="2400">0.5x</option>
+                <option value="800">2x</option>
+              </select>
+            </label>
+            <div class="replay-progress" aria-label="Replay progress">
+              <span data-replay-progress style="width:0%"></span>
+            </div>
+          </div>
+          <div class="replay-workspace">
+            <section class="replay-card">
+              <div class="section-heading">
+                <h4>Replay Timeline</h4>
+                <span data-replay-count>--</span>
+              </div>
+              <div class="replay-timeline" data-replay-timeline>
+                <p>리플레이 타임라인 로딩 중...</p>
+              </div>
+            </section>
+            <section class="replay-card replay-card--wide">
+              <div class="section-heading">
+                <h4>Current Replay Frame</h4>
+                <span data-replay-selected>--</span>
+              </div>
+              <div class="replay-detail" data-replay-detail>
+                <p>리플레이 프레임을 선택하거나 Play를 누르면 상세 설명이 표시됩니다.</p>
+              </div>
+            </section>
+            <section class="replay-card">
+              <div class="section-heading">
+                <h4>Report Export</h4>
+                <span data-report-export-status>--</span>
+              </div>
+              <div class="report-export" data-report-export>
+                <p>리포트 export 링크 로딩 중...</p>
+              </div>
+            </section>
+            <section class="replay-card replay-card--wide">
+              <div class="section-heading">
+                <h4>Final Integration Validation</h4>
+                <span data-validation-count>--</span>
+              </div>
+              <div class="validation-board" data-validation-board>
+                <p>최종 검증 결과 로딩 중...</p>
+              </div>
+            </section>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <script src="/static/vendor/maplibre-gl.js"></script>
+    <script type="module" src="/static/js/app.js"></script>
+  </body>
+</html>

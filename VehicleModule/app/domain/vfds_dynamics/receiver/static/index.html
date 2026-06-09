@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mission Dispatch Dashboard VFDS</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-color: #0a0e1a;
+      --panel-bg: rgba(17, 24, 45, 0.85);
+      --panel-border: rgba(59, 130, 246, 0.15);
+      --text-color: #e2e8f0;
+      --text-muted: #64748b;
+      --accent: #3b82f6;
+      --accent-glow: rgba(59, 130, 246, 0.3);
+      --success: #10b981;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --border: #1e293b;
+      --mono: 'JetBrains Mono', monospace;
+    }
+    
+    * { box-sizing: border-box; }
+    
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg-color);
+      background-image: 
+        radial-gradient(ellipse at 20% 50%, rgba(59,130,246,0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, rgba(16,185,129,0.04) 0%, transparent 50%);
+      color: var(--text-color);
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      grid-template-rows: 100vh;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      height: 100vh;
+    }
+
+    .panel {
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .left-col {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      overflow-y: auto;
+    }
+    .left-col::-webkit-scrollbar { width: 4px; }
+    .left-col::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    textarea {
+      width: 100%;
+      height: 120px;
+      background: rgba(0,0,0,0.4);
+      color: var(--success);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.5rem;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      resize: vertical;
+      margin-bottom: 0.5rem;
+      transition: border-color 0.2s;
+    }
+    textarea:focus { border-color: var(--accent); outline: none; }
+
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 1.2rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      margin-bottom: 0.75rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--accent);
+      background: rgba(59, 130, 246, 0.08);
+      color: white;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    button {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: white;
+      border: none;
+      padding: 0.6rem 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.85rem;
+      width: 100%;
+      transition: all 0.2s;
+      letter-spacing: 0.02em;
+    }
+    button:hover {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      box-shadow: 0 4px 15px var(--accent-glow);
+      transform: translateY(-1px);
+    }
+
+    .time-panel {
+      gap: 0.55rem;
+    }
+
+    .time-current {
+      background: rgba(0,0,0,0.32);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.65rem 0.75rem;
+    }
+
+    .time-current-label {
+      font-size: 0.62rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.25rem;
+    }
+
+    .time-current-value {
+      font-family: var(--mono);
+      font-size: 1.45rem;
+      font-weight: 700;
+      color: #f8fafc;
+      line-height: 1.1;
+    }
+
+    .time-hint {
+      color: var(--text-muted);
+      font-size: 0.68rem;
+      line-height: 1.35;
+    }
+
+    .diag-panel {
+      gap: 0.55rem;
+    }
+
+    .diag-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.5rem;
+    }
+
+    .diag-card {
+      background: rgba(0,0,0,0.32);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.65rem 0.75rem;
+    }
+
+    .diag-label {
+      font-size: 0.62rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.2rem;
+    }
+
+    .diag-value {
+      font-family: var(--mono);
+      color: #f8fafc;
+      font-size: 0.86rem;
+      font-weight: 700;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+
+    .diag-sub {
+      margin-top: 0.22rem;
+      color: var(--text-muted);
+      font-size: 0.68rem;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+
+    .diag-code {
+      margin-top: 0.3rem;
+      max-height: 3.7rem;
+      overflow: hidden;
+      color: #93c5fd;
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      line-height: 1.25;
+      word-break: break-all;
+    }
+
+    .time-input-row,
+    .time-button-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.4rem;
+      align-items: center;
+    }
+
+    .time-button-row {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    .time-control-row {
+      display: grid;
+      grid-template-columns: 1fr 0.8fr 1fr;
+      gap: 0.4rem;
+      align-items: center;
+    }
+
+    .time-input,
+    .time-select {
+      width: 100%;
+      background: rgba(0,0,0,0.45);
+      color: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.55rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+    }
+    .time-input:focus,
+    .time-select:focus {
+      border-color: var(--accent);
+      outline: none;
+    }
+
+    .mini-btn {
+      width: auto;
+      padding: 0.45rem 0.55rem;
+      font-size: 0.72rem;
+      border-radius: 7px;
+      white-space: nowrap;
+    }
+
+    .mini-btn.secondary {
+      background: rgba(30, 41, 59, 0.95);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+    }
+
+    .mini-btn.warning {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+    }
+
+    .mini-btn.stop {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+    }
+
+    ul { list-style: none; padding: 0; margin: 0; }
+
+    li {
+      padding: 0.6rem 0.75rem;
+      border: 1px solid var(--border);
+      margin-bottom: 0.4rem;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: border-color 0.2s;
+    }
+    li:hover { border-color: var(--accent); }
+
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge.WAITING, .badge.QUEUED { background: #334155; color: #94a3b8; }
+    .badge.COMPILING, .badge.UPLOADING { background: rgba(245,158,11,0.2); color: var(--warning); border: 1px solid rgba(245,158,11,0.3); }
+    .badge.EXECUTING { background: rgba(59,130,246,0.2); color: var(--accent); border: 1px solid rgba(59,130,246,0.3); }
+    .badge.COMPLETED { background: rgba(16,185,129,0.2); color: var(--success); border: 1px solid rgba(16,185,129,0.3); }
+    .badge.FAILED { background: rgba(239,68,68,0.2); color: var(--error); border: 1px solid rgba(239,68,68,0.3); }
+
+    /* 비행 모드 뱃지 */
+    .badge.MC    { background: rgba(59,130,246,0.2);  color: #60a5fa; border: 1px solid rgba(59,130,246,0.4); }
+    .badge.FW    { background: rgba(16,185,129,0.2);  color: #34d399; border: 1px solid rgba(16,185,129,0.4); }
+    .badge.TRANS { background: rgba(245,158,11,0.2);  color: #fbbf24; border: 1px solid rgba(245,158,11,0.4); }
+
+    /* 틸트 프로그레스 바 */
+    .tilt-bars {
+      display: flex;
+      gap: 4px;
+      margin-top: 6px;
+    }
+    .tilt-bar-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .tilt-bar-label {
+      font-size: 0.55rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .tilt-bar-track {
+      height: 5px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .tilt-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.2s ease, background-color 0.3s ease;
+    }
+
+    .right-col {
+      display: grid;
+      grid-template-rows: 1.8fr 1fr;
+      gap: 0.75rem;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      border-radius: 12px;
+      z-index: 1;
+    }
+
+    /* ── Telemetry Grid ── */
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.5rem;
+    }
+
+    .metric-card {
+      background: rgba(0,0,0,0.3);
+      padding: 0.6rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      transition: border-color 0.3s;
+    }
+    .metric-card:hover { border-color: rgba(59,130,246,0.3); }
+    
+    .metric-title {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 500;
+    }
+    
+    .metric-value {
+      font-size: 1.1rem;
+      font-weight: 600;
+      font-family: var(--mono);
+      margin-top: 0.25rem;
+      color: #f1f5f9;
+    }
+    .metric-value.small { font-size: 0.85rem; }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 0.8rem 1.2rem;
+      border-radius: 8px;
+      z-index: 1000;
+      font-size: 0.85rem;
+      font-weight: 500;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+      animation: toast-in 0.3s ease-out;
+    }
+    @keyframes toast-in {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    
+    .aircraft-select {
+      padding: 0.25rem 0.4rem;
+      background: rgba(0,0,0,0.5);
+      color: #fff;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-family: var(--mono);
+    }
+    .aircraft-select:focus { border-color: var(--accent); outline: none; }
+
+    .ws-indicator {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+      animation: pulse 2s infinite;
+    }
+    .ws-indicator.connected { background: var(--success); }
+    .ws-indicator.disconnected { background: var(--error); animation: none; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app" class="container">
+    <!-- Left Column -->
+    <div class="left-col">
+      <div class="panel">
+        <div class="panel-header">
+          Mission Submit
+          <button style="width:auto; padding:0.15rem 0.5rem; font-size:0.7rem; background: var(--border);" @click="clearMissionJson">Clear</button>
+        </div>
+        
+        <div 
+          class="drop-zone" 
+          :class="{ dragover: isDragOver }"
+          @dragover.prevent="isDragOver = true"
+          @dragleave.prevent="isDragOver = false"
+          @drop.prevent="handleFileDrop"
+          @click="$refs.fileInput.click()"
+        >
+          📂 Drag & Drop JSON or Click
+          <input type="file" ref="fileInput" @change="handleFileSelect" accept=".json" style="display:none;">
+        </div>
+
+        <textarea v-model="missionJson" placeholder="Mission JSON payload..."></textarea>
+        <button @click="submitMission">🚀 Submit Mission</button>
+      </div>
+
+      <div class="panel time-panel">
+        <div class="panel-header">
+          Simulation Time
+          <span>
+            <span class="ws-indicator" :class="simClockRunning ? 'connected' : (simulationTime.available ? 'connected' : 'disconnected')"></span>
+            {{ simClockRunning ? 'GUI RUN' : (simulationTime.available ? 'API' : 'NO CLOCK') }}
+          </span>
+        </div>
+
+        <div class="time-current">
+          <div class="time-current-label">Current /api/v1/time</div>
+          <div class="time-current-value">{{ simulationTime.time || '--:--:--' }}</div>
+          <div class="time-hint">
+            Source: {{ simulationTime.source || 'none' }} · 외부 모듈도 계속 <code>/api/v1/time</code>으로 시간을 넣을 수 있습니다.
+          </div>
+        </div>
+
+        <div class="time-input-row">
+          <input
+            class="time-input"
+            v-model="simTimeInput"
+            placeholder="HH:MM:SS"
+            @focus="simTimeInputFocused = true"
+            @blur="simTimeInputFocused = false"
+            @keyup.enter="postManualSimulationTime"
+          >
+          <button class="mini-btn" @click="postManualSimulationTime">Set</button>
+        </div>
+
+        <div class="time-button-row">
+          <button class="mini-btn secondary" @click="useMissionArmTime" :disabled="!activeMissionHint">Arm</button>
+          <button class="mini-btn secondary" @click="useMissionStartTime" :disabled="!activeMissionHint">Start</button>
+          <button class="mini-btn secondary" @click="nudgeSimulationTime(1)">+1s</button>
+          <button class="mini-btn secondary" @click="nudgeSimulationTime(60)">+1m</button>
+        </div>
+
+        <div class="time-control-row">
+          <select class="time-select" v-model.number="simClockRate">
+            <option :value="1">1x</option>
+            <option :value="5">5x</option>
+            <option :value="10">10x</option>
+            <option :value="60">60x</option>
+          </select>
+          <button class="mini-btn warning" @click="startGuiClock" v-if="!simClockRunning">Run</button>
+          <button class="mini-btn stop" @click="stopGuiClock" v-else>Stop</button>
+          <button class="mini-btn secondary" @click="syncInputFromServer">Sync</button>
+        </div>
+
+        <div class="time-hint" v-if="activeMissionHint">
+          Active FP{{ activeMissionHint.flightPlanNumber }}:
+          Arm {{ clockText(activeMissionHint.scheduledArmAt) || '?' }},
+          Start {{ clockText(activeMissionHint.scheduledStartAt) || '?' }}
+        </div>
+      </div>
+
+      <div class="panel diag-panel">
+        <div class="panel-header">
+          VFDS/KP2A ICD Monitor
+          <span>
+            <span class="ws-indicator" :class="runtimeReady() ? 'connected' : 'disconnected'"></span>
+            {{ runtimeReady() ? 'READY' : 'WAIT' }}
+          </span>
+        </div>
+
+        <div class="diag-grid">
+          <div class="diag-card">
+            <div class="diag-label">Mission RX /api/v1/missions/realtime</div>
+            <div class="diag-value">
+              {{ runtimeStatus.missionRxCount || 0 }} received · {{ runtimeMissionLabel() }}
+            </div>
+            <div class="diag-sub">
+              Source {{ runtimeStatus.lastMissionSource || '--' }} ·
+              Last {{ fmtRuntimeAt(runtimeStatus.lastMissionAt) }} ·
+              Queue {{ runtimeStatus.pendingMissions || 0 }} / Total {{ runtimeStatus.missionStatusTotal || 0 }}
+            </div>
+            <div class="diag-code">{{ compactJson(runtimeStatus.lastMissionPayload) }}</div>
+          </div>
+
+          <div class="diag-card">
+            <div class="diag-label">Time RX /api/v1/time</div>
+            <div class="diag-value">
+              {{ runtimeStatus.timeRxCount || 0 }} ticks · {{ runtimeTimeLabel() }}
+            </div>
+            <div class="diag-sub">
+              Last {{ fmtRuntimeAt(runtimeStatus.lastTimeAt) }} ·
+              API available {{ (runtimeStatus.lastTimeSnapshot && runtimeStatus.lastTimeSnapshot.available) ? 'YES' : 'NO' }}
+            </div>
+            <div class="diag-code">{{ compactJson(runtimeStatus.lastTimePayload) }}</div>
+          </div>
+
+          <div class="diag-card">
+            <div class="diag-label">Aircraft Registry</div>
+            <div class="diag-value">
+              {{ runtimeStatus.registeredAircraft || 0 }} aircraft registered
+            </div>
+            <div class="diag-sub">
+              Telemetry WS {{ wsConnected ? 'LIVE' : 'OFFLINE' }} · UI polls every 0.7s
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" style="flex: 1;">
+        <div class="panel-header">
+          Mission Status
+          <span><span class="ws-indicator" :class="wsConnected ? 'connected' : 'disconnected'"></span>{{ wsConnected ? 'LIVE' : 'OFFLINE' }}</span>
+        </div>
+        <ul>
+          <li v-for="m in missions" :key="m.flightPlanNumber">
+            <span><strong>FP{{ m.flightPlanNumber }}</strong> [{{ m.aircraftId }}]</span>
+            <span :class="['badge', m.status]">{{ m.status }}</span>
+          </li>
+          <li v-if="missions.length === 0" style="color:var(--text-muted); border:none; text-align:center; justify-content:center;">
+            No active missions.
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Right Column -->
+    <div class="right-col">
+      <div class="panel" style="padding: 0; position: relative;">
+        <div id="map"></div>
+      </div>
+      
+      <div class="panel">
+        <div class="panel-header">
+          <span>
+            Live Telemetry
+            <template v-if="selectedAircraft && telemetry[selectedAircraft]">
+              <span class="badge" :class="flightMode(selectedAircraft)" style="margin-left:6px; font-size:0.6rem;">
+                {{ flightMode(selectedAircraft) }}
+              </span>
+            </template>
+          </span>
+          <select v-model="selectedAircraft" class="aircraft-select">
+            <option value="">Select Aircraft</option>
+            <option v-for="ac in availableAircraft" :key="ac" :value="ac">{{ ac }}</option>
+          </select>
+        </div>
+        
+        <div class="telemetry-grid" v-if="selectedAircraft && telemetry[selectedAircraft]">
+          <!-- Mission Progress -->
+          <div class="metric-card" style="grid-column: span 2;">
+            <div class="metric-title">Mission Progress</div>
+            <div class="metric-value small">
+              {{ telemetry[selectedAircraft].phase }} (S:{{ telemetry[selectedAircraft].seq }})
+              — <span :style="{color: stateColor(telemetry[selectedAircraft].missionState)}">{{ telemetry[selectedAircraft].missionState }}</span>
+            </div>
+          </div>
+
+          <!-- Position -->
+          <div class="metric-card">
+            <div class="metric-title">Altitude</div>
+            <div class="metric-value">{{ fmt(telemetry[selectedAircraft].position?.alt, 1) }} m</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">NED (N/E/D)</div>
+            <div class="metric-value small">
+              {{ fmt(telemetry[selectedAircraft].position?.north, 1) }} /
+              {{ fmt(telemetry[selectedAircraft].position?.east, 1) }} /
+              {{ fmt(telemetry[selectedAircraft].position?.down, 1) }}
+            </div>
+          </div>
+
+          <!-- Attitude (rad) -->
+          <div class="metric-card" style="grid-column: span 2;">
+            <div class="metric-title">Attitude — R / P / Y (deg)</div>
+            <div class="metric-value small">
+              {{ fmt(telemetry[selectedAircraft].attitude?.roll, 3) }} /
+              {{ fmt(telemetry[selectedAircraft].attitude?.pitch, 3) }} /
+              {{ fmt(telemetry[selectedAircraft].attitude?.yaw, 3) }}
+            </div>
+          </div>
+
+          <!-- Actuators -->
+          <div class="metric-card">
+            <div class="metric-title">Tilt (L / R)</div>
+            <div class="metric-value small">
+              {{ fmt(telemetry[selectedAircraft].actuator?.tilt_left, 2) }} /
+              {{ fmt(telemetry[selectedAircraft].actuator?.tilt_right, 2) }}
+            </div>
+            <div class="tilt-bars">
+              <div class="tilt-bar-wrap">
+                <div class="tilt-bar-label">L</div>
+                <div class="tilt-bar-track">
+                  <div class="tilt-bar-fill" :style="tiltBarStyle(telemetry[selectedAircraft].actuator?.tilt_left)"></div>
+                </div>
+              </div>
+              <div class="tilt-bar-wrap">
+                <div class="tilt-bar-label">R</div>
+                <div class="tilt-bar-track">
+                  <div class="tilt-bar-fill" :style="tiltBarStyle(telemetry[selectedAircraft].actuator?.tilt_right)"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">Aileron (deg)</div>
+            <div class="metric-value small">
+              {{ fmt(telemetry[selectedAircraft].actuator?.aileron, 1) }}°
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">Rudder (L / R) deg</div>
+            <div class="metric-value small">
+              {{ fmt(telemetry[selectedAircraft].actuator?.rudder_left, 1) }} /
+              {{ fmt(telemetry[selectedAircraft].actuator?.rudder_right, 1) }}
+            </div>
+          </div>
+
+          <!-- Motors -->
+          <div class="metric-card" style="grid-column: span 2;">
+            <div class="metric-title">Motor RPM (1 / 2 / 3 / 4)</div>
+            <div class="metric-value small">
+              {{ fmtRpm(telemetry[selectedAircraft].motorRpm, 0) }} /
+              {{ fmtRpm(telemetry[selectedAircraft].motorRpm, 1) }} /
+              {{ fmtRpm(telemetry[selectedAircraft].motorRpm, 2) }} /
+              {{ fmtRpm(telemetry[selectedAircraft].motorRpm, 3) }}
+            </div>
+          </div>
+        </div>
+        <div v-else style="color:var(--text-muted); text-align:center; padding: 2rem; font-size: 0.85rem;">
+          Waiting for telemetry...
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div v-if="toastMessage" class="toast" :style="{ backgroundColor: toastType === 'error' ? 'rgba(239,68,68,0.9)' : 'rgba(16,185,129,0.9)' }">
+      {{ toastMessage }}
+    </div>
+  </div>
+
+  <script src="/static/app.js?v=7"></script>
+</body>
+</html>

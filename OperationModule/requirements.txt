@@ -1,0 +1,11 @@
+# OperationModule runtime dependencies.
+-c ../constraints.txt
+-r ../DTAMSDK/requirements.txt
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.29,<1.0
+pydantic>=2.0,<3
+requests>=2.31,<3
+jinja2>=3.1,<4
+# Optional live traffic client.  commercial_traffic.py falls back to raw
+# OpenSky REST via requests when pyopensky is unavailable.
+# pyopensky

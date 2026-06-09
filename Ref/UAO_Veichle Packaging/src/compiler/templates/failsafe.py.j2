@@ -1,0 +1,69 @@
+# ── Failsafe Functions ──
+
+import grpc
+
+
+async def _try_reconnect(connection_str: str, grpc_port: int, max_attempts: int = 3) -> "System | None":
+    """gRPC 연결이 끊긴 경우, 새 System 객체로 재연결을 시도한다."""
+    for attempt in range(1, max_attempts + 1):
+        print(f"[FAILSAFE] Reconnection attempt {attempt}/{max_attempts}...")
+        try:
+            new_drone = System(port=grpc_port) if grpc_port else System()
+            await new_drone.connect(system_address=connection_str)
+            # 짧은 연결 대기
+            connected = False
+            async for state in new_drone.core.connection_state():
+                if state.is_connected:
+                    connected = True
+                    break
+                break  # 첫 번째 상태만 확인
+            if connected:
+                print(f"[FAILSAFE] Reconnected successfully on attempt {attempt}.")
+                return new_drone
+        except Exception as e:
+            print(f"[FAILSAFE] Reconnect attempt {attempt} failed: {e}")
+        await asyncio.sleep(2)
+    return None
+
+
+async def emergency_land(drone, connection_str: str = None, grpc_port: int = None):
+    """비상 착륙 — 미션 실패 시 안전하게 착륙"""
+    print("[FAILSAFE] Emergency landing initiated!")
+
+    # 1차: 현재 drone 객체로 시도
+    try:
+        await asyncio.wait_for(drone.action.land(), timeout=10)
+        deadline = asyncio.get_running_loop().time() + 30
+        async for in_air in drone.telemetry.in_air():
+            if not in_air:
+                break
+            if asyncio.get_running_loop().time() >= deadline:
+                break
+        try:
+            await drone.action.disarm()
+        except Exception:
+            pass
+        print("[FAILSAFE] Emergency landing complete.")
+        return
+    except (grpc.aio.AioRpcError, asyncio.TimeoutError) as e:
+        print(f"[FAILSAFE] Primary landing failed (gRPC unavailable): {e}")
+    except Exception as e:
+        print(f"[FAILSAFE] Emergency landing also failed: {e}")
+
+    # 2차: gRPC 재연결 후 재시도
+    if connection_str:
+        new_drone = await _try_reconnect(connection_str, grpc_port, max_attempts=2)
+        if new_drone:
+            try:
+                await asyncio.wait_for(new_drone.action.land(), timeout=10)
+                print("[FAILSAFE] Emergency landing via reconnection succeeded.")
+                return
+            except Exception as e2:
+                print(f"[FAILSAFE] Reconnected but landing still failed: {e2}")
+
+    # 3차: Kill switch
+    try:
+        await asyncio.wait_for(drone.action.kill(), timeout=5)
+        print("[FAILSAFE] Kill switch activated.")
+    except Exception:
+        print("[FAILSAFE] Kill switch failed. Manual intervention required!")

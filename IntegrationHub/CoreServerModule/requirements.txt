@@ -1,0 +1,2 @@
+# Compatibility entry point. Prefer IntegrationHub/requirements.txt.
+-r ../requirements.txt

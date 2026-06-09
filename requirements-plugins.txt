@@ -1,0 +1,12 @@
+# DTAMFramework optional plug-in and extension dependencies.
+#
+# TrafficSim and SituationAwareness pull in heavier GIS/GUI/ML packages; install
+# this profile only when those plug-ins are needed in the current environment.
+
+-c constraints.txt
+-r ExtenstionModule/PSUModule/requirements.txt
+-r ExtenstionModule/VPOModule/requirements.txt
+-r PlugIn/FlightScheduler/requirements.txt
+-r PlugIn/SituationAwareness/requirements.txt
+-r PlugIn/TestStream/requirements.txt
+-r PlugIn/TrafficSim/requirements.txt

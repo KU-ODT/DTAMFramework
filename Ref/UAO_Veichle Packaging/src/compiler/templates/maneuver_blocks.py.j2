@@ -1,0 +1,369 @@
+# ── Leg Execution Functions ──
+# Leg type별 전용 실행 함수. 각 함수는 자체 종료 판정 로직을 가진다.
+
+import grpc
+
+
+def _calc_distance_3d(pos, lat, lon, alt):
+    """현재 위치와 목표 위치 간의 3D 거리(m)를 계산한다."""
+    dlat = abs(pos.latitude_deg - lat)
+    dlon = abs(pos.longitude_deg - lon)
+    dalt = abs(pos.absolute_altitude_m - alt)
+    horizontal_m = ((dlat * 111320) ** 2 + (dlon * 111320 * 0.8) ** 2) ** 0.5
+    return (horizontal_m ** 2 + dalt ** 2) ** 0.5
+
+
+def _angle_from_center(pos_lat, pos_lon, center_lat, center_lon):
+    """center에서 pos까지의 각도 (수학 좌표계: 동=0, 반시계 양방향)."""
+    dx = (pos_lon - center_lon) * 111320 * math.cos(math.radians(center_lat))
+    dy = (pos_lat - center_lat) * 111320
+    return math.atan2(dy, dx)
+
+
+def _check_terminal_normal(pos, start_lat, start_lon, end_lat, end_lon):
+    """
+    Terminal normal check: 기체가 start→end 벡터의 종단 수선(terminal normal)을
+    넘었는지 판정한다. True면 leg 통과 완료.
+
+    이게 단순 거리 판정보다 좋은 이유:
+    - 고정익이 waypoint를 살짝 빗겨 지나가도 통과로 판정
+    - fly-by 기동에서 자연스러운 전환 가능
+    """
+    # start→end 벡터
+    vx = (end_lon - start_lon) * 111320 * 0.8
+    vy = (end_lat - start_lat) * 111320
+
+    # start→pos 벡터
+    px = (pos.longitude_deg - start_lon) * 111320 * 0.8
+    py = (pos.latitude_deg - start_lat) * 111320
+
+    # 내적: 투영 비율 (>= 1.0 이면 end 수선 너머)
+    v_len_sq = vx * vx + vy * vy
+    if v_len_sq < 0.01:
+        return True  # start ≈ end
+
+    projection = (px * vx + py * vy) / v_len_sq
+    return projection >= 1.0
+
+
+def _normalize_angle(a):
+    """각도를 -π ~ π 범위로 정규화."""
+    while a > math.pi:
+        a -= 2 * math.pi
+    while a < -math.pi:
+        a += 2 * math.pi
+    return a
+
+
+# ──────────────────────── TF_LINE: 직선 구간 ────────────────────
+
+async def do_goto_line(drone, start_lat, start_lon, end_lat, end_lon, alt, speed,
+                       heading=None, threshold=None, timeout_sec=None):
+    """
+    Track-to-Fix 직선 비행.
+
+    종료 판정 우선순위:
+      1) terminal normal 통과 (start→end 수선을 넘으면 즉시 완료, FW/MC 공통)
+      2) 거리 fallback: threshold 이내 (MC=3m, FW=50m)
+         - FW 모드에서는 terminal normal이 먼저 통과하면 fallback 불필요
+         - 기체가 waypoint 주변을 맴돌 때 최종 안전망 역할
+    """
+    is_fw = threshold is not None and threshold > POSITION_REACHED_THRESHOLD_M
+    if threshold is None:
+        threshold = POSITION_REACHED_THRESHOLD_M
+    mode_tag = "FW" if is_fw else "MC"
+    print(f"  [TF_LINE/{mode_tag}] ({end_lat:.6f}, {end_lon:.6f}, {alt:.1f}m) @ {speed:.1f} m/s | fallback={threshold:.0f}m")
+    await drone.action.set_current_speed(speed)
+    await drone.action.goto_location(
+        end_lat, end_lon, alt,
+        float('nan')  # NaN forces PX4 to automatically yaw towards the destination
+    )
+
+    if timeout_sec is None:
+        # 동적 타임아웃 계산: 예상 소요 시간의 2배 + 60초 (최소 120초)
+        dist_m = (((end_lat - start_lat) * 111320) ** 2 + ((end_lon - start_lon) * 111320 * 0.8) ** 2) ** 0.5
+        timeout_sec = max(120.0, (dist_m / max(speed, 1.0)) * 2.0 + 60.0)
+
+    deadline = asyncio.get_running_loop().time() + timeout_sec
+
+    try:
+        async for position in drone.telemetry.position():
+            # 1차: terminal normal 통과 체크 (FW/MC 모두 최우선)
+            passed = _check_terminal_normal(
+                position, start_lat, start_lon, end_lat, end_lon
+            )
+            if passed:
+                dist = _calc_distance_3d(position, end_lat, end_lon, alt)
+                print(f"  [TF_LINE/{mode_tag}] Terminal normal passed (dist: {dist:.1f}m)")
+                return True
+
+            # 2차: 거리 fallback (맴돌기 방지 안전망)
+            dist = _calc_distance_3d(position, end_lat, end_lon, alt)
+            if dist < threshold:
+                print(f"  [TF_LINE/{mode_tag}] Distance fallback reached (dist: {dist:.1f}m < {threshold:.0f}m)")
+                return True
+
+            if asyncio.get_running_loop().time() >= deadline:
+                print(f"  [TF_LINE/{mode_tag}] Timeout after {timeout_sec}s (dist: {dist:.1f}m)")
+                return False
+    except grpc.aio.AioRpcError as e:
+        print(f"  [TF_LINE/{mode_tag}] gRPC stream lost: {e.code().name}. Continuing...")
+        return False
+    except Exception as e:
+        print(f"  [TF_LINE/{mode_tag}] Position stream error: {e}. Continuing...")
+        return False
+
+    return False
+
+
+# ──────────────────────── RF_ARC: 원호 구간 ────────────────────
+
+async def do_orbit_arc(drone, center_lat, center_lon, center_alt,
+                       radius_m, speed, turn_direction,
+                       sweep_rad, start_lat, start_lon,
+                       end_lat, end_lon, end_alt,
+                       timeout_sec=None):
+    """
+    Radius-to-Fix 원호 비행.
+
+    MAVSDK do_orbit() 명령으로 orbit을 시작하고,
+    swept angle을 모니터링하여 종료각에 도달하면 다음 leg으로 전환한다.
+
+    종료 판정: center 기준 swept angle ≥ 목표 sweep
+    """
+    print(f"  [RF_ARC] Center ({center_lat:.6f}, {center_lon:.6f}) "
+          f"R={radius_m:.0f}m {turn_direction} sweep={math.degrees(sweep_rad):.1f}°"
+          f" @ {speed:.1f} m/s")
+
+    # Orbit yaw behavior: HOLD_FRONT_TO_CIRCLE_CENTER(1) — 항상 center를 향함
+    # PX4에서는 이게 가장 안정적
+    from mavsdk.action import OrbitYawBehavior
+    yaw_behavior = OrbitYawBehavior.HOLD_FRONT_TANGENT_TO_CIRCLE
+
+    # MAVSDK do_orbit에서 CW는 양의 반경, CCW는 음의 반경
+    orbit_radius = radius_m if turn_direction == "CW" else -radius_m
+
+    try:
+        await drone.action.do_orbit(
+            radius_m=orbit_radius,
+            velocity_ms=speed,
+            yaw_behavior=yaw_behavior,
+            latitude_deg=center_lat,
+            longitude_deg=center_lon,
+            absolute_altitude_m=center_alt,
+        )
+        print(f"  [RF_ARC] Orbit command sent")
+    except Exception as e:
+        print(f"  [RF_ARC] do_orbit failed: {e}, falling back to waypoint chase...")
+        # Fallback: end point로 직접 goto
+        await do_goto_line(
+            drone, start_lat, start_lon,
+            end_lat, end_lon, end_alt, speed,
+            timeout_sec=timeout_sec
+        )
+        return
+
+    # ── Swept angle 모니터링 ──
+    if timeout_sec is None:
+        # 동적 타임아웃: 원호 길이 / 속도 * 2 + 60
+        arc_len = radius_m * sweep_rad
+        timeout_sec = max(180.0, (arc_len / max(speed, 1.0)) * 2.0 + 60.0)
+
+    deadline = asyncio.get_running_loop().time() + timeout_sec
+
+    # 초기 각도 기록
+    initial_angle = _angle_from_center(start_lat, start_lon, center_lat, center_lon)
+    accumulated_sweep = 0.0
+    prev_angle = initial_angle
+
+    try:
+        async for position in drone.telemetry.position():
+            current_angle = _angle_from_center(
+                position.latitude_deg, position.longitude_deg,
+                center_lat, center_lon
+            )
+
+            # 각도 차이 (wrap-around 처리)
+            delta = _normalize_angle(current_angle - prev_angle)
+
+            # CW면 각도 감소 방향, CCW면 각도 증가 방향만 카운트
+            # 반대 방향의 작은 변동은 무시 (진동 방지)
+            if turn_direction == "CW" and delta < 0:
+                accumulated_sweep += abs(delta)
+            elif turn_direction == "CCW" and delta > 0:
+                accumulated_sweep += abs(delta)
+
+            prev_angle = current_angle
+
+            if accumulated_sweep >= sweep_rad * 0.95:  # 95% 도달이면 통과
+                dist = _calc_distance_3d(position, end_lat, end_lon, end_alt)
+                print(f"  [RF_ARC] Sweep completed: {math.degrees(accumulated_sweep):.1f}° "
+                      f"(target: {math.degrees(sweep_rad):.1f}°, dist to end: {dist:.1f}m)")
+                break
+
+            if asyncio.get_running_loop().time() >= deadline:
+                print(f"  [RF_ARC] Timeout after {timeout_sec}s "
+                      f"(swept: {math.degrees(accumulated_sweep):.1f}°/"
+                      f"{math.degrees(sweep_rad):.1f}°)")
+                break
+    except grpc.aio.AioRpcError as e:
+        print(f"  [RF_ARC] gRPC stream lost during arc: {e.code().name}")
+    except Exception as e:
+        print(f"  [RF_ARC] Arc monitor error: {e}")
+
+    # Orbit 탈출: end point로 goto 전환 후 도달 확인
+    print(f"  [RF_ARC] Exiting orbit → end fix ({end_lat:.6f}, {end_lon:.6f})")
+    try:
+        await drone.action.goto_location(
+            end_lat, end_lon, end_alt, float('nan')
+        )
+        exit_deadline = asyncio.get_running_loop().time() + 60
+        async for position in drone.telemetry.position():
+            dist = _calc_distance_3d(position, end_lat, end_lon, end_alt)
+            passed = _check_terminal_normal(
+                position, center_lat, center_lon, end_lat, end_lon
+            )
+            if passed or dist < FW_POSITION_REACHED_THRESHOLD_M:
+                print(f"  [RF_ARC] Reached end fix (dist: {dist:.1f}m)")
+                break
+            if asyncio.get_running_loop().time() >= exit_deadline:
+                print(f"  [RF_ARC] Exit timeout (dist: {dist:.1f}m)")
+                break
+    except grpc.aio.AioRpcError as e:
+        print(f"  [RF_ARC] Orbit exit stream lost: {e.code().name}")
+    except Exception as e:
+        print(f"  [RF_ARC] Orbit exit goto failed: {e}")
+
+
+# ──────────────────────── VTOL_CLIMB: 수직 이륙 ────────────────
+
+async def do_takeoff(drone, target_alt: float, timeout_sec: float = 60):
+    """수직 이륙 후 목표 고도까지 상승."""
+    takeoff_alt_rel = max(target_alt - HOME_ALT, 5.0)
+    print(
+        f"  [TAKEOFF] Target altitude AMSL: {target_alt}m "
+        f"(relative: {takeoff_alt_rel:.1f}m, home: {HOME_ALT:.1f}m)"
+    )
+    await drone.action.set_takeoff_altitude(takeoff_alt_rel)
+    await drone.action.takeoff()
+
+    deadline = asyncio.get_running_loop().time() + timeout_sec
+    try:
+        async for position in drone.telemetry.position():
+            current_alt = position.relative_altitude_m
+            if current_alt >= takeoff_alt_rel * 0.95:
+                print(f"  [TAKEOFF] Reached {current_alt:.1f}m (target: {takeoff_alt_rel:.1f}m AGL)")
+                await asyncio.sleep(2)
+                return True
+            if asyncio.get_running_loop().time() >= deadline:
+                print(f"  [TAKEOFF] Timeout after {timeout_sec}s at {current_alt:.1f}m.")
+                return False
+    except grpc.aio.AioRpcError as e:
+        print(f"  [TAKEOFF] gRPC stream lost: {e.code().name}.")
+        return False
+    except Exception as e:
+        print(f"  [TAKEOFF] Altitude monitor error: {e}.")
+        return False
+
+    return False
+
+
+# ──────────────────────── VTOL_DESCENT: 착륙 ────────────────────
+
+async def do_land(drone, timeout_sec: float = 90):
+    """착륙."""
+    print("  [LAND] Initiating landing...")
+    await drone.action.land()
+
+    deadline = asyncio.get_running_loop().time() + timeout_sec
+    try:
+        async for in_air in drone.telemetry.in_air():
+            if not in_air:
+                print("  [LAND] Landed.")
+                break
+            if asyncio.get_running_loop().time() >= deadline:
+                print(f"  [LAND] Timeout after {timeout_sec}s. Forcing disarm...")
+                break
+    except grpc.aio.AioRpcError as e:
+        print(f"  [LAND] gRPC stream lost during landing: {e.code().name}.")
+    except Exception as e:
+        print(f"  [LAND] Landing monitor error: {e}.")
+
+    await asyncio.sleep(3)
+
+    print("  [DISARM] Disarming...")
+    try:
+        await drone.action.disarm()
+        print("  [DISARM] Disarmed.")
+    except Exception as e:
+        print(f"  [DISARM] Disarm failed: {e}")
+
+
+# ──────────────────────── TRANSITION_FW: MC→FW ────────────────
+
+async def do_transition_fw(drone, end_lat, end_lon, alt, speed,
+                           start_lat=0, start_lon=0, heading=None):
+    """이륙 천이: Multicopter → Fixed-wing 전환."""
+    print(f"  [TRANSITION] MC → FW, then goto ({end_lat:.6f}, {end_lon:.6f}, {alt:.1f}m)")
+
+    await drone.action.set_current_speed(speed)
+    await drone.action.goto_location(
+        end_lat, end_lon, alt,
+        heading if heading is not None else float('nan')
+    )
+    print("  [TRANSITION] Moving toward target, building airspeed...")
+
+    await asyncio.sleep(5)
+
+    try:
+        await drone.action.transition_to_fixedwing()
+        print("  [TRANSITION] Fixed-wing mode activated.")
+    except Exception as e:
+        print(f"  [TRANSITION] FW transition failed: {e}, continuing in MC mode...")
+
+    await asyncio.sleep(3)
+
+    # Terminal normal 판정
+    return await do_goto_line(
+        drone, start_lat, start_lon,
+        end_lat, end_lon, alt, speed,
+        heading=heading,
+        threshold=FW_POSITION_REACHED_THRESHOLD_M,
+        timeout_sec=None
+    )
+
+
+# ──────────────────────── TRANSITION_MC: FW→MC ────────────────
+
+async def do_transition_mc(drone, end_lat, end_lon, alt, speed,
+                           start_lat=0, start_lon=0, heading=None):
+    """착륙 천이: Fixed-wing → Multicopter 전환 후 목표 지점에서 호버."""
+    print(f"  [TRANSITION] FW → MC at ({end_lat:.6f}, {end_lon:.6f}, {alt:.1f}m)")
+
+    # FW 모드에서 근처까지 이동
+    reached = await do_goto_line(
+        drone, start_lat, start_lon,
+        end_lat, end_lon, alt, speed,
+        heading=heading,
+        threshold=FW_POSITION_REACHED_THRESHOLD_M,
+    )
+    if not reached:
+        return False
+
+    # MC 전환
+    try:
+        await drone.action.transition_to_multicopter()
+        print("  [TRANSITION] Multicopter mode activated.")
+    except Exception as e:
+        print(f"  [TRANSITION] MC transition failed: {e}")
+        return False
+
+    await asyncio.sleep(5)
+
+    # MC 모드에서 정확한 위치로 이동
+    return await do_goto_line(
+        drone, start_lat, start_lon,
+        end_lat, end_lon, alt, speed,
+        heading=heading,
+        threshold=POSITION_REACHED_THRESHOLD_M,
+    )

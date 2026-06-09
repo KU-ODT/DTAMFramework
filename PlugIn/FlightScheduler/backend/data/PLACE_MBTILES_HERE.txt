@@ -1,0 +1,4 @@
+Drop your basemap as `korea.mbtiles` (preferred) or `map.mbtiles` here.
+Both names are auto-detected. Override with the MBTILES_PATH env var to use
+any other location/filename. Until a file is present, the frontend falls
+back to a public CDN dark basemap so the frame still works.

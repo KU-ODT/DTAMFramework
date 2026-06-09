@@ -1,0 +1,53 @@
+{
+  "generated_at": "2026-05-22 02:02:48",
+  "root": "D:\\DTAMFramework",
+  "source_files": {
+    "resources_vp": "D:\\DTAMFramework\\VisualizationModule_Source\\Unreal\\Environments\\DTAMVisualization\\Data\\coordinateDB\\resources_vp.csv",
+    "vertiport_UE": "D:\\DTAMFramework\\VisualizationModule_Source\\Unreal\\Environments\\DTAMVisualization\\Data\\coordinateDB\\vertiport_UE.csv",
+    "vertiportMap_KU": "D:\\DTAMFramework\\VisualizationModule_Source\\Unreal\\Environments\\DTAMVisualization\\Data\\coordinateDB\\vertiportMap_KU.csv",
+    "vertiport_default": "D:\\DTAMFramework\\VisualizationModule_Source\\Unreal\\Environments\\DTAMVisualization\\Data\\coordinateDB\\vertiport_default.csv",
+    "waypoint_default": "D:\\DTAMFramework\\VisualizationModule_Source\\Unreal\\Environments\\DTAMVisualization\\Data\\coordinateDB\\waypoint_default.csv"
+  },
+  "outputs": {
+    "document": "D:\\DTAMFramework\\docs\\unreal_vertiport_coordinate_inventory.md",
+    "resource_points": "D:\\DTAMFramework\\docs\\unreal_vertiport_resource_points.csv",
+    "actor_placements": "D:\\DTAMFramework\\docs\\unreal_vertiport_actor_placements.csv",
+    "groundmap_template": "D:\\DTAMFramework\\docs\\unreal_vertiport_groundmap_KU_template.csv"
+  },
+  "counts": {
+    "resource_points": 255,
+    "vertiports": 17,
+    "placements": 17,
+    "template_nodes": 29,
+    "categories": {
+      "GATE": 136,
+      "FATO": 34,
+      "TAXI": 85
+    }
+  },
+  "constants": {
+    "cesium_origin_height_m": 350.0,
+    "fato_spawn_clearance_m": 1.0,
+    "vertiport_surface_lift_cm": 8.0
+  },
+  "sha256": [
+    {
+      "label": "Unreal source coordinateDB",
+      "path": "D:\\DTAMFramework\\VisualizationModule_Source\\Unreal\\Environments\\DTAMVisualization\\Data\\coordinateDB\\resources_vp.csv",
+      "exists": true,
+      "sha256": "9a48cc05d2ab2939bff2c301bc3c540081b245c121475cf5643b42012abc69f0"
+    },
+    {
+      "label": "Unreal runtime coordinateDB",
+      "path": "D:\\DTAMFramework\\VisualizationModule\\runtime\\Unreal\\Environments\\DTAMVisualization\\Data\\coordinateDB\\resources_vp.csv",
+      "exists": true,
+      "sha256": "942a96a2a8cd8910948ff8bdbf0f6027f93325534c9451a691b04b838d21a93d"
+    },
+    {
+      "label": "MissionModule data",
+      "path": "D:\\DTAMFramework\\MissionModule\\data\\resources_vp.csv",
+      "exists": true,
+      "sha256": "9a48cc05d2ab2939bff2c301bc3c540081b245c121475cf5643b42012abc69f0"
+    }
+  ]
+}

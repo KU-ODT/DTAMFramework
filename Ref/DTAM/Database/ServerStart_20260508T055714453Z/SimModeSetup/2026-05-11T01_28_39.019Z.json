@@ -1,0 +1,75 @@
+{
+  "timestamp": "2026-05-11T01:28:39.019Z",
+  "operationMode": "single",
+  "singleFlight": {
+    "vehicleSimType": {
+      "dynamics": "simple",
+      "mainVehicleController": "Autopilot"
+    },
+    "missionPlanning": {
+      "activeMissionId": "mission-mp0ivmyx-a9kpkb",
+      "missions": [
+        {
+          "aircraftName": "UAM 1",
+          "departureName": "광화문",
+          "arrivalName": "상암",
+          "routeData": {
+            "path": [
+              "광화문",
+              "홍대입구",
+              "상암"
+            ],
+            "points": [
+              {
+                "name": "광화문",
+                "kind": "corridor",
+                "lon": 126.976185,
+                "lat": 37.569877,
+                "altitude_ft": 1000
+              },
+              {
+                "name": "홍대입구",
+                "kind": "corridor",
+                "lon": 126.923706,
+                "lat": 37.556786,
+                "altitude_ft": 1000
+              },
+              {
+                "name": "상암",
+                "kind": "vertiport",
+                "lon": 126.890156,
+                "lat": 37.562282,
+                "altitude_ft": 0
+              }
+            ],
+            "distance_km": 7.869039312727142
+          }
+        },
+        {
+          "aircraftName": "UAM 2",
+          "departureName": "",
+          "arrivalName": "",
+          "routeData": null
+        },
+        {
+          "aircraftName": "UAM 3",
+          "departureName": "",
+          "arrivalName": "",
+          "routeData": null
+        },
+        {
+          "aircraftName": "UAM 4",
+          "departureName": "",
+          "arrivalName": "",
+          "routeData": null
+        },
+        {
+          "aircraftName": "UAM 5",
+          "departureName": "",
+          "arrivalName": "",
+          "routeData": null
+        }
+      ]
+    }
+  }
+}

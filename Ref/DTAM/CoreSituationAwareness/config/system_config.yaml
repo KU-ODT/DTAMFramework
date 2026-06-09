@@ -1,0 +1,64 @@
+# UAM Operations System Configuration
+
+# Detection Settings
+detection:
+  model_path: "models/yolo11n.pt"
+  confidence_threshold: 0.5
+  nms_threshold: 0.4
+  max_objects: 10
+  classes:
+    - person
+    - bicycle
+    - car
+    - motorcycle
+    - airplane
+    - bus
+    - train
+    - truck
+    - boat
+    - bird
+
+# Camera Settings
+camera:
+  width: 640
+  height: 480
+  fps: 30
+  use_airsim: true
+  fallback_to_local: true
+
+# AirSim Settings
+airsim:
+  ip_address: "127.0.0.1"
+  vehicle_name: ""  # Auto-detect
+  timeout: 10.0
+  camera_name: "0"
+  enable_lidar: true
+
+# Safety Metrics
+safety:
+  collision_distance: 10.0  # meters
+  warning_distance: 20.0   # meters
+  max_velocity: 30.0       # m/s
+  uncertainty_threshold: 0.8
+
+# AHP Weights
+ahp:
+  weights:
+    distance: 0.4
+    time_to_collision: 0.3
+    uncertainty: 0.2
+    velocity: 0.1
+
+# Plotting Settings
+plotting:
+  update_rate: 100  # milliseconds
+  max_points: 100
+  export_dpi: 300
+
+# Logging
+logging:
+  level: "INFO"
+  log_to_file: true
+  log_directory: "logs"
+  max_file_size: "10MB"
+  backup_count: 5

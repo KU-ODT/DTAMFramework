@@ -1,0 +1,21 @@
+{
+  "rows": 170,
+  "vertiport_count": 17,
+  "points_per_vertiport": 10,
+  "calibration_vertiport": "잠실",
+  "jamsil_target_spawn_z_m": 294.4,
+  "airsim_spawn_z_bias_m": -16.960065869000005,
+  "cesium_origin_height_m": 350.0,
+  "spawn_clearance_m": 1.0,
+  "missing": [],
+  "inputs": [
+    "D:\\DTAMFramework\\docs\\unreal_editor_s_points.csv",
+    "D:\\DTAMFramework\\MissionModule\\data\\resources_vp.csv"
+  ],
+  "outputs": [
+    "D:\\DTAMFramework\\MissionModule\\data\\unreal_vertiport_spawn_points.csv",
+    "D:\\DTAMFramework\\docs\\unreal_vertiport_spawn_points_calibrated.csv",
+    "D:\\DTAMFramework\\VisualizationModule\\data\\coordinateDB\\unreal_vertiport_spawn_points.csv",
+    "D:\\DTAMFramework\\VisualizationModule\\runtime\\Unreal\\Environments\\DTAMVisualization\\Data\\coordinateDB\\unreal_vertiport_spawn_points.csv"
+  ]
+}

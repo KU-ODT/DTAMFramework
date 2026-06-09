@@ -1,0 +1,6 @@
+# Full DTAMFramework runtime dependencies: core modules + plug-ins/extensions.
+# For a lean server-only install, use requirements.txt instead.
+
+-c constraints.txt
+-r requirements.txt
+-r requirements-plugins.txt

@@ -1,0 +1,22 @@
+# SituationAwareness plug-in runtime dependencies.
+-c ../../constraints.txt
+-r ../../DTAMSDK/requirements.txt
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.29,<1.0
+
+numpy>=1.26,<2.0
+scipy>=1.11,<2.0
+opencv-python>=4.10,<4.13
+PyYAML>=6,<7
+
+# Real YOLO inference.  object_detector.py disables detection cleanly if this
+# package is unavailable, but production SA should install it.
+ultralytics>=8.0,<9
+
+# Vendored app/core/external/cosysairsim compatibility.
+msgpack>=1,<2
+msgpack-rpc-python==0.4.1
+
+# File logging/session export utilities in app/core/utils/logger.py.
+pandas>=2.2,<3.0
+matplotlib>=3.8,<4.0

@@ -1,0 +1,118 @@
+"""DTAM SDK public API.
+
+The SDK exposes the WebSocket-based DTAM module base class, ICD catalog,
+role identities, REST helper, and sample ICD payloads used by modules.
+"""
+
+from ._version import VERSION, __version__
+from .catalog import (
+    CATALOG,
+    MessageSpec,
+    PHASE_INFO,
+    resolve as resolve_message,
+    callback_name,
+    push_name,
+    phase_tag,
+)
+from .identity import (
+    KNOWN_MODULES,
+    ModuleIdentity,
+    Role,
+    identity_of,
+    role_from_source,
+    role_of,
+)
+from .policy import FORWARD_RULES, subscriptions_for
+from .module import (
+    DtamModule,
+    ModuleStats,
+    on_receive,
+    set_strict_dataclass,
+    is_strict_dataclass,
+)
+from .role_modules import (
+    MissionModule,
+    VehicleModule,
+    MonitoringModule,
+    VisualModule,
+    SituationAwarenessModule,
+)
+from .rest import DtamRest, DtamRestError
+from ._ws_client import DtamWsClient
+from .samples import (
+    all_sample_payloads,
+    sample_camera_image_bytes,
+    sample_camera_image_header,
+    sample_camera_stream_descriptor,
+    sample_vehicle_collision_event,
+    sample_camera_control_command,
+    sample_abnormal_situation_command,
+    sample_common_time_info,
+    sample_dtam_execute,
+    sample_flight_plan_request,
+    sample_module_setting_info,
+    sample_module_status,
+    sample_operator_control_input,
+    sample_payload,
+    sample_scenario_setup,
+    sample_scheduled_flight,
+    sample_sim_mode_setup,
+    sample_simulation_setup,
+    sample_strategic_separation,
+    sample_tactical_separation,
+    sample_vehicle_status,
+)
+
+__all__ = [
+    "__version__",
+    "VERSION",
+    "CATALOG",
+    "MessageSpec",
+    "PHASE_INFO",
+    "resolve_message",
+    "callback_name",
+    "push_name",
+    "phase_tag",
+    "Role",
+    "ModuleIdentity",
+    "KNOWN_MODULES",
+    "identity_of",
+    "role_from_source",
+    "role_of",
+    "FORWARD_RULES",
+    "subscriptions_for",
+    "DtamModule",
+    "ModuleStats",
+    "on_receive",
+    "set_strict_dataclass",
+    "is_strict_dataclass",
+    "MissionModule",
+    "VehicleModule",
+    "MonitoringModule",
+    "VisualModule",
+    "SituationAwarenessModule",
+    "DtamRest",
+    "DtamRestError",
+    "DtamWsClient",
+    "sample_payload",
+    "all_sample_payloads",
+    "sample_module_status",
+    "sample_module_setting_info",
+    "sample_common_time_info",
+    "sample_sim_mode_setup",
+    "sample_simulation_setup",
+    "sample_scenario_setup",
+    "sample_flight_plan_request",
+    "sample_dtam_execute",
+    "sample_scheduled_flight",
+    "sample_strategic_separation",
+    "sample_tactical_separation",
+    "sample_vehicle_status",
+    "sample_camera_image_header",
+    "sample_camera_image_bytes",
+    "sample_camera_stream_descriptor",
+    "sample_vehicle_collision_event",
+    "sample_operator_control_input",
+    "sample_camera_control_command",
+    "sample_abnormal_situation_command",
+]

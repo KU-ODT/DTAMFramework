@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-i18n="app_title">DTAM Mission Planner</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+  <link rel="stylesheet" href="/css/main.css?v=20260415-simspeed1" />
+</head>
+<body>
+
+  <!-- Map -->
+  <div id="map"></div>
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">MP</div>
+        <span class="sidebar-logo-text" data-i18n="sidebar_logo">DTAM Mission Planner</span>
+      </div>
+      <button class="sidebar-collapse-btn" id="sidebar-collapse" data-i18n-title="collapse_sidebar" title="Collapse sidebar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+    </div>
+
+    <div class="sidebar-content">
+      <!-- Mission Planning Section -->
+      <div class="section open" data-section="mission">
+        <div class="section-header">
+          <div class="section-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>
+          </div>
+          <span class="section-title" data-i18n="mission_planning">Mission Planning</span>
+          <span class="section-chevron">&#9660;</span>
+        </div>
+        <div class="section-body">
+          <div class="section-inner">
+            <div class="simulator-card mission-fleet-card" id="mission-fleet-card">
+              <div class="mission-fleet-topbar">
+                <div class="mission-fleet-config">
+                  <div class="mission-sim-title">UAM Missions</div>
+                  <label class="simulator-field mission-fleet-count-field">
+                    <span class="simulator-label">UAM Count</span>
+                    <input class="settings-input simulator-input" id="mission-fleet-count" type="number" min="1" max="12" step="1" value="1" />
+                  </label>
+                </div>
+                <div class="mission-fleet-active">
+                  <span class="mission-fleet-active-label">Editing</span>
+                  <strong class="mission-fleet-active-value" id="mission-fleet-active-label">UAM 1</strong>
+                </div>
+              </div>
+              <div class="mission-fleet-list" id="mission-fleet-list"></div>
+            </div>
+
+            <div class="mode-selector">
+              <button class="mode-btn active" data-mode="route" data-i18n="route">Route</button>
+              <button class="mode-btn" data-mode="free" data-i18n="free_mission">Free Mission</button>
+            </div>
+
+            <!-- Route Mode -->
+            <div id="route-mode">
+              <div class="route-map-pick-panel">
+                <button
+                  class="port-map-btn route-map-pick-btn"
+                  id="route-map-pick-toggle"
+                  type="button"
+                  data-i18n="map_pick"
+                  title="Map"
+                >Map</button>
+                <div class="route-map-pick-status" id="route-map-pick-status"></div>
+              </div>
+              <div class="port-select-group">
+                <label class="port-select-label" data-i18n="departure">Departure</label>
+                <div class="port-select-row">
+                  <select class="port-select" id="departure-select">
+                    <option value="" data-i18n="select_vertiport">Select vertiport...</option>
+                  </select>
+                </div>
+              </div>
+              <div class="port-select-group">
+                <label class="port-select-label" data-i18n="arrival">Arrival</label>
+                <div class="port-select-row">
+                  <select class="port-select" id="arrival-select">
+                    <option value="" data-i18n="select_vertiport">Select vertiport...</option>
+                  </select>
+                </div>
+              </div>
+              <div class="btn-group">
+                <button class="btn btn-primary btn-block" id="compute-route-btn" data-i18n="compute_route">Compute Route</button>
+              </div>
+
+              <div class="route-info" id="route-info">
+                <div class="route-info-row">
+                  <span class="route-info-label" data-i18n="distance">Distance</span>
+                  <span class="route-info-value" id="route-distance">--</span>
+                </div>
+                <div class="route-info-row">
+                  <span class="route-info-label" data-i18n="waypoints">Waypoints</span>
+                  <span class="route-info-value" id="route-waypoint-count">--</span>
+                </div>
+                <div class="route-info-row">
+                  <span class="route-info-label" data-i18n="path">Path</span>
+                  <span class="route-info-value" id="route-path" style="font-size:10px;max-width:180px;overflow:hidden;text-overflow:ellipsis">--</span>
+                </div>
+              </div>
+
+              <div id="altitude-profile">
+                <div class="altitude-profile-header">
+                  <div id="altitude-profile-title" data-i18n="altitude_profile">Altitude Profile</div>
+                  <button
+                    class="profile-expand-btn"
+                    id="altitude-profile-expand"
+                    type="button"
+                    data-i18n="expand_chart"
+                    data-i18n-title="expand_altitude_profile"
+                    title="Open expanded altitude profile"
+                  >Expand</button>
+                </div>
+                <svg id="altitude-canvas" viewBox="0 0 308 120" preserveAspectRatio="none"></svg>
+              </div>
+            </div>
+
+            <!-- Free Mission Mode -->
+            <div id="free-mode" style="display:none">
+              <div class="free-mission-hint" data-i18n-html="free_mission_hint">
+                Click on the map to place waypoints.<br>
+                <strong>Right-click</strong> a waypoint to delete it.<br>
+                Drag waypoint altitude in the profile chart.
+              </div>
+              <div class="wp-action-row">
+                <button class="btn btn-ghost btn-sm" id="clear-free-mission" data-i18n="clear_all">Clear All</button>
+                <button class="btn btn-primary btn-sm" id="execute-free-mission" data-i18n="execute">Execute</button>
+              </div>
+            </div>
+
+            <!-- Mission Table -->
+            <div class="mission-table-wrap" id="mission-table-wrap" style="display:none">
+              <table class="mission-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th data-i18n="name">Name</th>
+                    <th data-i18n="lat">Lat</th>
+                    <th data-i18n="lon">Lon</th>
+                    <th data-i18n="alt_m">Alt(m)</th>
+                  </tr>
+                </thead>
+                <tbody id="mission-table-body"></tbody>
+              </table>
+            </div>
+
+            <div class="simulator-card mission-sim-card" id="mission-sim-card">
+              <div class="mission-sim-header-row">
+                <div class="mission-sim-title">DTAM 3001 Status</div>
+              </div>
+              <div class="simulator-fields mission-sim-fields">
+                <label class="simulator-field">
+                  <span class="simulator-label">Target IP</span>
+                  <input class="settings-input simulator-input" id="mission-sim-dtam-target-ip" type="text" placeholder="127.0.0.1" />
+                </label>
+                <label class="simulator-field">
+                  <span class="simulator-label">Target Port</span>
+                  <input class="settings-input simulator-input" id="mission-sim-dtam-target-port" type="number" min="1" max="65535" step="1" placeholder="17000" />
+                </label>
+              </div>
+              <div class="wp-action-row">
+                <button class="btn btn-ghost btn-sm" id="mission-sim-dtam-apply" type="button">Apply</button>
+                <button class="btn btn-ghost btn-sm" id="mission-sim-dtam-refresh" type="button">Refresh</button>
+              </div>
+              <div class="simulator-grid mission-sim-grid">
+                <div class="simulator-stat">
+                  <span class="simulator-stat-label">DTAM Target</span>
+                  <span class="simulator-stat-value" id="mission-sim-airsim-status">Offline</span>
+                </div>
+                <div class="simulator-stat">
+                  <span class="simulator-stat-label">Send</span>
+                  <span class="simulator-stat-value" id="mission-sim-replay-status">Idle</span>
+                </div>
+                <div class="simulator-stat">
+                  <span class="simulator-stat-label">Fleet</span>
+                  <span class="simulator-stat-value" id="mission-sim-fleet-count">1 aircraft</span>
+                </div>
+                <div class="simulator-stat">
+                  <span class="simulator-stat-label">Result</span>
+                  <span class="simulator-stat-value" id="mission-sim-progress">--</span>
+                </div>
+              </div>
+              <div class="simulator-summary" id="mission-sim-status">
+                Configure the fleet here, then use the bottom controls to push 3001 Scheduled Flight messages to DTAM.
+              </div>
+            </div>
+
+            <div class="mission-icd-wrap" id="mission-icd-wrap">
+              <div class="mission-icd-caption">Mission ICD v1 Preview (UAM 1)</div>
+              <div class="mission-icd-fields">
+                <label class="mission-icd-field">
+                  <span class="mission-icd-label">Flight Plan #</span>
+                  <input class="settings-input mission-icd-input" id="mission-icd-flight-plan-number" type="number" placeholder="auto" />
+                </label>
+                <label class="mission-icd-field mission-icd-field-wide">
+                  <span class="mission-icd-label">STD</span>
+                  <input
+                    class="settings-input mission-icd-input mission-icd-time-input"
+                    id="mission-icd-std"
+                    type="text"
+                    inputmode="numeric"
+                    maxlength="8"
+                    placeholder="HH:MM:SS"
+                  />
+                </label>
+              </div>
+              <div class="wp-action-row mission-icd-actions">
+                <button class="btn btn-ghost btn-sm" id="save-mission-icd">Save ICD</button>
+                <button class="btn btn-primary btn-sm" id="send-mission-dtam">Send 3001 to DTAM</button>
+              </div>
+              <div class="mission-icd-status" id="mission-icd-status">No ICD generated yet.</div>
+              <pre class="mission-icd-preview" id="mission-icd-preview"></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Converter Section -->
+      <div class="section open" data-section="converter">
+        <div class="section-header">
+          <div class="section-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7h10v10H7z"/><path d="M3 12h4m10 0h4M12 3v4m0 10v4"/></svg>
+          </div>
+          <span class="section-title">Converter</span>
+          <span class="section-chevron">&#9660;</span>
+        </div>
+        <div class="section-body">
+          <div class="section-inner">
+            <div class="converter-card">
+              <div class="converter-actions converter-actions-toolbar">
+                <button class="btn btn-ghost btn-sm" id="converter-open-osm-btn" type="button" title="Open Seoul OSM">Open OSM</button>
+                <button class="btn btn-ghost btn-sm" id="converter-load-settings-btn" type="button" title="Load settings.json">Load JSON</button>
+                <button class="btn btn-ghost btn-sm converter-visual-btn" id="converter-visual-toggle-btn" type="button" title="Visualization Off">Vis Off</button>
+              </div>
+
+              <div class="converter-fields">
+                <label class="converter-field converter-field-wide">
+                  <span class="converter-label">settings.json Path</span>
+                  <input class="settings-input converter-input converter-input-wide" id="converter-settings-path" type="text" readonly />
+                </label>
+                <div class="converter-stat converter-field-wide">
+                  <span class="converter-label">OriginGeopoint</span>
+                  <span class="converter-stat-value" id="converter-origin-view">--</span>
+                </div>
+                <div class="converter-stat converter-field-wide">
+                  <span class="converter-label">Vehicle</span>
+                  <span class="converter-stat-value" id="converter-vehicle-view">--</span>
+                </div>
+              </div>
+
+              <div class="converter-section-title">Player Start</div>
+              <div class="converter-fields">
+                <label class="converter-field">
+                  <span class="converter-label">Lat</span>
+                  <input class="settings-input converter-input" id="converter-player-start-lat" type="number" step="0.000001" />
+                </label>
+                <label class="converter-field">
+                  <span class="converter-label">Lon</span>
+                  <input class="settings-input converter-input" id="converter-player-start-lon" type="number" step="0.000001" />
+                </label>
+                <label class="converter-field">
+                  <span class="converter-label">Alt (m)</span>
+                  <input class="settings-input converter-input" id="converter-player-start-alt" type="number" step="0.1" />
+                </label>
+              </div>
+              <div class="converter-actions">
+                <button class="btn btn-ghost btn-sm" id="converter-use-origin-btn" type="button">Use Origin</button>
+                <button class="btn btn-primary btn-sm" id="converter-pick-player-start-btn" type="button">Pick Player Start</button>
+              </div>
+              <div class="converter-stat">
+                <span class="converter-label">Player Start Frame</span>
+                <span class="converter-stat-value" id="converter-player-start-view">--</span>
+              </div>
+
+              <div class="converter-section-title">Axis Heading</div>
+              <div class="converter-fields">
+                <label class="converter-field">
+                  <span class="converter-label">X Heading</span>
+                  <input class="settings-input converter-input" id="converter-x-axis-heading" type="number" step="0.1" value="90" />
+                </label>
+                <label class="converter-field">
+                  <span class="converter-label">Y Heading</span>
+                  <input class="settings-input converter-input" id="converter-y-axis-heading" type="number" step="0.1" value="180" />
+                </label>
+                <div class="converter-axis-help">Heading convention: 0 = North, 90 = East.</div>
+              </div>
+
+              <div class="converter-section-title">Target</div>
+              <div class="converter-actions">
+                <select class="port-select converter-port-select" id="converter-vertiport-select">
+                  <option value="">Select vertiport...</option>
+                </select>
+                <button class="btn btn-ghost btn-sm" id="converter-use-vertiport-btn" type="button">Use Vertiport</button>
+              </div>
+              <div class="converter-actions">
+                <select class="port-select converter-port-select" id="converter-spawn-point-select">
+                  <option value="">Select spawn point...</option>
+                </select>
+                <button class="btn btn-ghost btn-sm" id="converter-use-spawn-btn" type="button">Use Spawn</button>
+              </div>
+              <div class="converter-actions">
+                <button class="btn btn-primary btn-sm" id="converter-pick-toggle" type="button">Pick on Map</button>
+                <div class="route-map-pick-status" id="converter-pick-status"></div>
+              </div>
+              <div class="converter-stat">
+                <span class="converter-label">Selected Target</span>
+                <span class="converter-stat-value" id="converter-target-view">--</span>
+              </div>
+              <div class="converter-stat">
+                <span class="converter-label">Spawn Layout</span>
+                <span class="converter-stat-value" id="converter-spawn-layout-view">--</span>
+              </div>
+              <label class="converter-field converter-field-wide">
+                <span class="converter-label">Target Alt Override (m)</span>
+                <input class="settings-input converter-input converter-input-wide" id="converter-target-alt" type="number" step="0.1" placeholder="Use DEM altitude" />
+              </label>
+
+              <div class="converter-section-title">Result</div>
+              <div class="converter-grid">
+                <div class="converter-stat">
+                  <span class="converter-label">AirSim XYZ (NED)</span>
+                  <span class="converter-stat-value" id="converter-unreal-view">--</span>
+                </div>
+                <div class="converter-stat">
+                  <span class="converter-label">Local NED</span>
+                  <span class="converter-stat-value" id="converter-ned-view">--</span>
+                </div>
+                <div class="converter-stat converter-field-wide">
+                  <span class="converter-label">Meta</span>
+                  <span class="converter-stat-value" id="converter-meta-view">--</span>
+                </div>
+              </div>
+
+              <div class="converter-actions converter-actions-compact">
+                <button class="btn btn-ghost btn-sm" id="converter-copy-result-btn" type="button" disabled>Copy Result</button>
+              </div>
+              <div class="converter-status" id="converter-status">Converter is ready.</div>
+              <div class="converter-attribution">OSM tiles (c) OpenStreetMap contributors</div>
+              <pre class="converter-preview" id="converter-result-preview"></pre>
+              <pre class="converter-preview converter-preview-secondary" id="converter-settings-preview"></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vertiports Section -->
+      <div class="section" data-section="vertiports">
+        <div class="section-header">
+          <div class="section-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4m-10-10h4m12 0h4"/></svg>
+          </div>
+          <span class="section-title" data-i18n="vertiports">Vertiports</span>
+          <span class="section-badge" id="vertiport-count">0</span>
+          <span class="section-chevron">&#9660;</span>
+        </div>
+        <div class="section-body">
+          <div class="section-inner">
+            <div class="data-list" id="vertiport-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Corridors Section -->
+      <div class="section" data-section="corridors">
+        <div class="section-header">
+          <div class="section-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+          <span class="section-title" data-i18n="corridors">Corridors</span>
+          <span class="section-badge" id="waypoint-count">0</span>
+          <span class="section-chevron">&#9660;</span>
+        </div>
+        <div class="section-body">
+          <div class="section-inner">
+            <div class="data-list" id="waypoint-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings Section -->
+      <div class="section" data-section="settings">
+        <div class="section-header">
+          <div class="section-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          </div>
+          <span class="section-title" data-i18n="settings">Settings</span>
+          <span class="section-chevron">&#9660;</span>
+        </div>
+        <div class="section-body">
+          <div class="section-inner">
+            <div class="settings-group">
+              <div class="settings-group-title">DTAM Target (3001 TCP)</div>
+              <div class="settings-row">
+                <span class="settings-label">Target IP</span>
+                <input class="settings-input" id="settings-dtam-target-ip" type="text" value="127.0.0.1" />
+              </div>
+              <div class="settings-row">
+                <span class="settings-label">Target Port (UDP base)</span>
+                <input class="settings-input" id="settings-dtam-target-port" type="number" min="1" max="65535" value="17000" />
+              </div>
+              <div class="settings-row">
+                <span class="settings-label">My IP</span>
+                <input class="settings-input" id="settings-dtam-my-ip" type="text" value="0.0.0.0" />
+              </div>
+              <div class="settings-row">
+                <span class="settings-label">My Port (UDP base)</span>
+                <input class="settings-input" id="settings-dtam-my-port" type="number" min="1" max="65535" value="17002" />
+              </div>
+              <div class="settings-row" style="font-size:11px;opacity:0.6">
+                TCP = UDP base + 1 (by DTAM convention). 3001 은 TCP 로 송출됩니다.
+              </div>
+            </div>
+            <div class="settings-group">
+              <div class="settings-group-title" data-i18n="map">Map</div>
+              <div class="settings-row">
+                <span class="settings-label" data-i18n="theme">Theme</span>
+                <div class="toggle-switch" id="theme-toggle" data-i18n-title="toggle_theme" title="Toggle dark/light theme"></div>
+              </div>
+              <div class="settings-row">
+                <span class="settings-label" data-i18n="corridors">Corridors</span>
+                <div class="toggle-switch active" id="corridor-toggle" data-i18n-title="toggle_corridors" title="Toggle corridors"></div>
+              </div>
+              <div class="settings-row">
+                <span class="settings-label" data-i18n="buildings">Buildings</span>
+                <div class="toggle-switch active" id="building-toggle" data-i18n-title="toggle_buildings" title="Toggle buildings"></div>
+              </div>
+            </div>
+            <div class="settings-group">
+              <div class="settings-group-title" data-i18n="mission_defaults">Mission Defaults</div>
+              <div class="settings-row">
+                <span class="settings-label" data-i18n="speed_mps">Speed (m/s)</span>
+                <input class="settings-input" id="settings-speed" type="number" value="30" />
+              </div>
+              <div class="settings-row">
+                <span class="settings-label" data-i18n="altitude_m">Altitude (m)</span>
+                <input class="settings-input" id="settings-altitude" type="number" value="300" />
+              </div>
+            </div>
+            <button class="btn btn-ghost btn-block btn-sm" id="settings-save" data-i18n="save_settings">Save Settings</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar Toggle Button (shown when collapsed) -->
+  <button id="sidebar-toggle" data-i18n-title="open_sidebar" title="Open sidebar">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
+
+  <!-- Top Right Controls -->
+  <div id="top-controls">
+    <button class="top-btn lang-btn" id="language-btn" data-i18n-title="toggle_language" title="Toggle language" type="button">EN</button>
+    <button class="top-btn" id="theme-btn" data-i18n-title="toggle_theme" title="Toggle theme" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+    </button>
+  </div>
+
+  <!-- Bottom Bar -->
+  <div id="bottom-bar">
+    <div class="bottom-bar-group">
+      <div class="status-dot" id="connection-dot"></div>
+      <span class="status-label" id="connection-label">DTAM offline</span>
+    </div>
+    <div class="bottom-bar-divider"></div>
+    <div class="bottom-bar-group">
+      <button class="connect-btn" id="connect-btn" title="Refresh DTAM status">Target</button>
+      <button class="play-btn" id="play-btn" title="Send 3001 Scheduled Flight to DTAM">Send 3001</button>
+      <button class="stop-btn" id="stop-btn" style="display:none">&#9632;</button>
+      <button class="speed-btn" id="playback-speed-btn" type="button" title="Refresh DTAM status">&#x21bb;</button>
+    </div>
+    <div class="bottom-bar-divider"></div>
+    <div class="telemetry-readout" id="telemetry-readout">
+      <span style="opacity:0.6">3001 → DTAM server</span>
+    </div>
+    <div class="bottom-bar-spacer"></div>
+  </div>
+
+  <section id="ops-log" data-i18n-aria-label="operations_log" aria-label="Operations log">
+    <div class="ops-log-header">
+      <div class="ops-log-title-wrap">
+        <span class="ops-log-title" data-i18n="operations">Operations</span>
+        <span class="ops-log-subtitle" data-i18n="operator_events">Operator-friendly events</span>
+      </div>
+      <button class="ops-log-clear" id="ops-log-clear" type="button" data-i18n="clear">Clear</button>
+    </div>
+    <div class="ops-log-body" id="ops-log-body">
+      <div class="ops-log-empty" id="ops-log-empty" data-i18n="ops_log_empty">Connection and mission events will appear here.</div>
+    </div>
+  </section>
+
+  <!-- Context Menu -->
+  <div class="context-menu" id="context-menu">
+    <div class="context-menu-item" data-action="edit-wp" data-i18n="edit_waypoint">Edit Waypoint</div>
+    <div class="context-menu-item danger" data-action="delete-wp" data-i18n="delete_waypoint">Delete Waypoint</div>
+  </div>
+
+  <div class="profile-modal" id="altitude-profile-modal" aria-hidden="true">
+    <div class="profile-modal-backdrop" id="altitude-profile-modal-backdrop"></div>
+    <div class="profile-modal-card" role="dialog" aria-modal="true" aria-labelledby="altitude-profile-modal-title">
+      <div class="profile-modal-header">
+        <div class="profile-modal-title" id="altitude-profile-modal-title" data-i18n="altitude_profile">Altitude Profile</div>
+        <button
+          class="profile-modal-close"
+          id="altitude-profile-modal-close"
+          type="button"
+          data-i18n-title="close_altitude_profile"
+          title="Close altitude profile"
+          aria-label="Close altitude profile"
+        >&times;</button>
+      </div>
+      <svg id="altitude-canvas-modal" viewBox="0 0 760 340" preserveAspectRatio="none"></svg>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="/js/utils.js?v=20260413-collision1"></script>
+  <script src="/js/i18n.js?v=20260413-collision1"></script>
+  <script src="/js/operator-log.js?v=20260413-collision1"></script>
+  <script src="/js/map.js?v=20260413-collision1"></script>
+  <script src="/js/sidebar.js?v=20260413-collision1"></script>
+  <script src="/js/altitude-profile.js?v=20260413-collision1"></script>
+  <script src="/js/mission.js?v=20260415-uammissions5"></script>
+  <script src="/js/telemetry.js?v=20260414-simfleet2"></script>
+  <script src="/js/simulator.js?v=20260415-simfleet5"></script>
+  <script src="/js/converter.js?v=20260414-conv10"></script>
+  <script src="/js/settings.js?v=20260413-collision1"></script>
+  <script src="/js/app.js?v=20260414-uammissions2"></script>
+</body>
+</html>

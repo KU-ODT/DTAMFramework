@@ -1,0 +1,11 @@
+# MissionModule runtime dependencies.
+-c ../constraints.txt
+-r ../DTAMSDK/requirements.txt
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.29,<1.0
+numpy>=1.26,<2.0
+rasterio>=1.3,<2.0
+matplotlib>=3.8,<4.0
+# Kept for route/tile image utility compatibility; rasterio handles the main
+# GeoTIFF/PNG path today, but Pillow is lightweight and used elsewhere in DTAM.
+Pillow>=10,<13

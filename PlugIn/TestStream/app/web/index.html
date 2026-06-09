@@ -1,0 +1,131 @@
+﻿<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DTAM TestStream</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <p class="eyebrow">PlugIn / Test Module</p>
+      <h1>DTAM Real-time Stream Test</h1>
+      <p class="summary">VPO 연결 없이 VisualizationModule의 최신 프레임 캐시 기반 MJPEG 스트림을 받아보고, 카메라 제어는 ICD 5002로 서버에 전송합니다.</p>
+      <div class="badges">
+        <span>Media plane: direct MJPEG cache</span>
+        <span>Discovery: ICD 4102</span>
+        <span>Control: ICD 5002</span>
+        <span>Display: receiver upscale</span>
+      </div>
+    </section>
+
+    <section class="grid">
+      <article class="panel video-panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Video</p>
+            <h2>Stream Receiver</h2>
+          </div>
+          <span id="streamState" class="state idle">idle</span>
+        </div>
+        <div class="viewer">
+          <img id="streamImage" alt="MJPEG stream" />
+          <iframe id="streamFrame" title="External stream player" allow="autoplay; fullscreen; clipboard-read; clipboard-write; microphone; camera; gamepad" referrerpolicy="no-referrer"></iframe>
+          <div id="streamOverlay" class="stream-overlay" aria-live="polite">
+            <div class="overlay-line"><span class="overlay-label">IMG</span><span id="overlayImageSize">--</span></div>
+            <div class="overlay-line"><span class="overlay-label">FPS</span><span id="overlayFps">--</span></div>
+            <div class="overlay-line"><span class="overlay-label">CAP</span><span id="overlayCapture">--</span></div>
+            <div id="overlayWarning" class="overlay-warning" hidden>--</div>
+          </div>
+          <div id="emptyHint" class="empty-hint">아직 스트림을 열지 않았습니다. 아래 설정 후 “스트림 시작”을 누르세요.</div>
+        </div>
+        <div class="button-row">
+          <button id="launchUnrealBtn">Unreal 실행</button>
+          <button id="startBtn" class="primary">스트림 시작 + 4102 공지</button>
+          <button id="stopBtn">스트림 정지</button>
+          <button id="announceBtn">4102만 공지</button>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Settings</p>
+            <h2>Endpoint / Camera</h2>
+          </div>
+        </div>
+        <label>Visualization URL<input id="visualUrl" value="http://127.0.0.1:8097" /></label>
+        <label>StateServer URL<input id="stateUrl" value="http://127.0.0.1:8096" /></label>
+        <div class="two">
+          <label>Aircraft ID<input id="vehicleId" value="UAM0001" /></label>
+          <label>AirSim Vehicle<input id="vehicleName" placeholder="비우면 기본 vehicle" /></label>
+        </div>
+        <div class="two">
+          <label>Camera<input id="cameraName" value="front_center" /></label>
+          <label>AirSim Image Type
+            <select id="imageType">
+              <option value="0" selected>0 - Scene / RGB</option>
+              <option value="3">3 - DepthVis</option>
+              <option value="6">6 - SurfaceNormals</option>
+              <option value="5">5 - Segmentation</option>
+              <option value="1">1 - DepthPlanar</option>
+              <option value="2">2 - DepthPerspective</option>
+            </select>
+          </label>
+        </div>
+        <div class="two">
+          <label>FPS<input id="fps" type="number" min="0.2" max="30" step="1" value="20" /></label>
+          <label>JPEG Quality<input id="quality" type="number" min="10" max="95" step="1" value="60" /></label>
+        </div>
+        <label>Display Scale
+          <select id="displayScale">
+            <option value="fit" selected>Fit / 부드럽게 확대</option>
+            <option value="fill">Fill / 패널 채우기</option>
+            <option value="1">1x 원본 크기</option>
+            <option value="1.5">1.5x 확대</option>
+            <option value="2">2x 확대</option>
+          </select>
+        </label>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">ICD 5002</p>
+            <h2>Camera Control</h2>
+          </div>
+        </div>
+        <div class="control-pad">
+          <button data-cam="up">▲</button>
+          <button data-cam="left">◀</button>
+          <button data-cam="home">●</button>
+          <button data-cam="right">▶</button>
+          <button data-cam="down">▼</button>
+        </div>
+        <div class="button-row">
+          <button data-cam="zoomIn">Zoom +</button>
+          <button data-cam="zoomOut">Zoom -</button>
+        </div>
+        <p class="hint">버튼 클릭 시 TestStream → StateServer `/api/msg/5002` → VisualizationModule 경로로 전송됩니다.</p>
+      </article>
+
+      <article class="panel log-panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Status</p>
+            <h2>Log</h2>
+          </div>
+          <div class="button-row">
+            <button id="statusBtn">상태 확인</button>
+            <button id="mediaStatsBtn">스트림 통계</button>
+            <button id="probeBtn">단발 Probe</button>
+          </div>
+        </div>
+        <pre id="log"></pre>
+      </article>
+    </section>
+  </main>
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,758 @@
+{
+  "actors": [
+    {
+      "id": "user",
+      "name": "User",
+      "color": "user"
+    },
+    {
+      "id": "monitoring",
+      "name": "Operations\nConsole",
+      "color": "monitoring"
+    },
+    {
+      "id": "server",
+      "name": "DTAM\nCore",
+      "color": "server"
+    },
+    {
+      "id": "sim_state",
+      "name": "Simulation\nState",
+      "color": "mission"
+    },
+    {
+      "id": "db",
+      "name": "Central\nDB",
+      "color": "db"
+    },
+    {
+      "id": "mission",
+      "name": "Mission\nPlanner",
+      "color": "mission"
+    },
+    {
+      "id": "vehicle",
+      "name": "Air\nMobility",
+      "color": "vehicle"
+    },
+    {
+      "id": "visual",
+      "name": "Visualization",
+      "color": "visual"
+    },
+    {
+      "id": "situation_awareness",
+      "name": "Situation\nAwareness",
+      "color": "visual"
+    }
+  ],
+  "messages": [
+    {
+      "group": "0. DTAM Initialization"
+    },
+    {
+      "from": "user",
+      "to": "monitoring",
+      "name": "initialization click",
+      "proto": "UI"
+    },
+    {
+      "from": "monitoring",
+      "to": "server",
+      "name": "build file link / server on",
+      "proto": "build"
+    },
+    {
+      "from": "monitoring",
+      "to": "mission",
+      "name": "build file link / module on",
+      "proto": "build"
+    },
+    {
+      "from": "monitoring",
+      "to": "vehicle",
+      "name": "build file link / module on",
+      "proto": "build"
+    },
+    {
+      "from": "monitoring",
+      "to": "visual",
+      "name": "build file link / module on",
+      "proto": "build"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "0001",
+      "name": "Module Setting Info",
+      "proto": "ws",
+      "note": "report endpoint"
+    },
+    {
+      "from": "mission",
+      "to": "sim_state",
+      "id": "0001",
+      "name": "Module Setting Info",
+      "proto": "ws",
+      "note": "report endpoint"
+    },
+    {
+      "from": "vehicle",
+      "to": "sim_state",
+      "id": "0001",
+      "name": "Module Setting Info",
+      "proto": "ws",
+      "note": "report endpoint"
+    },
+    {
+      "from": "visual",
+      "to": "sim_state",
+      "id": "0001",
+      "name": "Module Setting Info",
+      "proto": "ws",
+      "note": "report endpoint"
+    },
+    {
+      "from": "sim_state",
+      "to": "monitoring",
+      "id": "0001",
+      "name": "Module Setting Summary",
+      "proto": "ws",
+      "note": "aggregate"
+    },
+    {
+      "from": "mission",
+      "to": "sim_state",
+      "id": "0002",
+      "name": "Module Status",
+      "proto": "ws",
+      "note": "initial report"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "0002",
+      "name": "Module Status",
+      "proto": "ws",
+      "note": "initial report"
+    },
+    {
+      "from": "vehicle",
+      "to": "sim_state",
+      "id": "0002",
+      "name": "Module Status",
+      "proto": "ws",
+      "note": "initial report"
+    },
+    {
+      "from": "visual",
+      "to": "sim_state",
+      "id": "0002",
+      "name": "Module Status",
+      "proto": "ws",
+      "note": "initial report"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "0002",
+      "name": "Module Status",
+      "proto": "file",
+      "note": "save latest per module"
+    },
+    {
+      "from": "sim_state",
+      "to": "monitoring",
+      "id": "0002",
+      "name": "Module Status",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "group": "1. Setting Phase"
+    },
+    {
+      "from": "user",
+      "to": "monitoring",
+      "name": "mode input",
+      "proto": "UI"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "1001",
+      "name": "Sim Mode Setup",
+      "proto": "ws",
+      "note": "send to server"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "1001",
+      "name": "Sim Mode Setup",
+      "proto": "file",
+      "note": "save"
+    },
+    {
+      "from": "user",
+      "to": "monitoring",
+      "name": "scenario input",
+      "proto": "UI"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "1003",
+      "name": "Scenario Setup",
+      "proto": "ws",
+      "note": "send to server"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "1003",
+      "name": "Scenario Setup",
+      "proto": "file",
+      "note": "save"
+    },
+    {
+      "from": "sim_state",
+      "to": "visual",
+      "id": "1003",
+      "name": "Scenario Setup",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "group": "2. Planning Phase"
+    },
+    {
+      "from": "user",
+      "to": "monitoring",
+      "name": "flight plan request",
+      "proto": "UI"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "2001",
+      "name": "Flight Plan Request",
+      "proto": "ws",
+      "note": "request"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "2001",
+      "name": "Flight Plan Request",
+      "proto": "file",
+      "note": "save"
+    },
+    {
+      "from": "sim_state",
+      "to": "mission",
+      "id": "2001",
+      "name": "Flight Plan Request",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "from": "mission",
+      "to": "db",
+      "id": "1003",
+      "name": "Scenario Setup",
+      "proto": "DB",
+      "note": "direct read"
+    },
+    {
+      "from": "db",
+      "to": "mission",
+      "id": "1003",
+      "name": "Scenario Setup",
+      "proto": "DB",
+      "note": "payload"
+    },
+    {
+      "from": "mission",
+      "to": "sim_state",
+      "id": "3001",
+      "name": "Scheduled Flight",
+      "proto": "ws",
+      "note": "submit"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "3001",
+      "name": "Scheduled Flight",
+      "proto": "file",
+      "note": "save"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "3001",
+      "name": "Scheduled Flight",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "from": "sim_state",
+      "to": "visual",
+      "id": "3001",
+      "name": "Scheduled Flight",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "group": "3. Execution Phase"
+    },
+    {
+      "from": "user",
+      "to": "monitoring",
+      "name": "execution command",
+      "proto": "UI"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "2002",
+      "name": "DTAM Execute",
+      "proto": "ws",
+      "note": "execute"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "2002",
+      "name": "DTAM Execute",
+      "proto": "file",
+      "note": "save"
+    },
+    {
+      "from": "sim_state",
+      "to": "mission",
+      "id": "2002",
+      "name": "DTAM Execute",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "from": "sim_state",
+      "to": "monitoring",
+      "id": "2002",
+      "name": "DTAM Execute",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "2002",
+      "name": "DTAM Execute",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "from": "sim_state",
+      "to": "visual",
+      "id": "2002",
+      "name": "DTAM Execute",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "from": "sim_state",
+      "to": "situation_awareness",
+      "id": "2002",
+      "name": "DTAM Execute",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "from": "visual",
+      "to": "visual",
+      "name": "Visualization Module Update",
+      "proto": "internal",
+      "note": "self update"
+    },
+    {
+      "from": "mission",
+      "to": "db",
+      "name": "central data lookup",
+      "proto": "DB",
+      "note": "direct read"
+    },
+    {
+      "from": "db",
+      "to": "mission",
+      "name": "central data",
+      "proto": "DB",
+      "note": "payload"
+    },
+    {
+      "from": "vehicle",
+      "to": "db",
+      "name": "central data lookup",
+      "proto": "DB",
+      "note": "direct read"
+    },
+    {
+      "from": "db",
+      "to": "vehicle",
+      "name": "central data",
+      "proto": "DB",
+      "note": "payload"
+    },
+    {
+      "from": "visual",
+      "to": "db",
+      "name": "central data lookup",
+      "proto": "DB",
+      "note": "direct read"
+    },
+    {
+      "from": "db",
+      "to": "visual",
+      "name": "central data",
+      "proto": "DB",
+      "note": "payload"
+    },
+    {
+      "group": "4. Simulation Control Phase"
+    },
+    {
+      "from": "user",
+      "to": "monitoring",
+      "name": "simulation control command",
+      "proto": "UI"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "1002",
+      "name": "Simulation Control",
+      "proto": "ws",
+      "note": "send to server"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "1002",
+      "name": "Simulation Control",
+      "proto": "file",
+      "note": "save"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "1002",
+      "name": "Simulation Control",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "from": "sim_state",
+      "to": "visual",
+      "id": "1002",
+      "name": "Simulation Control",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "group": "5. Status Info Update (Periodic)"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "0003",
+      "name": "Common Time Info",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "from": "sim_state",
+      "to": "visual",
+      "id": "0003",
+      "name": "Common Time Info",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "from": "vehicle",
+      "to": "sim_state",
+      "id": "4001",
+      "name": "Vehicle Status",
+      "proto": "ws",
+      "note": "periodic"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "4001",
+      "name": "Vehicle Status",
+      "proto": "file",
+      "note": "save"
+    },
+    {
+      "from": "sim_state",
+      "to": "monitoring",
+      "id": "4001",
+      "name": "Vehicle Status",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "from": "sim_state",
+      "to": "visual",
+      "id": "4001",
+      "name": "Vehicle Status",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "from": "sim_state",
+      "to": "situation_awareness",
+      "id": "4001",
+      "name": "Vehicle Status",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "from": "visual",
+      "to": "sim_state",
+      "id": "4101",
+      "name": "Camera Image Frame",
+      "proto": "ws",
+      "note": "periodic"
+    },
+    {
+      "from": "sim_state",
+      "to": "monitoring",
+      "id": "4101",
+      "name": "Camera Image Frame",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "from": "sim_state",
+      "to": "situation_awareness",
+      "id": "4101",
+      "name": "Camera Image Frame",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "from": "visual",
+      "to": "sim_state",
+      "id": "4102",
+      "name": "Camera Stream Descriptor",
+      "proto": "ws",
+      "note": "stream descriptor"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "4102",
+      "name": "Camera Stream Descriptor",
+      "proto": "file",
+      "note": "descriptor log"
+    },
+    {
+      "from": "sim_state",
+      "to": "monitoring",
+      "id": "4102",
+      "name": "Camera Stream Descriptor",
+      "proto": "ws",
+      "note": "stream discovery"
+    },
+    {
+      "from": "sim_state",
+      "to": "situation_awareness",
+      "id": "4102",
+      "name": "Camera Stream Descriptor",
+      "proto": "ws",
+      "note": "stream discovery"
+    },
+    {
+      "from": "visual",
+      "to": "sim_state",
+      "id": "4103",
+      "name": "Vehicle Collision Event",
+      "proto": "ws",
+      "note": "event"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "4103",
+      "name": "Vehicle Collision Event",
+      "proto": "file",
+      "note": "event log"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "4103",
+      "name": "Vehicle Collision Event",
+      "proto": "ws",
+      "note": "forward / flight-state response"
+    },
+    {
+      "from": "sim_state",
+      "to": "monitoring",
+      "id": "4103",
+      "name": "Vehicle Collision Event",
+      "proto": "ws",
+      "note": "forward / alert"
+    },
+    {
+      "from": "sim_state",
+      "to": "situation_awareness",
+      "id": "4103",
+      "name": "Vehicle Collision Event",
+      "proto": "ws",
+      "note": "forward / AI context"
+    },
+    {
+      "group": "6. Separation Commands"
+    },
+    {
+      "from": "mission",
+      "to": "sim_state",
+      "id": "3002",
+      "name": "Strategic Separation",
+      "proto": "ws",
+      "note": "submit"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "3002",
+      "name": "Strategic Separation",
+      "proto": "file",
+      "note": "save"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "3002",
+      "name": "Strategic Separation",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "from": "mission",
+      "to": "sim_state",
+      "id": "3003",
+      "name": "Tactical Separation",
+      "proto": "ws",
+      "note": "submit"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "3003",
+      "name": "Tactical Separation",
+      "proto": "file",
+      "note": "save"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "3003",
+      "name": "Tactical Separation",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "group": "7. Operator Control"
+    },
+    {
+      "from": "user",
+      "to": "monitoring",
+      "name": "keyboard / joystick input",
+      "proto": "UI",
+      "note": "manual input"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "5001",
+      "name": "Operator Control Input",
+      "proto": "ws",
+      "note": "send to server"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "5001",
+      "name": "Operator Control Input",
+      "proto": "file",
+      "note": "save"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "5001",
+      "name": "Operator Control Input",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "from": "user",
+      "to": "monitoring",
+      "name": "camera hat input",
+      "proto": "UI",
+      "note": "manual input"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "5002",
+      "name": "Camera Control Command",
+      "proto": "ws",
+      "note": "send to server"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "5002",
+      "name": "Camera Control Command",
+      "proto": "file",
+      "note": "save"
+    },
+    {
+      "from": "sim_state",
+      "to": "visual",
+      "id": "5002",
+      "name": "Camera Control Command",
+      "proto": "ws",
+      "note": "forward"
+    },
+    {
+      "from": "monitoring",
+      "to": "sim_state",
+      "id": "5003",
+      "name": "Abnormal Situation Command",
+      "proto": "ws",
+      "note": "send to server"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "5003",
+      "name": "Abnormal Situation Command",
+      "proto": "file",
+      "note": "save"
+    },
+    {
+      "from": "sim_state",
+      "to": "visual",
+      "id": "5003",
+      "name": "Abnormal Situation Command",
+      "proto": "ws",
+      "note": "forward"
+    }
+  ]
+}

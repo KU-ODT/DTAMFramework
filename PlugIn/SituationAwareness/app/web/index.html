@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Situation Awareness</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <main class="dashboard">
+
+        <header class="topbar">
+            <div>
+                <div class="brand">DTAM FRAMEWORK</div>
+                <h1>Situation Awareness</h1>
+                <p>Environment Perception · Detection · Prediction · Recommendation</p>
+            </div>
+
+            <div class="top-status">
+                <span class="status-dot"></span>
+                SYSTEM ONLINE
+            </div>
+        </header>
+
+        <section class="hero-grid">
+
+            <section class="panel video-panel">
+                <div class="panel-header">
+                    <h2>Live Operational Feed</h2>
+                    <span>Detection Stream</span>
+                </div>
+
+                <div class="video-container">
+
+                    <img
+                        src="/video_feed"
+                        class="live-video"
+                        id="liveVideo"
+                    />
+
+                    <div class="scan-line"></div>
+
+                    <div class="video-overlay">
+                        <div class="status-indicator">
+                            LIVE • SITUATION AWARNESS
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="control-row">
+                    <button id="startBtn">Start Monitoring</button>
+                    <button id="connectBtn">Connect UAMSim</button>
+                    <button class="danger">Emergency Stop</button>
+                </div>
+            </section>
+
+            <aside class="side-stack">
+
+                <section class="panel risk-card">
+                    <div class="panel-header">
+                        <h2>Risk Assessment</h2>
+                        <span>Decision</span>
+                    </div>
+
+                    <div id="riskLevel" class="risk-level safe">SAFE</div>
+                    <div class="risk-score">
+                        <span>Risk Score</span>
+                        <strong id="riskScore">0.12</strong>
+                    </div>
+                    <div class="progress">
+                        <div id="riskBar" class="progress-fill"></div>
+                    </div>
+                </section>
+
+                <section class="panel metrics-card">
+                    <div class="panel-header">
+                        <h2>Safety Metrics</h2>
+                        <span>Real-time</span>
+                    </div>
+
+                    <div class="metric-grid">
+                        <div class="metric">
+                            <span>Objects</span>
+                            <strong id="objectCount">0</strong>
+                        </div>
+                        <div class="metric">
+                            <span>Closest Distance</span>
+                            <strong id="distance">-- m</strong>
+                        </div>
+                        <div class="metric">
+                            <span>TTC</span>
+                            <strong id="ttc">-- s</strong>
+                        </div>
+                        <div class="metric">
+                            <span>Uncertainty</span>
+                            <strong id="uncertainty">--</strong>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel advisory-card">
+                    <div class="panel-header">
+                        <h2>Advisory</h2>
+                        <span>Recommended Action</span>
+                    </div>
+
+                    <p id="advisoryText">
+                        Maintain current course and continue monitoring.
+                    </p>
+                </section>
+
+            </aside>
+        </section>
+
+        <section class="bottom-grid">
+
+            <section class="panel chart-panel">
+                <div class="panel-header">
+                    <h2>Prediction Timeline</h2>
+                    <span>Trajectory / Uncertainty</span>
+                </div>
+
+                <div class="prediction-empty">
+                    <div class="prediction-icon">△</div>
+                    <div class="prediction-title">
+                        NO ACTIVE TRAJECTORY PREDICTION
+                    </div>
+                    <div class="prediction-sub">
+                        Awaiting object detection and motion tracking
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel log-panel">
+                <div class="panel-header">
+                    <h2>System Console</h2>
+                    <span>Event Log</span>
+                </div>
+
+                <div id="consoleLog" class="console">
+                    <p>[00:00:01] Situation Awareness GUI initialized</p>
+                    <p>[00:00:02] Dashboard rendering complete</p>
+                    <p>[00:00:03] Awaiting backend connection</p>
+                </div>
+            </section>
+
+        </section>
+
+    </main>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

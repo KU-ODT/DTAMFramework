@@ -1,0 +1,7 @@
+# VPOModule runtime dependencies.
+# Install from this directory with:
+#   pip install -r requirements.txt
+-c ../../constraints.txt
+-r ../../DTAMSDK/requirements.txt
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.29,<1.0

@@ -1,0 +1,12 @@
+# DTAMFramework aggregate runtime dependencies for core modules.
+#
+# This intentionally excludes heavy/optional PlugIn and ExtenstionModule
+# profiles.  Install them with requirements-plugins.txt or requirements-all.txt.
+
+-c constraints.txt
+-r DTAMSDK/requirements.txt
+-r IntegrationHub/requirements.txt
+-r MissionModule/requirements.txt
+-r OperationModule/requirements.txt
+-r VehicleModule/requirements.txt
+-r VisualizationModule/requirements.txt

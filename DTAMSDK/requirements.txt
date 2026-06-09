@@ -1,0 +1,2 @@
+# DTAM SDK runtime dependencies.
+websocket-client>=1.8,<2

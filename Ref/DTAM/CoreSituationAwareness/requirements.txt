@@ -1,0 +1,10 @@
+opencv-python
+numpy
+scipy
+pyyaml
+ultralytics
+fastapi
+uvicorn
+websockets
+msgpack
+msgpack-rpc-python

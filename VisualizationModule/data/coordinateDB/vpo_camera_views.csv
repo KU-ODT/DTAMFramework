@@ -1,0 +1,18 @@
+vertiport_name,camera_id,view_suffix,view_name,sector,camera_type,lens_mm,fov_deg,local_x_cm,local_y_cm,local_z_cm,look_at_x_cm,look_at_y_cm,look_at_z_cm,world_x_cm,world_y_cm,world_z_cm,pitch_deg,yaw_deg,roll_deg,source,unreal_actor,frame_file,frame_relative_path
+영등포,VPO-001-01,overview-top,Vertiport CCTV Top,Vertiport Overview,Top-down CCTV,24,58,0,0,18000,0,0,0,,,,,,,planned_unreal_scene_capture,,VPO-001-01.png,vpo_camera_frames/VPO-001-01.png
+잠실,VPO-002-01,overview-top,Vertiport CCTV Top,Vertiport Overview,Top-down CCTV,24,58,0,0,18000,0,0,0,,,,,,,planned_unreal_scene_capture,,VPO-002-01.png,vpo_camera_frames/VPO-002-01.png
+상암,VPO-003-01,overview-top,Vertiport CCTV Top,Vertiport Overview,Top-down CCTV,24,58,0,0,18000,0,0,0,,,,,,,planned_unreal_scene_capture,,VPO-003-01.png,vpo_camera_frames/VPO-003-01.png
+용산,VPO-004-01,overview-top,Vertiport CCTV Top,Vertiport Overview,Top-down CCTV,24,58,0,0,18000,0,0,0,,,,,,,planned_unreal_scene_capture,,VPO-004-01.png,vpo_camera_frames/VPO-004-01.png
+목동,VPO-005-01,overview-top,Vertiport CCTV Top,Vertiport Overview,Top-down CCTV,24,58,0,0,18000,0,0,0,,,,,,,planned_unreal_scene_capture,,VPO-005-01.png,vpo_camera_frames/VPO-005-01.png
+미아,VPO-006-01,overview-top,Vertiport CCTV Top,Vertiport Overview,Top-down CCTV,24,58,0,0,18000,0,0,0,,,,,,,planned_unreal_scene_capture,,VPO-006-01.png,vpo_camera_frames/VPO-006-01.png
+봉천,VPO-007-01,overview-top,Vertiport CCTV Top,Vertiport Overview,Top-down CCTV,24,58,0,0,18000,0,0,0,,,,,,,planned_unreal_scene_capture,,VPO-007-01.png,vpo_camera_frames/VPO-007-01.png
+사당,VPO-008-01,overview-top,Vertiport CCTV Top,Vertiport Overview,Top-down CCTV,24,58,0,0,18000,0,0,0,,,,,,,planned_unreal_scene_capture,,VPO-008-01.png,vpo_camera_frames/VPO-008-01.png
+성수,VPO-009-01,overview-top,Vertiport CCTV Top,Vertiport Overview,Top-down CCTV,24,58,0,0,18000,0,0,0,,,,,,,planned_unreal_scene_capture,,VPO-009-01.png,vpo_camera_frames/VPO-009-01.png
+연신내,VPO-010-01,overview-top,Vertiport CCTV Top,Vertiport Overview,Top-down CCTV,24,58,0,0,18000,0,0,0,,,,,,,planned_unreal_scene_capture,,VPO-010-01.png,vpo_camera_frames/VPO-010-01.png
+천호,VPO-011-01,overview-top,Vertiport CCTV Top,Vertiport Overview,Top-down CCTV,24,58,0,0,18000,0,0,0,,,,,,,planned_unreal_scene_capture,,VPO-011-01.png,vpo_camera_frames/VPO-011-01.png
+광화문,VPO-012-01,overview-top,Vertiport CCTV Top,Vertiport Overview,Top-down CCTV,24,58,0,0,18000,0,0,0,,,,,,,planned_unreal_scene_capture,,VPO-012-01.png,vpo_camera_frames/VPO-012-01.png
+강남,VPO-013-01,overview-top,Vertiport CCTV Top,Vertiport Overview,Top-down CCTV,24,58,0,0,18000,0,0,0,,,,,,,planned_unreal_scene_capture,,VPO-013-01.png,vpo_camera_frames/VPO-013-01.png
+가산,VPO-014-01,overview-top,Vertiport CCTV Top,Vertiport Overview,Top-down CCTV,24,58,0,0,18000,0,0,0,,,,,,,planned_unreal_scene_capture,,VPO-014-01.png,vpo_camera_frames/VPO-014-01.png
+마곡,VPO-015-01,overview-top,Vertiport CCTV Top,Vertiport Overview,Top-down CCTV,24,58,0,0,18000,0,0,0,,,,,,,planned_unreal_scene_capture,,VPO-015-01.png,vpo_camera_frames/VPO-015-01.png
+망우,VPO-016-01,overview-top,Vertiport CCTV Top,Vertiport Overview,Top-down CCTV,24,58,0,0,18000,0,0,0,,,,,,,planned_unreal_scene_capture,,VPO-016-01.png,vpo_camera_frames/VPO-016-01.png
+수서,VPO-017-01,overview-top,Vertiport CCTV Top,Vertiport Overview,Top-down CCTV,24,58,0,0,18000,0,0,0,,,,,,,planned_unreal_scene_capture,,VPO-017-01.png,vpo_camera_frames/VPO-017-01.png

@@ -1,0 +1,119 @@
+# Aircraft Registry
+# 각 aircraftId에 대응하는 타겟 항공기 접속 정보
+# Mission Dispatcher가 이 파일을 참조하여 미션을 라우팅한다.
+
+aircraft:
+  UAM0001:
+    type: "SITL"
+    instance_id: 0
+    connection_string: "udpin://0.0.0.0:14540"
+    mavsdk_port: 50051
+    send_protocol: "scp"
+    send_host: "203.252.161.188"
+    send_port: 22
+    execution_mode: "remote"
+    script_deploy_path: "~/missions"
+    python_executable: "python3"
+    ssh_password: "kada123"
+    status: "available"
+    home_lat: 37.562899
+    home_lon: 126.792416
+    home_alt: 34.6
+    mavlink_sysid: 1
+    sitl:
+      enabled: true
+      vfds_command_template: "cd ~/git/vfds/run && python3.12 run_vehicle_multi.py --port 4560 --no-px4 --lat {home_lat} --lon {home_lon} --alt {home_alt}"
+      command_template: "cd ~/PX4-Autopilot && PX4_HOME_LAT={home_lat} PX4_HOME_LON={home_lon} PX4_HOME_ALT={home_alt} PX4_SIM_MODEL=kp2 ./build/px4_sitl_default/bin/px4 -i 0"
+      stop_pattern: "px4 -i 0|run_vehicle_multi.py --port 4560|mavsdk_server.*50051|python3.*UAM0001"
+
+  UAM0002:
+    type: "SITL"
+    instance_id: 1
+    connection_string: "udpin://0.0.0.0:14541"
+    mavsdk_port: 50052
+    send_protocol: "scp"
+    send_host: "203.252.161.188"
+    send_port: 22
+    execution_mode: "remote"
+    script_deploy_path: "~/missions"
+    python_executable: "python3"
+    ssh_password: "kada123"
+    status: "available"
+    home_lat: 37.526513
+    home_lon: 126.922845
+    home_alt: 23.0
+    mavlink_sysid: 2
+    sitl:
+      enabled: true
+      vfds_command_template: "cd ~/git/vfds/run && python3.12 run_vehicle_multi.py --port 4561 --no-px4 --lat {home_lat} --lon {home_lon} --alt {home_alt}"
+      command_template: "cd ~/PX4-Autopilot && PX4_HOME_LAT={home_lat} PX4_HOME_LON={home_lon} PX4_HOME_ALT={home_alt} PX4_SIM_MODEL=kp2 ./build/px4_sitl_default/bin/px4 -i 1"
+      stop_pattern: "px4 -i 1|run_vehicle_multi.py --port 4561|mavsdk_server.*50052|python3.*UAM0002"
+
+  UAM0003:
+    type: "SITL"
+    instance_id: 2
+    connection_string: "udpin://0.0.0.0:14542"
+    mavsdk_port: 50053
+    send_protocol: "scp"
+    send_host: "203.252.161.188"
+    send_port: 22
+    execution_mode: "remote"
+    script_deploy_path: "~/missions"
+    python_executable: "python3"
+    ssh_password: "kada123"
+    status: "available"
+    home_lat: 37.525680
+    home_lon: 126.922050
+    home_alt: 0.0
+    mavlink_sysid: 3
+    sitl:
+      enabled: true
+      vfds_command_template: "cd ~/git/vfds/run && python3.12 run_vehicle_multi.py --port 4562 --no-px4 --lat {home_lat} --lon {home_lon} --alt {home_alt}"
+      command_template: "cd ~/PX4-Autopilot && PX4_HOME_LAT={home_lat} PX4_HOME_LON={home_lon} PX4_HOME_ALT={home_alt} PX4_SIM_MODEL=kp2 ./build/px4_sitl_default/bin/px4 -i 2"
+      stop_pattern: "px4 -i 2|run_vehicle_multi.py --port 4562|mavsdk_server.*50053|python3.*UAM0003"
+
+  UAM0004:
+    type: "SITL"
+    instance_id: 3
+    connection_string: "udpin://0.0.0.0:14543"
+    mavsdk_port: 50054
+    send_protocol: "scp"
+    send_host: "203.252.161.188"
+    send_port: 22
+    execution_mode: "remote"
+    script_deploy_path: "~/missions"
+    python_executable: "python3"
+    ssh_password: "kada123"
+    status: "available"
+    home_lat: 37.525680
+    home_lon: 126.922050
+    home_alt: 0.0
+    mavlink_sysid: 4
+    sitl:
+      enabled: true
+      vfds_command_template: "cd ~/git/vfds/run && python3.12 run_vehicle_multi.py --port 4563 --no-px4 --lat {home_lat} --lon {home_lon} --alt {home_alt}"
+      command_template: "cd ~/PX4-Autopilot && PX4_HOME_LAT={home_lat} PX4_HOME_LON={home_lon} PX4_HOME_ALT={home_alt} PX4_SIM_MODEL=kp2 ./build/px4_sitl_default/bin/px4 -i 3"
+      stop_pattern: "px4 -i 3|run_vehicle_multi.py --port 4563|mavsdk_server.*50054|python3.*UAM0004"
+
+  UAM0005:
+    type: "SITL"
+    instance_id: 4
+    connection_string: "udpin://0.0.0.0:14544"
+    mavsdk_port: 50055
+    send_protocol: "scp"
+    send_host: "203.252.161.188"
+    send_port: 22
+    execution_mode: "remote"
+    script_deploy_path: "~/missions"
+    python_executable: "python3"
+    ssh_password: "kada123"
+    status: "available"
+    home_lat: 37.525680
+    home_lon: 126.922050
+    home_alt: 0.0
+    mavlink_sysid: 5
+    sitl:
+      enabled: true
+      vfds_command_template: "cd ~/git/vfds/run && python3.12 run_vehicle_multi.py --port 4564 --no-px4 --lat {home_lat} --lon {home_lon} --alt {home_alt}"
+      command_template: "cd ~/PX4-Autopilot && PX4_HOME_LAT={home_lat} PX4_HOME_LON={home_lon} PX4_HOME_ALT={home_alt} PX4_SIM_MODEL=kp2 ./build/px4_sitl_default/bin/px4 -i 4"
+      stop_pattern: "px4 -i 4|run_vehicle_multi.py --port 4564|mavsdk_server.*50055|python3.*UAM0005"

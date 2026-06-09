@@ -1,0 +1,184 @@
+{
+  "flightPlanNumber": 4101449,
+  "aircraftId": "UAM0001",
+  "departure": {
+    "vertiport": "연신내",
+    "std": "14:47:54",
+    "depGateNumber": "G1",
+    "eobt": "14:48:54",
+    "depFatoNumber": "F1",
+    "etot": "14:49:19"
+  },
+  "enRoute": [
+    {
+      "seq": 1,
+      "phase": "A",
+      "startLLA": {
+        "lat": 37.61052,
+        "lon": 126.923384,
+        "alt": 32.7
+      },
+      "endLLA": {
+        "lat": 37.610344,
+        "lon": 126.923622,
+        "alt": 32.6
+      },
+      "targetSpeed": 7.5
+    },
+    {
+      "seq": 2,
+      "phase": "B",
+      "startLLA": {
+        "lat": 37.610344,
+        "lon": 126.923622,
+        "alt": 32.6
+      },
+      "endLLA": {
+        "lat": 37.610344,
+        "lon": 126.923622,
+        "alt": 92.6
+      },
+      "targetSpeed": 10.5
+    },
+    {
+      "seq": 3,
+      "phase": "C",
+      "startLLA": {
+        "lat": 37.610344,
+        "lon": 126.923622,
+        "alt": 92.6
+      },
+      "endLLA": {
+        "lat": 37.623721,
+        "lon": 126.922747,
+        "alt": 212.6
+      },
+      "targetSpeed": 16.5
+    },
+    {
+      "startLLA": {
+        "lat": 37.623721,
+        "lon": 126.922747,
+        "alt": 212.6
+      },
+      "endLLA": {
+        "lat": 37.600174,
+        "lon": 126.9305,
+        "alt": 212.6
+      },
+      "turnDirection": "CW",
+      "centerLLA": {
+        "lat": 37.611145,
+        "lon": 126.922747,
+        "alt": 212.6
+      },
+      "seq": 4,
+      "phase": "D",
+      "targetSpeed": 21.0
+    },
+    {
+      "seq": 5,
+      "phase": "E",
+      "startLLA": {
+        "lat": 37.600174,
+        "lon": 126.9305,
+        "alt": 212.6
+      },
+      "endLLA": {
+        "lat": 37.570076,
+        "lon": 126.951769,
+        "alt": 304.8
+      },
+      "targetSpeed": 24.0
+    },
+    {
+      "seq": 6,
+      "phase": "G",
+      "startLLA": {
+        "lat": 37.570076,
+        "lon": 126.951769,
+        "alt": 304.8
+      },
+      "endLLA": {
+        "lat": 37.570006,
+        "lon": 126.960325,
+        "alt": 218.0
+      },
+      "targetSpeed": 24.0
+    },
+    {
+      "startLLA": {
+        "lat": 37.570006,
+        "lon": 126.960325,
+        "alt": 218.0
+      },
+      "endLLA": {
+        "lat": 37.57877,
+        "lon": 126.987401,
+        "alt": 218.0
+      },
+      "turnDirection": "CCW",
+      "centerLLA": {
+        "lat": 37.56901,
+        "lon": 126.973604,
+        "alt": 218.0
+      },
+      "seq": 7,
+      "phase": "H",
+      "targetSpeed": 21.0
+    },
+    {
+      "seq": 8,
+      "phase": "I",
+      "startLLA": {
+        "lat": 37.57877,
+        "lon": 126.987401,
+        "alt": 218.0
+      },
+      "endLLA": {
+        "lat": 37.568388,
+        "lon": 126.972622,
+        "alt": 98.0
+      },
+      "targetSpeed": 16.5
+    },
+    {
+      "seq": 9,
+      "phase": "J",
+      "startLLA": {
+        "lat": 37.568388,
+        "lon": 126.972622,
+        "alt": 98.0
+      },
+      "endLLA": {
+        "lat": 37.568388,
+        "lon": 126.972622,
+        "alt": 38.0
+      },
+      "targetSpeed": 10.5
+    },
+    {
+      "seq": 10,
+      "phase": "K",
+      "startLLA": {
+        "lat": 37.568388,
+        "lon": 126.972622,
+        "alt": 38.0
+      },
+      "endLLA": {
+        "lat": 37.568586,
+        "lon": 126.972831,
+        "alt": 38.0
+      },
+      "targetSpeed": 7.5
+    }
+  ],
+  "arrival": {
+    "vertiport": "광화문",
+    "sta": "15:01:41",
+    "arrGateNumber": "G1",
+    "eibt": "15:01:41",
+    "arrFatoNumber": "F1",
+    "eldt": "15:00:56"
+  }
+}

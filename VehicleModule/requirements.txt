@@ -1,0 +1,15 @@
+# VehicleModule runtime dependencies.
+-c ../constraints.txt
+-r ../DTAMSDK/requirements.txt
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.29,<1.0
+pydantic>=2.0,<3
+jinja2>=3.1,<4
+pygame>=2.5,<3
+
+# Embedded VFDS Dynamics dispatch/autopilot server dependencies.
+PyYAML>=6,<7
+paramiko>=3.4,<4
+pymavlink>=2.4.41,<3
+mavsdk>=2.8,<3
+watchdog>=4,<7

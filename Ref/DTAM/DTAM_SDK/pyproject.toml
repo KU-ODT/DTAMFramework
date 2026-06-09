@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dtam-sdk"
+version = "0.0.1"
+description = "DTAM SDK for UDP/TCP module data exchange"
+readme = "README_ENG.md"
+requires-python = ">=3.10"
+authors = [{ name = "DTAM SDK Team" }]
+dependencies = []
+
+[tool.setuptools.packages.find]
+include = ["dtam_client*"]
+
+[tool.setuptools.package-data]
+dtam_client = [
+  "README.md",
+  "NEW_MESSAGE_PROMPT.md",
+  "icd/KOR/*.md",
+  "icd/ENG/*.md",
+]

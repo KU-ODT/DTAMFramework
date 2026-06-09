@@ -1,0 +1,472 @@
+{
+  "scenario_id": "PSU-DEMO-SEOUL-001",
+  "name": "Seoul UAM PSU Demo Scenario",
+  "description": "PSU Monitoring SW 시연용 서울 도심 회랑, 버티포트, 운항 의도, 현재 트랙, 이벤트 더미 데이터셋",
+  "schema_version": "0.3.0",
+  "created_at": "2026-05-14T14:00:00+09:00",
+  "current_time": "2026-05-14T14:32:10+09:00",
+  "source_notes": [
+    "좌표와 지도 초기 뷰는 MissionModule의 서울권 지도/버티포트 데이터를 참고했다.",
+    "운항, 충돌, 수용량 수치는 PSU 체크리스트 시연 흐름에 맞춘 연구용 더미 데이터이다."
+  ],
+  "waypoints": [
+    {
+      "waypoint_id": "WP-01",
+      "name": "Yeongdeungpo Departure Fix",
+      "latitude": 37.52694,
+      "longitude": 126.92309,
+      "altitude_ft": 1000
+    },
+    {
+      "waypoint_id": "WP-03",
+      "name": "Han River West Merge",
+      "latitude": 37.5422,
+      "longitude": 126.9729,
+      "altitude_ft": 1200
+    },
+    {
+      "waypoint_id": "WP-07",
+      "name": "Central Strategic Merge",
+      "latitude": 37.5538,
+      "longitude": 127.0102,
+      "altitude_ft": 1200
+    },
+    {
+      "waypoint_id": "WP-11",
+      "name": "Jamsil Arrival Fix",
+      "latitude": 37.51437,
+      "longitude": 127.06907,
+      "altitude_ft": 900
+    },
+    {
+      "waypoint_id": "WP-14",
+      "name": "Mapo North Fix",
+      "latitude": 37.56228,
+      "longitude": 126.89016,
+      "altitude_ft": 1000
+    },
+    {
+      "waypoint_id": "WP-18",
+      "name": "Gangnam South Fix",
+      "latitude": 37.49629,
+      "longitude": 127.0233,
+      "altitude_ft": 900
+    },
+    {
+      "waypoint_id": "WP-22",
+      "name": "Yongsan Transfer Fix",
+      "latitude": 37.5291,
+      "longitude": 126.95839,
+      "altitude_ft": 1100
+    }
+  ],
+  "corridors": [
+    {
+      "corridor_id": "C1",
+      "name": "West-East River Corridor",
+      "route_ids": ["R-01", "R-02"],
+      "capacity": 8,
+      "occupied_aircraft": 5,
+      "density_ratio": 0.63,
+      "status": "NORMAL",
+      "coordinates": [
+        [126.92309, 37.52694],
+        [126.9729, 37.5422],
+        [127.0102, 37.5538],
+        [127.06907, 37.51437]
+      ]
+    },
+    {
+      "corridor_id": "C2",
+      "name": "Central Merge Corridor",
+      "route_ids": ["R-03", "R-04"],
+      "capacity": 8,
+      "occupied_aircraft": 10,
+      "density_ratio": 1.25,
+      "status": "WARNING",
+      "coordinates": [
+        [126.89016, 37.56228],
+        [126.9729, 37.5422],
+        [127.0102, 37.5538],
+        [127.0233, 37.49629]
+      ]
+    },
+    {
+      "corridor_id": "C3",
+      "name": "South Approach Corridor",
+      "route_ids": ["R-05"],
+      "capacity": 6,
+      "occupied_aircraft": 5,
+      "density_ratio": 0.83,
+      "status": "CAUTION",
+      "coordinates": [
+        [126.95839, 37.5291],
+        [127.0102, 37.5538],
+        [127.0233, 37.49629]
+      ]
+    }
+  ],
+  "vertiports": [
+    {
+      "vertiport_id": "VP-01",
+      "name": "Yeongdeungpo Skyport",
+      "latitude": 37.52651,
+      "longitude": 126.92285,
+      "fato_total": 2,
+      "fato_available": 1,
+      "gate_total": 8,
+      "gate_available": 4,
+      "charging_spot_total": 6,
+      "charging_spot_available": 3,
+      "arrival_queue": 1,
+      "departure_queue": 2,
+      "average_delay_sec": 80,
+      "status": "NORMAL"
+    },
+    {
+      "vertiport_id": "VP-02",
+      "name": "Jamsil Skyport",
+      "latitude": 37.51437,
+      "longitude": 127.06907,
+      "fato_total": 2,
+      "fato_available": 1,
+      "gate_total": 6,
+      "gate_available": 2,
+      "charging_spot_total": 4,
+      "charging_spot_available": 2,
+      "arrival_queue": 3,
+      "departure_queue": 2,
+      "average_delay_sec": 190,
+      "status": "CAUTION"
+    },
+    {
+      "vertiport_id": "VP-03",
+      "name": "Mapo Strategic Vertiport",
+      "latitude": 37.56228,
+      "longitude": 126.89016,
+      "fato_total": 1,
+      "fato_available": 0,
+      "gate_total": 6,
+      "gate_available": 1,
+      "charging_spot_total": 4,
+      "charging_spot_available": 1,
+      "arrival_queue": 5,
+      "departure_queue": 2,
+      "average_delay_sec": 460,
+      "status": "WARNING"
+    },
+    {
+      "vertiport_id": "VP-04",
+      "name": "Gangnam Business Skyport",
+      "latitude": 37.49629,
+      "longitude": 127.0233,
+      "fato_total": 2,
+      "fato_available": 1,
+      "gate_total": 7,
+      "gate_available": 3,
+      "charging_spot_total": 5,
+      "charging_spot_available": 2,
+      "arrival_queue": 2,
+      "departure_queue": 1,
+      "average_delay_sec": 120,
+      "status": "NORMAL"
+    },
+    {
+      "vertiport_id": "VP-05",
+      "name": "Yongsan Transfer Skyport",
+      "latitude": 37.5291,
+      "longitude": 126.95839,
+      "fato_total": 1,
+      "fato_available": 1,
+      "gate_total": 5,
+      "gate_available": 2,
+      "charging_spot_total": 3,
+      "charging_spot_available": 1,
+      "arrival_queue": 2,
+      "departure_queue": 3,
+      "average_delay_sec": 210,
+      "status": "CAUTION"
+    }
+  ],
+  "flight_plans": [
+    {
+      "flight_plan_id": "FP-20260514-001",
+      "aircraft_id": "UAM-021",
+      "operator_id": "OP-01",
+      "origin_vertiport": "VP-01",
+      "destination_vertiport": "VP-02",
+      "route_id": "R-01",
+      "waypoints": ["WP-01", "WP-03", "WP-07", "WP-11"],
+      "planned_departure_time": "2026-05-14T14:30:00+09:00",
+      "planned_arrival_time": "2026-05-14T14:48:00+09:00",
+      "planned_altitude": 450,
+      "planned_speed": 80,
+      "status": "ACCEPTED"
+    },
+    {
+      "flight_plan_id": "FP-20260514-002",
+      "aircraft_id": "UAM-034",
+      "operator_id": "OP-02",
+      "origin_vertiport": "VP-03",
+      "destination_vertiport": "VP-04",
+      "route_id": "R-03",
+      "waypoints": ["WP-14", "WP-03", "WP-07", "WP-18"],
+      "planned_departure_time": "2026-05-14T14:31:00+09:00",
+      "planned_arrival_time": "2026-05-14T14:51:00+09:00",
+      "planned_altitude": 450,
+      "planned_speed": 78,
+      "status": "ACCEPTED"
+    },
+    {
+      "flight_plan_id": "FP-20260514-003",
+      "aircraft_id": "UAM-014",
+      "operator_id": "OP-01",
+      "origin_vertiport": "VP-05",
+      "destination_vertiport": "VP-02",
+      "route_id": "R-02",
+      "waypoints": ["WP-22", "WP-03", "WP-07", "WP-11"],
+      "planned_departure_time": "2026-05-14T14:26:00+09:00",
+      "planned_arrival_time": "2026-05-14T14:46:00+09:00",
+      "planned_altitude": 420,
+      "planned_speed": 76,
+      "status": "ACTIVE"
+    },
+    {
+      "flight_plan_id": "FP-20260514-004",
+      "aircraft_id": "UAM-019",
+      "operator_id": "OP-03",
+      "origin_vertiport": "VP-02",
+      "destination_vertiport": "VP-03",
+      "route_id": "R-04",
+      "waypoints": ["WP-11", "WP-07", "WP-03", "WP-14"],
+      "planned_departure_time": "2026-05-14T14:33:00+09:00",
+      "planned_arrival_time": "2026-05-14T14:52:00+09:00",
+      "planned_altitude": 450,
+      "planned_speed": 82,
+      "status": "ACCEPTED"
+    },
+    {
+      "flight_plan_id": "FP-20260514-005",
+      "aircraft_id": "UAM-027",
+      "operator_id": "OP-04",
+      "origin_vertiport": "VP-04",
+      "destination_vertiport": "VP-03",
+      "route_id": "R-05",
+      "waypoints": ["WP-18", "WP-07", "WP-03", "WP-14"],
+      "planned_departure_time": "2026-05-14T14:35:00+09:00",
+      "planned_arrival_time": "2026-05-14T14:55:00+09:00",
+      "planned_altitude": 430,
+      "planned_speed": 79,
+      "status": "PENDING_REVIEW"
+    },
+    {
+      "flight_plan_id": "FP-20260514-006",
+      "aircraft_id": "UAM-041",
+      "operator_id": "OP-05",
+      "origin_vertiport": "VP-01",
+      "destination_vertiport": "VP-04",
+      "route_id": "R-01",
+      "waypoints": ["WP-01", "WP-03", "WP-07", "WP-18"],
+      "planned_departure_time": "2026-05-14T14:38:00+09:00",
+      "planned_arrival_time": "2026-05-14T14:58:00+09:00",
+      "planned_altitude": 450,
+      "planned_speed": 80,
+      "status": "PENDING_REVIEW"
+    }
+  ],
+  "track_states": [
+    {
+      "aircraft_id": "UAM-021",
+      "flight_plan_id": "FP-20260514-001",
+      "latitude": 37.5422,
+      "longitude": 126.9729,
+      "altitude": 450,
+      "ground_speed": 82,
+      "heading": 72,
+      "timestamp": "2026-05-14T14:32:10+09:00",
+      "flight_status": "ACTIVE"
+    },
+    {
+      "aircraft_id": "UAM-034",
+      "flight_plan_id": "FP-20260514-002",
+      "latitude": 37.5487,
+      "longitude": 126.9481,
+      "altitude": 450,
+      "ground_speed": 79,
+      "heading": 96,
+      "timestamp": "2026-05-14T14:32:10+09:00",
+      "flight_status": "ACTIVE"
+    },
+    {
+      "aircraft_id": "UAM-014",
+      "flight_plan_id": "FP-20260514-003",
+      "latitude": 37.5512,
+      "longitude": 126.9962,
+      "altitude": 420,
+      "ground_speed": 72,
+      "heading": 84,
+      "timestamp": "2026-05-14T14:32:10+09:00",
+      "flight_status": "ACTIVE"
+    },
+    {
+      "aircraft_id": "UAM-019",
+      "flight_plan_id": "FP-20260514-004",
+      "latitude": 37.5206,
+      "longitude": 127.0522,
+      "altitude": 450,
+      "ground_speed": 80,
+      "heading": 286,
+      "timestamp": "2026-05-14T14:32:10+09:00",
+      "flight_status": "ACTIVE"
+    }
+  ],
+  "conflict_events": [
+    {
+      "conflict_id": "CF-20260514-001",
+      "conflict_type": "WAYPOINT_TIME_WINDOW_OVERLAP",
+      "location_id": "WP-07",
+      "related_aircraft": ["UAM-021", "UAM-034"],
+      "predicted_time": "2026-05-14T14:38:20+09:00",
+      "eta_gap_sec": 32,
+      "required_gap_sec": 90,
+      "severity": "WARNING",
+      "suggested_actions": [
+        "Delay UAM-034 departure by 90 sec",
+        "Reduce UAM-021 speed by 8 kt",
+        "Assign alternate route R-2B to UAM-034"
+      ]
+    },
+    {
+      "conflict_id": "CF-20260514-002",
+      "conflict_type": "CORRIDOR_DENSITY_EXCEEDANCE",
+      "location_id": "C2",
+      "related_aircraft": ["UAM-014", "UAM-019", "UAM-021", "UAM-034"],
+      "predicted_time": "2026-05-14T14:41:00+09:00",
+      "eta_gap_sec": 0,
+      "required_gap_sec": 0,
+      "severity": "CAUTION",
+      "suggested_actions": [
+        "Hold new departures into C2 for 120 sec",
+        "Move UAM-027 review to alternate route R-05A"
+      ]
+    }
+  ],
+  "capacity_metrics": [
+    {
+      "target_type": "VERTIPORT",
+      "target_id": "VP-03",
+      "time_window_start": "2026-05-14T14:35:00+09:00",
+      "time_window_end": "2026-05-14T14:45:00+09:00",
+      "demand": 15,
+      "capacity": 10,
+      "utilization": 1.5,
+      "status": "WARNING"
+    },
+    {
+      "target_type": "CORRIDOR",
+      "target_id": "C2",
+      "time_window_start": "2026-05-14T14:35:00+09:00",
+      "time_window_end": "2026-05-14T14:45:00+09:00",
+      "demand": 10,
+      "capacity": 8,
+      "utilization": 1.25,
+      "status": "WARNING"
+    },
+    {
+      "target_type": "VERTIPORT",
+      "target_id": "VP-02",
+      "time_window_start": "2026-05-14T14:40:00+09:00",
+      "time_window_end": "2026-05-14T14:50:00+09:00",
+      "demand": 8,
+      "capacity": 7,
+      "utilization": 1.14,
+      "status": "CAUTION"
+    },
+    {
+      "target_type": "CORRIDOR",
+      "target_id": "C1",
+      "time_window_start": "2026-05-14T14:30:00+09:00",
+      "time_window_end": "2026-05-14T14:40:00+09:00",
+      "demand": 5,
+      "capacity": 8,
+      "utilization": 0.63,
+      "status": "NORMAL"
+    }
+  ],
+  "event_logs": [
+    {
+      "event_id": "EV-20260514-001",
+      "event_type": "CONFLICT_ALERT",
+      "severity": "WARNING",
+      "title": "UAM-021 / UAM-034 predicted conflict at WP-07",
+      "related_targets": ["WP-07", "UAM-021", "UAM-034"],
+      "created_time": "2026-05-14T14:32:10+09:00",
+      "expected_time": "2026-05-14T14:38:20+09:00",
+      "status": "OPEN",
+      "recommended_screen": "Traffic Map / Strategic Conflict",
+      "priority_score": 92
+    },
+    {
+      "event_id": "EV-20260514-002",
+      "event_type": "CAPACITY_ALERT",
+      "severity": "WARNING",
+      "title": "VP-03 FATO saturation expected",
+      "related_targets": ["VP-03", "UAM-011", "UAM-019", "UAM-027"],
+      "created_time": "2026-05-14T14:32:10+09:00",
+      "expected_time": "2026-05-14T14:40:00+09:00",
+      "status": "OPEN",
+      "recommended_screen": "Flow and Capacity",
+      "priority_score": 88
+    },
+    {
+      "event_id": "EV-20260514-003",
+      "event_type": "CORRIDOR_DENSITY",
+      "severity": "CAUTION",
+      "title": "Corridor C2 density exceeds threshold",
+      "related_targets": ["C2", "UAM-014", "UAM-019", "UAM-021", "UAM-034"],
+      "created_time": "2026-05-14T14:32:10+09:00",
+      "expected_time": "2026-05-14T14:41:00+09:00",
+      "status": "OPEN",
+      "recommended_screen": "Flow and Capacity",
+      "priority_score": 74
+    },
+    {
+      "event_id": "EV-20260514-004",
+      "event_type": "ETA_DEVIATION",
+      "severity": "CAUTION",
+      "title": "UAM-014 deviated from planned ETA by +03:10",
+      "related_targets": ["UAM-014", "FP-20260514-003"],
+      "created_time": "2026-05-14T14:31:40+09:00",
+      "expected_time": "2026-05-14T14:46:00+09:00",
+      "status": "OPEN",
+      "recommended_screen": "Traffic Map / Strategic Conflict",
+      "priority_score": 61
+    }
+  ],
+  "traffic_trend": [
+    {
+      "time": "14:30",
+      "active_flights": 4,
+      "average_delay_sec": 120,
+      "conflict_count": 1
+    },
+    {
+      "time": "14:40",
+      "active_flights": 7,
+      "average_delay_sec": 210,
+      "conflict_count": 2
+    },
+    {
+      "time": "14:50",
+      "active_flights": 9,
+      "average_delay_sec": 280,
+      "conflict_count": 2
+    },
+    {
+      "time": "15:00",
+      "active_flights": 6,
+      "average_delay_sec": 180,
+      "conflict_count": 1
+    }
+  ]
+}

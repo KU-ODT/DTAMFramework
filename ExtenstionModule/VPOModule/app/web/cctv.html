@@ -1,0 +1,37 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VPOModule · CCTV Focus</title>
+  <link rel="stylesheet" href="/static/css/styles.css" />
+</head>
+<body class="focus-body">
+  <main class="focus-shell">
+    <header class="focus-topbar">
+      <div>
+        <h1 id="focus-title">CCTV</h1>
+        <span id="focus-subtitle">Loading...</span>
+      </div>
+      <button id="close-window" class="focus-close" type="button">닫기</button>
+    </header>
+    <section class="focus-video-wrap">
+      <canvas id="focus-canvas" class="focus-canvas"></canvas>
+      <img id="focus-stream" class="focus-stream" alt="VPO CCTV stream" />
+      <button id="focus-request" class="focus-request" type="button">CCTV 요청</button>
+      <button id="focus-prev" class="focus-nav focus-prev" type="button" aria-label="이전 CCTV">←</button>
+      <button id="focus-next" class="focus-nav focus-next" type="button" aria-label="다음 CCTV">→</button>
+      <div class="focus-overlay top-left">
+        <span id="focus-status">--</span>
+        <strong id="focus-time">--</strong>
+      </div>
+      <div class="focus-overlay bottom-right">
+        <span id="focus-signal">Signal --</span>
+        <span id="focus-latency">Latency --</span>
+        <span id="focus-motion">Motion --</span>
+      </div>
+    </section>
+  </main>
+  <script src="/static/js/cctv.js?v=6"></script>
+</body>
+</html>

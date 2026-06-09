@@ -1,30 +1,74 @@
-/DTAMVisualization - 복사본/
+# =============================================================
+# Heavy / large folders — README.md 만 보존, 내용물은 git 미포함
+# (각 폴더의 README.md 에 어떤 파일이 와야 하는지 명시)
+# =============================================================
 
+# Unreal Engine 런타임 (21 GB) + Pixel Streaming (735 MB)
+# 주의: gitignore 의 디렉토리 단위 제외(/) 는 negation 이 안 되므로
+# `/**` 패턴으로 내용물만 제외하고 README.md 는 negation 으로 보존.
+VisualizationModule/runtime/Unreal/**
+!VisualizationModule/runtime/Unreal/README.md
+VisualizationModule/runtime/PixelStreamingWebServers/**
+!VisualizationModule/runtime/PixelStreamingWebServers/README.md
+
+# Unreal 프로젝트 소스 (17 GB) + 빌드 산출물 + 임베디드 git
+VisualizationModule_Source/Unreal/Environments/**
+!VisualizationModule_Source/Unreal/Environments/README.md
+VisualizationModule_Source/_embedded_git_*/
+VisualizationModule_Source/AirLib/lib/**
+!VisualizationModule_Source/AirLib/lib/README.md
+VisualizationModule_Source/AirLib/temp/
+
+# AirSim 플러그인 내부 별도 build 산출물 — Unreal/Plugins/AirSim/Source/AirLib/lib/
+# (143MB + 127MB AirLib.lib 등 GitHub 100MB 한도 초과)
+VisualizationModule_Source/Unreal/Plugins/**/AirLib/lib/
+VisualizationModule_Source/Unreal/Plugins/**/AirLib/temp/
+VisualizationModule_Source/Unreal/Plugins/**/AirLib/deps/
+
+# UE 프로젝트 일반 (Source/Saved/Intermediate/Content/...)
+VisualizationModule/.git/
+VisualizationModule/**/Source/
+VisualizationModule/**/Intermediate/
+VisualizationModule/**/DerivedDataCache/
+VisualizationModule/**/Saved/
+VisualizationModule/**/Content/
+VisualizationModule/**/Binaries/
+VisualizationModule/**/cesium-request-cache.sqlite*
+
+# 옛 백업 / 마이그레이션 잔재
+VisualizationModule - backup/
 .dtam_migration_backup/
-.dtam_runtime/
-DTAMVisualization_Source/
-reference/
-DB/ServerStart_*/
-DTAM_SimulationState/data/DB/
 
-DTAMVisualization/.git/
-DTAMVisualization/**/Source/
-DTAMVisualization/**/Intermediate/
-DTAMVisualization/**/DerivedDataCache/
-DTAMVisualization/**/Saved/
-DTAMVisualization/**/Content/
-DTAMVisualization/**/Binaries/
-DTAMVisualization/**/Binaries/**/*.pdb
-DTAMVisualization/**/cesium-request-cache.sqlite*
-**/.git/
-**/.claude/
-**/.claude/**
-**/.vscode/
-**/.vscode/**
-*.claude/
-*.vscode/
-.claude/
-.vscode/
+# DTAM Reference 트리 (총 16 GB) — placeholder README 만 보존
+Ref/DTAM/reference/**
+!Ref/DTAM/reference/README.md
+Ref/DTAM/pdtam/**
+!Ref/DTAM/pdtam/README.md
+Ref/DTAM/DTAMOperationsConsole/**
+!Ref/DTAM/DTAMOperationsConsole/README.md
+
+# TrafficSim 대용량 리소스 / 로그
+PlugIn/TrafficSim/resources/**
+!PlugIn/TrafficSim/resources/README.md
+PlugIn/TrafficSim/log/
+
+# VehicleModule 런타임 로그
+VehicleModule/logs/**
+!VehicleModule/logs/README.md
+
+# Map / GIS 자산 (각 모듈 resources/ 안에 위치)
+*.mbtiles
+*.osm.pbf
+
+# DB 세션 산출물 (런타임 자동 생성)
+DB/ServerStart_*/
+IntegrationHub/StateServerModule/data/DB/
+output/
+
+# =============================================================
+# 일반 빌드/캐시/IDE 산출물
+# =============================================================
+.dtam_runtime/
 **/.venv/
 **/venv/
 **/node_modules/
@@ -32,6 +76,10 @@ DTAMVisualization/**/cesium-request-cache.sqlite*
 **/.pytest_cache/
 **/.mypy_cache/
 **/.ruff_cache/
+
+**/.git/
+**/.claude/
+**/.vscode/
 
 *.py[cod]
 *.pdb
@@ -42,7 +90,4 @@ DTAMVisualization/**/cesium-request-cache.sqlite*
 *.bak
 *.swp
 token.txt
-
-reference/**/log/
 _tmp_*.png
-DTAMVisualizationModule/**/cesium-request-cache.sqlite

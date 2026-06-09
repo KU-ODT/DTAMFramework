@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Flight Scheduler</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <header id="topbar">
+      <div class="brand">
+        <span class="logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20">
+            <path d="M12 2 L22 8 L22 16 L12 22 L2 16 L2 8 Z"
+                  fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+            <circle cx="12" cy="12" r="3" fill="currentColor" />
+          </svg>
+        </span>
+        <span class="brand-name">Flight Scheduler</span>
+      </div>
+
+      <nav class="tabs" role="tablist" aria-label="Workspace">
+        <button class="tab active" type="button" role="tab" data-tab="demand" aria-selected="true">수요</button>
+        <button class="tab"        type="button" role="tab" data-tab="layout" aria-selected="false">레이아웃</button>
+        <button class="tab"        type="button" role="tab" data-tab="sim"    aria-selected="false">시뮬레이션</button>
+        <button class="tab"        type="button" role="tab" data-tab="analysis" aria-selected="false">분석</button>
+      </nav>
+
+      <div class="topbar-actions">
+        <button class="icon-btn" type="button" id="settings-btn" title="설정">⚙</button>
+      </div>
+    </header>
+
+    <aside id="sidebar">
+      <!-- 시뮬레이션 탭 사이드바 -->
+      <section class="sidebar-pane" data-pane="sim">
+        <div class="panel">
+          <button class="panel-toggle" type="button">
+            <span class="caret">▾</span>
+            <span class="panel-name">경로 계산</span>
+          </button>
+          <div class="panel-body">
+            <label class="field-label">출발</label>
+            <select class="field-select" id="route-from"><option value="">—</option></select>
+            <label class="field-label">도착</label>
+            <select class="field-select" id="route-to"><option value="">—</option></select>
+            <button class="primary-btn" id="route-calc-btn" type="button">경로 계산</button>
+            <button class="ghost-btn" id="route-clear-btn" type="button">지우기</button>
+            <div class="route-result" id="route-result" hidden>
+              <div class="rr-row"><span>거리</span><strong id="rr-distance">—</strong></div>
+              <div class="rr-row"><span>경유</span><strong id="rr-hops">—</strong></div>
+              <div class="rr-path" id="rr-path"></div>
+            </div>
+            <p class="route-error" id="route-error" hidden></p>
+          </div>
+        </div>
+        <div class="panel">
+          <button class="panel-toggle" type="button">
+            <span class="caret">▾</span>
+            <span class="panel-name">시뮬 입력</span>
+          </button>
+          <div class="panel-body">
+            <label class="field-label">수요 시나리오</label>
+            <div class="sim-scenario-pill" id="sim-scenario-label">수요 생성 필요</div>
+            <label class="field-label">시뮬 랜덤 시드</label>
+            <input id="sim-random-seed" type="number" class="field-input" step="1" value="42" />
+            <button class="primary-btn" id="sim-run-btn" type="button">실시간 시뮬레이션 시작</button>
+            <p class="route-error" id="sim-run-status" hidden></p>
+          </div>
+        </div>
+        <div class="panel">
+          <button class="panel-toggle" type="button">
+            <span class="caret">▾</span>
+            <span class="panel-name">컨트롤</span>
+          </button>
+          <div class="panel-body control-row">
+            <button class="ghost-btn" id="sim-play-btn" type="button" disabled>▶</button>
+            <button class="ghost-btn" id="sim-pause-btn" type="button" disabled>⏸</button>
+            <button class="ghost-btn" id="sim-stop-btn" type="button" disabled>■</button>
+            <select class="field-select small" id="sim-speed-select" disabled>
+              <option>1×</option><option>2×</option><option>5×</option><option>10×</option>
+              <option>20×</option><option>50×</option>
+            </select>
+            <div class="sim-clock" id="sim-clock-label">--:--:--</div>
+            <input class="sim-time-range" id="sim-time-range" type="range" min="0" max="1" value="0" step="1" disabled />
+          </div>
+        </div>
+        <div class="panel">
+          <button class="panel-toggle" type="button">
+            <span class="caret">▾</span>
+            <span class="panel-name">버티포트 상태</span>
+            <span class="panel-count" id="vertiport-status-count">0</span>
+          </button>
+          <div class="panel-body">
+            <ul class="entity-list status-list" id="vertiport-status-list"></ul>
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <div id="sidebar-resizer" role="separator" aria-orientation="vertical" title="드래그로 너비 조정 · 더블클릭으로 기본값"></div>
+
+    <main id="main">
+      <!-- 수요 대시보드 (수요 탭) -->
+      <div class="main-view active" data-view="demand-dashboard">
+        <div class="dashboard">
+          <header class="dashboard-header">
+            <div>
+              <div class="eyebrow">Demand Generation</div>
+              <h1 class="dashboard-title">시나리오 수요 생성</h1>
+              <p class="dashboard-subtitle">
+                일자·운영시간·기준 교통량을 입력하면 demand_gen 모듈로
+                OD 분배와 시간대별 도착 manifest를 생성합니다.
+              </p>
+            </div>
+            <div class="dashboard-status" id="demand-status">대기</div>
+          </header>
+
+          <section class="control-band">
+            <label class="form-field">
+              <span>시나리오 일자</span>
+              <input id="demand-date" type="date" />
+            </label>
+            <label class="form-field">
+              <span>기준 교통량</span>
+              <input id="demand-base-traffic" type="number" min="0" step="1000" />
+            </label>
+            <label class="form-field">
+              <span>환승 비율 (%)</span>
+              <input id="demand-transfer-ratio" type="number" min="0" step="0.1" />
+            </label>
+            <label class="form-field">
+              <span>운영 시작</span>
+              <input id="demand-operation-start" type="time" />
+            </label>
+            <label class="form-field">
+              <span>운영 종료</span>
+              <input id="demand-operation-end" type="time" />
+            </label>
+            <label class="form-field">
+              <span>OD Cut-off (km)</span>
+              <input id="demand-min-od-distance" type="number" min="0" step="0.1" placeholder="0 = off" />
+            </label>
+            <label class="form-field">
+              <span>랜덤 시드</span>
+              <input id="demand-random-seed" type="number" step="1" />
+            </label>
+            <button class="primary-btn run-btn" id="demand-generate-btn" type="button">생성</button>
+          </section>
+
+          <section class="metric-grid">
+            <article class="metric"><span>시나리오 ID</span><strong id="m-scenario-id">—</strong></article>
+            <article class="metric"><span>윈도우 환산 인원</span><strong id="m-window">—</strong></article>
+            <article class="metric"><span>분배된 인원</span><strong id="m-allocated">—</strong></article>
+            <article class="metric"><span>생성된 승객</span><strong id="m-generated">—</strong></article>
+            <article class="metric"><span>피크 시간</span><strong id="m-peak">—</strong></article>
+          </section>
+
+          <section class="warning-strip" id="demand-warnings" hidden></section>
+
+          <section class="results-grid">
+            <section class="card od-card">
+              <header class="card-header">
+                <div>
+                  <h2>OD 분배</h2>
+                  <p>출발지(행) → 도착지(열) 별 인원</p>
+                </div>
+                <span class="card-meta" id="od-meta"></span>
+              </header>
+              <div class="card-scroll od-scroll">
+                <table class="data-table od-table" id="od-table">
+                  <tbody>
+                    <tr><td class="empty-row" colspan="2">생성을 누르면 OD 매트릭스가 표시됩니다.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="card hour-card">
+              <header class="card-header">
+                <div>
+                  <h2>시간대별 도착</h2>
+                  <p id="hour-subtitle">전체 버티포트 합산</p>
+                </div>
+              </header>
+              <div class="hour-bars" id="hour-bars">
+                <p class="empty-row">생성 후 표시</p>
+              </div>
+            </section>
+          </section>
+
+          <section class="card passenger-card">
+            <header class="card-header">
+              <div>
+                <h2>버티포트별 승객 도착</h2>
+                <p>운영 시간 내 도착 manifest (sample)</p>
+              </div>
+              <div class="header-tools">
+                <select class="field-select small" id="origin-filter" disabled><option>전체</option></select>
+                <a class="ghost-btn small" id="csv-export" href="#" aria-disabled="true" tabindex="-1">CSV</a>
+              </div>
+            </header>
+            <div class="card-scroll passenger-scroll">
+              <table class="data-table passenger-table">
+                <colgroup>
+                  <col class="col-id" />
+                  <col class="col-origin" />
+                  <col class="col-destination" />
+                  <col class="col-arrival" />
+                  <col class="col-hour" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>ID</th><th>출발</th><th>도착</th><th>도착시각</th><th class="num">시간</th>
+                  </tr>
+                </thead>
+                <tbody id="passenger-body">
+                  <tr><td class="empty-row" colspan="5">생성 후 표시</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- 레이아웃 탭 -->
+      <div class="main-view" data-view="layout-workspace">
+        <div class="layout-workspace">
+          <nav class="subnav" aria-label="레이아웃 모드">
+            <button class="subnav-btn active" type="button" data-layout-mode="assign">버티포트 배정</button>
+            <button class="subnav-btn"        type="button" data-layout-mode="editor">에디터</button>
+          </nav>
+
+          <!-- 모드 1: 캔버스 에디터 -->
+          <div class="layout-mode" data-layout-mode-view="editor">
+            <header class="editor-header">
+              <div class="library-strip" id="library-strip">
+                <div class="library-chips" id="library-chips"></div>
+                <button class="brand-btn" id="library-new-btn" type="button">
+                  <span class="brand-btn-plus">＋</span>
+                  <span>새 레이아웃</span>
+                </button>
+                <button class="ghost-btn" id="layout-import-btn" type="button" title="외부 JSON 파일을 새 레이아웃으로 가져오기">📂 JSON 가져오기</button>
+                <input id="layout-import-input" type="file" accept=".json,application/json" hidden />
+              </div>
+              <div class="editor-toolbar">
+                <div class="editor-title">
+                  <input id="editor-name" type="text" placeholder="레이아웃 이름" class="title-input" />
+                  <span class="dirty-badge" id="editor-dirty" hidden>편집됨</span>
+                  <span class="save-path-hint" id="save-path-hint">저장 위치: backend/data/layouts/</span>
+                </div>
+                <div class="editor-actions">
+                  <button class="ghost-btn" id="editor-fit-btn" type="button">화면 맞춤</button>
+                  <button class="ghost-btn" id="editor-clear-btn" type="button">전체 삭제</button>
+                  <button class="danger-btn" id="library-delete-btn" type="button" hidden>삭제</button>
+                  <button class="primary-btn" id="editor-save-btn" type="button" title="backend/data/layouts/{이름}.json 으로 저장">💾 저장</button>
+                </div>
+              </div>
+            </header>
+
+            <div class="editor-grid">
+              <section class="editor-tools">
+                <div class="tool-section">
+                  <h3>도구</h3>
+                  <div class="tool-grid">
+                    <button class="tool-btn active" data-tool="select" type="button" title="선택/이동 (S)">
+                      <span class="tool-glyph">↖</span><span>선택</span>
+                    </button>
+                    <button class="tool-btn" data-tool="gate" type="button" title="Gate 추가 (G)">
+                      <span class="tool-glyph gate-glyph">G</span><span>Gate</span>
+                    </button>
+                    <button class="tool-btn" data-tool="fato" type="button" title="FATO 추가 (F)">
+                      <span class="tool-glyph fato-glyph">V</span><span>FATO</span>
+                    </button>
+                    <button class="tool-btn" data-tool="node" type="button" title="Node 추가 (N)">
+                      <span class="tool-glyph node-glyph">●</span><span>Node</span>
+                    </button>
+                    <button class="tool-btn" data-tool="takeoffPoint" type="button" title="이륙점 (T)">
+                      <span class="tool-glyph takeoff-glyph">T</span><span>이륙</span>
+                    </button>
+                    <button class="tool-btn" data-tool="landingPoint" type="button" title="착륙점 (L)">
+                      <span class="tool-glyph landing-glyph">L</span><span>착륙</span>
+                    </button>
+                    <button class="tool-btn" data-tool="commonAirPoint" type="button" title="공용 포인트 (C)">
+                      <span class="tool-glyph common-glyph">C</span><span>공용</span>
+                    </button>
+                    <button class="tool-btn" data-tool="link" type="button" title="연결 (K)">
+                      <span class="tool-glyph link-glyph">―</span><span>Link</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="tool-section">
+                  <h3>맵 크기</h3>
+                  <div class="grid-2">
+                    <label class="form-field">
+                      <span>폭 (m)</span>
+                      <input id="grid-width" type="number" min="200" step="20" />
+                    </label>
+                    <label class="form-field">
+                      <span>높이 (m)</span>
+                      <input id="grid-height" type="number" min="200" step="20" />
+                    </label>
+                  </div>
+                  <button class="ghost-btn full" id="grid-fit-btn" type="button">배치 기준 맞춤</button>
+                </div>
+
+                <div class="tool-section">
+                  <h3>현황</h3>
+                  <dl class="stats">
+                    <div><dt>Gate</dt><dd id="stat-gate">0</dd></div>
+                    <div><dt>FATO</dt><dd id="stat-fato">0</dd></div>
+                    <div><dt>Node</dt><dd id="stat-node">0</dd></div>
+                    <div><dt>이륙</dt><dd id="stat-takeoff">0</dd></div>
+                    <div><dt>착륙</dt><dd id="stat-landing">0</dd></div>
+                    <div><dt>공용</dt><dd id="stat-common-air">0</dd></div>
+                    <div><dt>Link</dt><dd id="stat-link">0</dd></div>
+                  </dl>
+                </div>
+              </section>
+
+              <section class="editor-canvas-wrap">
+                <canvas id="layout-canvas"></canvas>
+                <div class="editor-hint" id="editor-hint">새 레이아웃을 만들거나 좌측 라이브러리에서 선택하세요.</div>
+              </section>
+
+              <section class="editor-inspector">
+                <h3>속성</h3>
+                <div class="inspector-empty" id="inspector-empty">객체를 선택하면 속성을 편집할 수 있습니다.</div>
+                <form class="inspector" id="entity-inspector" hidden>
+                  <label class="form-field">
+                    <span>이름</span>
+                    <input id="ent-name" type="text" />
+                  </label>
+                  <div class="grid-2">
+                    <label class="form-field"><span>X (m)</span><input id="ent-x" type="number" step="10" /></label>
+                    <label class="form-field"><span>Y (m)</span><input id="ent-y" type="number" step="10" /></label>
+                  </div>
+                  <label class="form-field" id="ent-altitude-wrap" hidden>
+                    <span>고도 (m)</span>
+                    <input id="ent-altitude" type="number" step="1" min="0" />
+                  </label>
+                  <label class="form-field" id="ent-fato-mode-wrap" hidden>
+                    <span>FATO 모드</span>
+                    <select id="ent-fato-mode">
+                      <option value="both">공용</option>
+                      <option value="takeoff">이륙</option>
+                      <option value="landing">착륙</option>
+                    </select>
+                  </label>
+                  <button class="danger-btn" id="ent-delete-btn" type="button">삭제</button>
+                </form>
+                <div class="inspector" id="link-inspector" hidden>
+                  <div class="link-row"><span>연결</span><strong id="link-endpoints">-</strong></div>
+                  <div class="link-row"><span>거리</span><strong id="link-distance">0 m</strong></div>
+                  <button class="danger-btn" id="link-delete-btn" type="button">Link 삭제</button>
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <!-- 모드 2: 버티포트 배정 — 세로 아코디언 -->
+          <div class="layout-mode active" data-layout-mode-view="assign">
+            <header class="assign-header">
+              <div class="assign-header-left">
+                <div class="eyebrow">Vertiport Assignment</div>
+                <h1 class="assign-title">버티포트별 레이아웃 / 기체 배치</h1>
+                <p class="assign-hint">행을 클릭해 펼친 뒤 인승별 대수를 적용하거나, 레이아웃 Gate별로 기체 타입을 직접 지정합니다.</p>
+              </div>
+              <span class="assign-status" id="assign-status">대기</span>
+            </header>
+
+            <div class="assign-bulk">
+              <span class="assign-bulk-title">일괄 적용</span>
+              <div class="assign-bulk-layout">
+                <label class="assign-bulk-layout-label" for="bulk-layout-select">레이아웃</label>
+                <select class="field-select small" id="bulk-layout-select"></select>
+                <button class="primary-btn" id="bulk-layout-apply-btn" type="button">레이아웃 전체 적용</button>
+              </div>
+              <div class="assign-bulk-counts">
+                <label class="count-cell">
+                  <span class="count-label">2인승</span>
+                  <input class="count-input" id="bulk-a2" type="number" min="0" value="2" />
+                </label>
+                <label class="count-cell">
+                  <span class="count-label">4인승</span>
+                  <input class="count-input" id="bulk-a4" type="number" min="0" value="2" />
+                </label>
+                <label class="count-cell">
+                  <span class="count-label">6인승</span>
+                  <input class="count-input" id="bulk-a6" type="number" min="0" value="2" />
+                </label>
+                <label class="count-cell">
+                  <span class="count-label">8인승</span>
+                  <input class="count-input" id="bulk-a8" type="number" min="0" value="2" />
+                </label>
+              </div>
+              <button class="primary-btn" id="bulk-apply-btn" type="button">모든 버티포트에 적용</button>
+              <button class="ghost-btn" id="bulk-default-btn" type="button" title="모든 버티포트의 모든 게이트를 4인승으로">기본값 일괄 (모두 4인승)</button>
+              <span class="assign-bulk-hint">레이아웃이 배정된 버티포트만 대상. 게이트 수보다 많으면 잘림.</span>
+            </div>
+
+            <div class="assign-list" id="assign-list">
+              <p class="panel-empty">버티포트 로드 중...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 시뮬레이션: 도시 지도 -->
+      <div class="main-view" data-view="sim-map">
+        <div id="map"></div>
+        <div id="map-controls">
+          <button class="map-btn" id="zoom-in" type="button">＋</button>
+          <button class="map-btn" id="zoom-out" type="button">−</button>
+          <button class="map-btn" id="recenter" type="button" title="초기 시점">⊕</button>
+        </div>
+
+        <div id="mission-profile-panel" hidden>
+          <header class="mp-header">
+            <div class="mp-title">
+              <span class="mp-tag">MISSION PROFILE</span>
+              <strong id="mp-route">—</strong>
+            </div>
+            <div class="mp-meta" id="mp-meta">—</div>
+            <button class="mp-close" id="mp-close" type="button" title="닫기">×</button>
+          </header>
+          <svg class="mp-chart" id="mp-chart" viewBox="0 0 800 220" preserveAspectRatio="none"></svg>
+          <div class="mp-axis-labels" id="mp-axis-labels"></div>
+        </div>
+
+        <section id="sim-results-panel" hidden>
+          <header class="sim-panel-header">
+            <div>
+              <span class="mp-tag">LIVE SIM</span>
+              <strong id="sim-result-title">—</strong>
+            </div>
+            <button class="mp-close" id="sim-panel-close" type="button" title="닫기">×</button>
+          </header>
+          <div class="sim-metrics">
+            <div><span>비행편</span><strong id="sim-m-flight">—</strong></div>
+            <div><span>수송</span><strong id="sim-m-served">—</strong></div>
+            <div><span>미처리</span><strong id="sim-m-unserved">—</strong></div>
+            <div><span>공역</span><strong id="sim-m-fleet">—</strong></div>
+          </div>
+          <div class="sim-detail-grid">
+            <section class="sim-card">
+              <header>
+                <h3 id="sim-vp-title">버티포트 선택</h3>
+                <span id="sim-vp-meta">지도에서 버티포트를 클릭하세요.</span>
+              </header>
+              <div id="sim-vp-detail" class="sim-card-body">
+                <p class="empty-row">시뮬레이션 실행 후 버티포트를 클릭하면 상세가 표시됩니다.</p>
+              </div>
+            </section>
+            <section class="sim-card">
+              <header>
+                <h3>실시간 비행 로그</h3>
+                <span id="sim-flight-meta">—</span>
+              </header>
+              <div class="sim-flight-scroll">
+                <table class="data-table sim-flight-table">
+                  <thead>
+                    <tr>
+                      <th>FPL</th><th>기체</th><th>출발</th><th>도착</th><th class="num">탑승</th><th>이륙</th><th>착륙</th>
+                    </tr>
+                  </thead>
+                  <tbody id="sim-flight-body">
+                    <tr><td class="empty-row" colspan="7">실시간 시뮬레이션 시작 후 표시됩니다.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <div id="sim-vp-modal" class="sim-vp-modal" hidden role="dialog" aria-modal="true" aria-labelledby="sim-vp-modal-title">
+          <div class="sim-vp-modal-backdrop" data-sim-vp-modal-close></div>
+          <section class="sim-vp-modal-dialog">
+            <header class="sim-vp-modal-header">
+              <div>
+                <span class="mp-tag">VERTIPORT LIVE VIEW</span>
+                <strong id="sim-vp-modal-title">버티포트 내부 시뮬레이션</strong>
+                <p id="sim-vp-modal-meta">선택 버티포트의 Gate/FATO 이동 현황</p>
+              </div>
+              <button class="mp-close" id="sim-vp-modal-close" type="button" title="닫기">×</button>
+            </header>
+            <div class="sim-vp-modal-canvas-wrap">
+              <canvas id="sim-vp-modal-canvas" width="1280" height="820"></canvas>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div class="main-view" data-view="analysis-dashboard">
+        <div class="analysis-dashboard">
+          <header class="dashboard-header">
+            <div>
+              <div class="eyebrow">Analysis</div>
+              <h1 class="dashboard-title">비행계획 / 처리량 분석</h1>
+              <p class="dashboard-subtitle">
+                실시간 렌더링 없이 동일한 배정/버티포트 처리 로직을 빠르게 실행하고, 출발 버티포트 기준 FPL과 지표를 저장합니다.
+              </p>
+            </div>
+            <div class="dashboard-status" id="analysis-status">대기</div>
+          </header>
+
+          <section class="control-band analysis-control-band">
+            <label class="form-field wide">
+              <span>수요 시나리오</span>
+              <div class="sim-scenario-pill" id="analysis-scenario-label">수요 생성 필요</div>
+            </label>
+            <label class="form-field">
+              <span>분석 랜덤 시드</span>
+              <input id="analysis-random-seed" type="number" step="1" value="42" />
+            </label>
+            <button class="primary-btn run-btn" id="analysis-run-btn" type="button">분석용 빠른 실행</button>
+            <button class="ghost-btn run-btn" id="analysis-save-btn" type="button" disabled>CSV 저장</button>
+          </section>
+
+          <section class="metric-grid analysis-summary-grid">
+            <article class="metric"><span>비행편</span><strong id="analysis-m-flights">-</strong></article>
+            <article class="metric"><span>처리 수요</span><strong id="analysis-m-served">-</strong></article>
+            <article class="metric"><span>미처리 수요</span><strong id="analysis-m-unserved">-</strong></article>
+            <article class="metric"><span>평균 탑승률</span><strong id="analysis-m-load">-</strong></article>
+            <article class="metric"><span>평균 G2G</span><strong id="analysis-m-g2g">-</strong></article>
+          </section>
+
+          <section class="analysis-filter-row">
+            <label class="form-field">
+              <span>버티포트</span>
+              <select class="field-select" id="analysis-vp-filter" disabled>
+                <option value="">전체</option>
+              </select>
+            </label>
+            <span class="save-path-hint" id="analysis-save-path">저장 전</span>
+          </section>
+
+          <section class="analysis-grid">
+            <section class="card analysis-fpl-card">
+              <header class="card-header">
+                <div>
+                  <h2>출발 비행계획</h2>
+                  <p id="analysis-fpl-meta">분석 실행 후 표시</p>
+                </div>
+              </header>
+              <p class="analysis-card-help">Gate Out=출발 Gate 이탈, 이륙=출발 FATO에서 공역 진입, 착륙=도착 FATO 접지, Gate In=도착 Gate 주기 완료</p>
+              <div class="card-scroll analysis-table-scroll">
+                <table class="data-table analysis-fpl-table">
+                  <thead>
+                    <tr>
+                      <th>FPL</th>
+                      <th>기체</th>
+                      <th>출발지</th>
+                      <th>목적지</th>
+                      <th class="num">탑승</th>
+                      <th>출발 Gate</th>
+                      <th>출발 FATO</th>
+                      <th>도착 Gate</th>
+                      <th>도착 FATO</th>
+                      <th title="출발 Gate를 벗어난 시각">Gate Out</th>
+                      <th title="출발 FATO에서 이륙해 공역으로 진입한 시각">이륙</th>
+                      <th title="목적지 FATO에 접지한 시각">착륙</th>
+                      <th title="목적지 Gate에 주기 완료한 시각">Gate In</th>
+                      <th title="Gate Out부터 Gate In까지의 총 소요시간">G2G</th>
+                    </tr>
+                  </thead>
+                  <tbody id="analysis-fpl-body">
+                    <tr><td class="empty-row" colspan="14">분석용 빠른 실행을 누르세요.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="card analysis-hourly-card">
+              <header class="card-header">
+                <div>
+                  <h2>시간대별 수요 처리</h2>
+                  <p>수요량 / 처리량 / 미처리량</p>
+                </div>
+              </header>
+              <div class="card-scroll analysis-table-scroll">
+                <table class="data-table">
+                  <thead>
+                    <tr><th>시간</th><th>버티포트</th><th class="num">수요</th><th class="num">처리</th><th class="num">미처리</th><th class="num">처리율</th></tr>
+                  </thead>
+                  <tbody id="analysis-hourly-body">
+                    <tr><td class="empty-row" colspan="6">분석 결과 없음</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="card analysis-type-card">
+              <header class="card-header">
+                <div>
+                  <h2>기체 타입별 기여도</h2>
+                  <p>비행편 / 처리 인원 / 평균 탑승률</p>
+                </div>
+              </header>
+              <div class="card-scroll analysis-table-scroll">
+                <table class="data-table">
+                  <thead>
+                    <tr><th>타입</th><th class="num">비행편</th><th class="num">처리</th><th class="num">좌석공급</th><th class="num">탑승률</th></tr>
+                  </thead>
+                  <tbody id="analysis-type-body">
+                    <tr><td class="empty-row" colspan="5">분석 결과 없음</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="card analysis-bottleneck-card">
+              <header class="card-header">
+                <div>
+                  <h2>병목 지표</h2>
+                  <p>미처리 수요와 평균 대기시간 기준</p>
+                </div>
+              </header>
+              <div class="card-scroll analysis-table-scroll">
+                <table class="data-table">
+                  <thead>
+                    <tr><th>구분</th><th>버티포트</th><th>시간/자원</th><th class="num">값</th><th>설명</th></tr>
+                  </thead>
+                  <tbody id="analysis-bottleneck-body">
+                    <tr><td class="empty-row" colspan="5">분석 결과 없음</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="card analysis-gantt-card">
+              <header class="card-header">
+                <div>
+                  <h2>Gate/FATO 점유 타임라인</h2>
+                  <p id="analysis-gantt-meta">각 Gate/FATO가 어떤 FPL에 의해 언제 점유됐는지 표시</p>
+                </div>
+              </header>
+              <div class="analysis-gantt" id="analysis-gantt">
+                <p class="empty-row">분석 결과 없음</p>
+              </div>
+            </section>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="/js/map-style.js"></script>
+  <script src="/js/layout-editor.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

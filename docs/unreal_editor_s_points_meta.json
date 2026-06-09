@@ -1,0 +1,663 @@
+{
+  "generated_at": "2026-05-22T02:39:10+09:00",
+  "project_dir": "D:\\DTAMFramework\\VisualizationModule_Source\\Unreal\\Environments\\DTAMVisualization",
+  "map_path": "/Game/FlyingCPP/Maps/FlyingExampleMap",
+  "vertiport_csv": "D:\\DTAMFramework\\VisualizationModule_Source\\Unreal\\Environments\\DTAMVisualization\\Data\\coordinateDB\\vertiport_UE.csv",
+  "ground_map_csv": "D:\\DTAMFramework\\VisualizationModule_Source\\Unreal\\Environments\\DTAMVisualization\\Data\\coordinateDB\\vertiportMap_KU.csv",
+  "mesh_path": "/Game/vp_model/Vertiport_round_KU.Vertiport_round_KU",
+  "georeference_origin_llh": {
+    "lon": 126.978,
+    "lat": 37.5665,
+    "height_m": 350.0
+  },
+  "georeference_scale": 100.0,
+  "fallback_height_m": 60.0,
+  "surface_lift_cm": 8.0,
+  "row_count": 493,
+  "vertiport_count": 17,
+  "ground_node_count": 29,
+  "actor_summaries": [
+    {
+      "vertiport": "영등포",
+      "class": "port",
+      "lat": 37.526513,
+      "lon": 126.922845,
+      "angle_deg": 322.0,
+      "actor_location_cm": [
+        -487542.5491441786,
+        443668.4437369704,
+        -29340.95295149088
+      ],
+      "actor_rotation_deg": [
+        0.05908213483410202,
+        -37.96638587118093,
+        0.004611234844083326
+      ],
+      "actor_llh": [
+        126.922845,
+        37.526513000000016,
+        60.000000000641556
+      ],
+      "trace_status": "NO_HIT_COMMANDLET_FALLBACK_H60",
+      "trace_debug": [
+        {
+          "channel": "TraceTypeQuery1",
+          "hit": false,
+          "raw": "None"
+        },
+        {
+          "channel": "TraceTypeQuery2",
+          "hit": false,
+          "raw": "None"
+        }
+      ],
+      "marker_count": 29,
+      "label_count": 29
+    },
+    {
+      "vertiport": "잠실",
+      "class": "port",
+      "lat": 37.514368,
+      "lon": 127.069068,
+      "angle_deg": 83.0,
+      "actor_location_cm": [
+        805125.7372890711,
+        578216.8614382148,
+        -29770.50615864992
+      ],
+      "actor_rotation_deg": [
+        -0.06058360307423527,
+        82.94454483797168,
+        -0.06528808363822237
+      ],
+      "actor_llh": [
+        127.06906800000002,
+        37.514368000000005,
+        60.000000000232674
+      ],
+      "trace_status": "NO_HIT_COMMANDLET_FALLBACK_H60",
+      "trace_debug": [
+        {
+          "channel": "TraceTypeQuery1",
+          "hit": false,
+          "raw": "None"
+        },
+        {
+          "channel": "TraceTypeQuery2",
+          "hit": false,
+          "raw": "None"
+        }
+      ],
+      "marker_count": 29,
+      "label_count": 29
+    },
+    {
+      "vertiport": "상암",
+      "class": "port",
+      "lat": 37.562282,
+      "lon": 126.890156,
+      "angle_deg": 38.0,
+      "actor_location_cm": [
+        -776125.8332728446,
+        46452.540655612946,
+        -29473.32859671116
+      ],
+      "actor_rotation_deg": [
+        0.05224643977101192,
+        38.05357541592232,
+        0.04622417644564361
+      ],
+      "actor_llh": [
+        126.890156,
+        37.562282,
+        60.00000000125932
+      ],
+      "trace_status": "NO_HIT_COMMANDLET_FALLBACK_H60",
+      "trace_debug": [
+        {
+          "channel": "TraceTypeQuery1",
+          "hit": false,
+          "raw": "None"
+        },
+        {
+          "channel": "TraceTypeQuery2",
+          "hit": false,
+          "raw": "None"
+        }
+      ],
+      "marker_count": 29,
+      "label_count": 29
+    },
+    {
+      "vertiport": "용산",
+      "class": "port",
+      "lat": 37.529096,
+      "lon": 126.958391,
+      "angle_deg": 76.0,
+      "actor_location_cm": [
+        -173327.7761644423,
+        415125.07960933447,
+        -29159.091331720352
+      ],
+      "actor_rotation_deg": [
+        -0.03254254357199215,
+        76.0119433257336,
+        0.02413259703754633
+      ],
+      "actor_llh": [
+        126.95839100000003,
+        37.52909600000001,
+        60.00000000016718
+      ],
+      "trace_status": "NO_HIT_COMMANDLET_FALLBACK_H60",
+      "trace_debug": [
+        {
+          "channel": "TraceTypeQuery1",
+          "hit": false,
+          "raw": "None"
+        },
+        {
+          "channel": "TraceTypeQuery2",
+          "hit": false,
+          "raw": "None"
+        }
+      ],
+      "marker_count": 29,
+      "label_count": 29
+    },
+    {
+      "vertiport": "목동",
+      "class": "port",
+      "lat": 37.526343,
+      "lon": 126.876243,
+      "angle_deg": 10.0,
+      "actor_location_cm": [
+        -899482.5733917058,
+        445211.34266859293,
+        -29789.384959220886
+      ],
+      "actor_rotation_deg": [
+        0.0724496687871531,
+        10.062045037282983,
+        0.05360426745262133
+      ],
+      "actor_llh": [
+        126.87624300000002,
+        37.526343000000004,
+        59.99999999928237
+      ],
+      "trace_status": "NO_HIT_COMMANDLET_FALLBACK_H60",
+      "trace_debug": [
+        {
+          "channel": "TraceTypeQuery1",
+          "hit": false,
+          "raw": "None"
+        },
+        {
+          "channel": "TraceTypeQuery2",
+          "hit": false,
+          "raw": "None"
+        }
+      ],
+      "marker_count": 29,
+      "label_count": 29
+    },
+    {
+      "vertiport": "미아",
+      "class": "port",
+      "lat": 37.630207,
+      "lon": 127.026053,
+      "angle_deg": 74.0,
+      "actor_location_cm": [
+        424175.8001794815,
+        -707191.9004733562,
+        -29533.968058347702
+      ],
+      "actor_rotation_deg": [
+        0.050722817272107354,
+        73.9706578017543,
+        -0.05416854784022007
+      ],
+      "actor_llh": [
+        127.026053,
+        37.630207000000006,
+        60.000000000863054
+      ],
+      "trace_status": "NO_HIT_COMMANDLET_FALLBACK_H60",
+      "trace_debug": [
+        {
+          "channel": "TraceTypeQuery1",
+          "hit": false,
+          "raw": "None"
+        },
+        {
+          "channel": "TraceTypeQuery2",
+          "hit": false,
+          "raw": "None"
+        }
+      ],
+      "marker_count": 29,
+      "label_count": 29
+    },
+    {
+      "vertiport": "봉천",
+      "class": "port",
+      "lat": 37.482832,
+      "lon": 126.942245,
+      "angle_deg": 8.0,
+      "actor_location_cm": [
+        -316240.49774736166,
+        928558.4938775897,
+        -29756.400230288506
+      ],
+      "actor_rotation_deg": [
+        0.01641898866154407,
+        8.021790922518441,
+        0.08681179073343996
+      ],
+      "actor_llh": [
+        126.94224500000001,
+        37.482832000000016,
+        59.999999999494925
+      ],
+      "trace_status": "NO_HIT_COMMANDLET_FALLBACK_H60",
+      "trace_debug": [
+        {
+          "channel": "TraceTypeQuery1",
+          "hit": false,
+          "raw": "None"
+        },
+        {
+          "channel": "TraceTypeQuery2",
+          "hit": false,
+          "raw": "None"
+        }
+      ],
+      "marker_count": 29,
+      "label_count": 29
+    },
+    {
+      "vertiport": "사당",
+      "class": "port",
+      "lat": 37.475767,
+      "lon": 126.982185,
+      "angle_deg": 10.0,
+      "actor_location_cm": [
+        37018.35194686055,
+        1007030.5442136526,
+        -29798.611683666706
+      ],
+      "actor_rotation_deg": [
+        -0.01902392636083049,
+        9.997436367823141,
+        0.08878695391365847
+      ],
+      "actor_llh": [
+        126.982185,
+        37.475767000000005,
+        60.00000000149138
+      ],
+      "trace_status": "NO_HIT_COMMANDLET_FALLBACK_H60",
+      "trace_debug": [
+        {
+          "channel": "TraceTypeQuery1",
+          "hit": false,
+          "raw": "None"
+        },
+        {
+          "channel": "TraceTypeQuery2",
+          "hit": false,
+          "raw": "None"
+        }
+      ],
+      "marker_count": 29,
+      "label_count": 29
+    },
+    {
+      "vertiport": "성수",
+      "class": "port",
+      "lat": 37.538917,
+      "lon": 127.041635,
+      "angle_deg": 295.0,
+      "actor_location_cm": [
+        562408.3188636601,
+        305950.7401816845,
+        -29321.301557064056
+      ],
+      "actor_rotation_deg": [
+        0.0037049580410145454,
+        -65.03878311382103,
+        0.05738207190581267
+      ],
+      "actor_llh": [
+        127.04163500000001,
+        37.538917,
+        60.00000000110536
+      ],
+      "trace_status": "NO_HIT_COMMANDLET_FALLBACK_H60",
+      "trace_debug": [
+        {
+          "channel": "TraceTypeQuery1",
+          "hit": false,
+          "raw": "None"
+        },
+        {
+          "channel": "TraceTypeQuery2",
+          "hit": false,
+          "raw": "None"
+        }
+      ],
+      "marker_count": 29,
+      "label_count": 29
+    },
+    {
+      "vertiport": "연신내",
+      "class": "port",
+      "lat": 37.611145,
+      "lon": 126.922747,
+      "angle_deg": 43.0,
+      "actor_location_cm": [
+        -487856.5193514526,
+        -495657.1445891857,
+        -29379.419810652733
+      ],
+      "actor_rotation_deg": [
+        0.06246367635245012,
+        43.03370231060928,
+        -0.002766813829737198
+      ],
+      "actor_llh": [
+        126.92274700000002,
+        37.611145000000015,
+        60.000000000332385
+      ],
+      "trace_status": "NO_HIT_COMMANDLET_FALLBACK_H60",
+      "trace_debug": [
+        {
+          "channel": "TraceTypeQuery1",
+          "hit": false,
+          "raw": "None"
+        },
+        {
+          "channel": "TraceTypeQuery2",
+          "hit": false,
+          "raw": "None"
+        }
+      ],
+      "marker_count": 29,
+      "label_count": 29
+    },
+    {
+      "vertiport": "천호",
+      "class": "port",
+      "lat": 37.545733,
+      "lon": 127.11923,
+      "angle_deg": 110.0,
+      "actor_location_cm": [
+        1248080.9645107388,
+        229553.31679993868,
+        -30261.073104143143
+      ],
+      "actor_rotation_deg": [
+        0.018685982340019527,
+        109.91389656799844,
+        -0.11232863802956676
+      ],
+      "actor_llh": [
+        127.11923000000002,
+        37.545733000000006,
+        60.00000000019024
+      ],
+      "trace_status": "NO_HIT_COMMANDLET_FALLBACK_H60",
+      "trace_debug": [
+        {
+          "channel": "TraceTypeQuery1",
+          "hit": false,
+          "raw": "None"
+        },
+        {
+          "channel": "TraceTypeQuery2",
+          "hit": false,
+          "raw": "None"
+        }
+      ],
+      "marker_count": 29,
+      "label_count": 29
+    },
+    {
+      "vertiport": "광화문",
+      "class": "hub",
+      "lat": 37.56901,
+      "lon": 126.973604,
+      "angle_deg": 130.0,
+      "actor_location_cm": [
+        -38836.387896329165,
+        -27859.24300324917,
+        -29001.786160588264
+      ],
+      "actor_rotation_deg": [
+        -0.0003235577142959296,
+        130.00268022589034,
+        0.004277158563767985
+      ],
+      "actor_llh": [
+        126.973604,
+        37.56901,
+        60.000000000687024
+      ],
+      "trace_status": "NO_HIT_COMMANDLET_FALLBACK_H60",
+      "trace_debug": [
+        {
+          "channel": "TraceTypeQuery1",
+          "hit": false,
+          "raw": "None"
+        },
+        {
+          "channel": "TraceTypeQuery2",
+          "hit": false,
+          "raw": "None"
+        }
+      ],
+      "marker_count": 29,
+      "label_count": 29
+    },
+    {
+      "vertiport": "강남",
+      "class": "hub",
+      "lat": 37.496291,
+      "lon": 127.023303,
+      "angle_deg": 69.0,
+      "actor_location_cm": [
+        400617.3253515065,
+        779143.6287059188,
+        -29603.110558390617
+      ],
+      "actor_rotation_deg": [
+        -0.07843045796659,
+        68.9724073011715,
+        -0.008357392592813536
+      ],
+      "actor_llh": [
+        127.023303,
+        37.496290999999985,
+        60.00000000093991
+      ],
+      "trace_status": "NO_HIT_COMMANDLET_FALLBACK_H60",
+      "trace_debug": [
+        {
+          "channel": "TraceTypeQuery1",
+          "hit": false,
+          "raw": "None"
+        },
+        {
+          "channel": "TraceTypeQuery2",
+          "hit": false,
+          "raw": "None"
+        }
+      ],
+      "marker_count": 29,
+      "label_count": 29
+    },
+    {
+      "vertiport": "가산",
+      "class": "hub",
+      "lat": 37.489091,
+      "lon": 126.878809,
+      "angle_deg": 87.0,
+      "actor_location_cm": [
+        -877236.211799562,
+        858688.4899913073,
+        -30182.41493433714
+      ],
+      "actor_rotation_deg": [
+        -0.07323790973680391,
+        87.0603690833535,
+        0.082569553800197
+      ],
+      "actor_llh": [
+        126.878809,
+        37.489091,
+        59.99999999898779
+      ],
+      "trace_status": "NO_HIT_COMMANDLET_FALLBACK_H60",
+      "trace_debug": [
+        {
+          "channel": "TraceTypeQuery1",
+          "hit": false,
+          "raw": "None"
+        },
+        {
+          "channel": "TraceTypeQuery2",
+          "hit": false,
+          "raw": "None"
+        }
+      ],
+      "marker_count": 29,
+      "label_count": 29
+    },
+    {
+      "vertiport": "마곡",
+      "class": "hub",
+      "lat": 37.563535,
+      "lon": 126.791805,
+      "angle_deg": 45.0,
+      "actor_location_cm": [
+        -1645054.0908453465,
+        31278.65631878376,
+        -31119.585825026035
+      ],
+      "actor_rotation_deg": [
+        0.1021535212687154,
+        45.11361096460244,
+        0.10656557752468226
+      ],
+      "actor_llh": [
+        126.791805,
+        37.563535000000016,
+        60.00000000061021
+      ],
+      "trace_status": "NO_HIT_COMMANDLET_FALLBACK_H60",
+      "trace_debug": [
+        {
+          "channel": "TraceTypeQuery1",
+          "hit": false,
+          "raw": "None"
+        },
+        {
+          "channel": "TraceTypeQuery2",
+          "hit": false,
+          "raw": "None"
+        }
+      ],
+      "marker_count": 29,
+      "label_count": 29
+    },
+    {
+      "vertiport": "망우",
+      "class": "hub",
+      "lat": 37.596919,
+      "lon": 127.084854,
+      "angle_deg": 344.0,
+      "actor_location_cm": [
+        943646.9769748747,
+        -338155.8024020195,
+        -29787.035495877266
+      ],
+      "actor_rotation_deg": [
+        -0.08978536162055657,
+        -16.065164869180645,
+        -0.005840405315893806
+      ],
+      "actor_llh": [
+        127.08485400000002,
+        37.596919000000014,
+        60.00000000230669
+      ],
+      "trace_status": "NO_HIT_COMMANDLET_FALLBACK_H60",
+      "trace_debug": [
+        {
+          "channel": "TraceTypeQuery1",
+          "hit": false,
+          "raw": "None"
+        },
+        {
+          "channel": "TraceTypeQuery2",
+          "hit": false,
+          "raw": "None"
+        }
+      ],
+      "marker_count": 29,
+      "label_count": 29
+    },
+    {
+      "vertiport": "수서",
+      "class": "hub",
+      "lat": 37.487441,
+      "lon": 127.100603,
+      "angle_deg": 222.0,
+      "actor_location_cm": [
+        1084313.3804480433,
+        876757.121111393,
+        -30525.10133999586
+      ],
+      "actor_rotation_deg": [
+        0.1251682411216233,
+        -138.07467500600896,
+        0.006221018691861587
+      ],
+      "actor_llh": [
+        127.100603,
+        37.487441,
+        60.0000000007705
+      ],
+      "trace_status": "NO_HIT_COMMANDLET_FALLBACK_H60",
+      "trace_debug": [
+        {
+          "channel": "TraceTypeQuery1",
+          "hit": false,
+          "raw": "None"
+        },
+        {
+          "channel": "TraceTypeQuery2",
+          "hit": false,
+          "raw": "None"
+        }
+      ],
+      "marker_count": 29,
+      "label_count": 29
+    }
+  ],
+  "errors": [],
+  "outputs": {
+    "csv": "D:\\DTAMFramework\\docs\\unreal_editor_s_points.csv",
+    "legacy_named_csv": "D:\\DTAMFramework\\docs\\unreal_vertiport_resource_points.csv",
+    "json": "D:\\DTAMFramework\\output\\unreal_editor_dump\\unreal_editor_s_points.json",
+    "meta": "D:\\DTAMFramework\\docs\\unreal_editor_s_points_meta.json",
+    "md": "D:\\DTAMFramework\\docs\\unreal_editor_s_points.md"
+  },
+  "notes": [
+    "Coordinates are read from Unreal component world locations, not MissionModule/resources_vp.csv.",
+    "The marker labels visible in the editor are produced by DTAMVisualizationVertiportPreviewActor::UpdateGroundMapPreview.",
+    "Commandlet run records trace_status per row; if NO_HIT_COMMANDLET_FALLBACK_H60, terrain/surface line trace was unavailable and actor remains at fallback LLH height 60 m."
+  ]
+}

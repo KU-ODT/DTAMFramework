@@ -1,0 +1,120 @@
+{
+  "gui_host": "127.0.0.1",
+  "gui_port": 8097,
+  "log_level": "info",
+  "airsim": {
+    "host": "127.0.0.1",
+    "port": 41451,
+    "vehicle_prefix": "",
+    "ignore_collisions": false,
+    "vehicle_map": {
+      "UAM0001": "Drone1"
+    }
+  },
+  "dtam": {
+    "server_ip": "127.0.0.1",
+    "server_port": 8096
+  },
+  "streaming": {
+    "module_status_hz": 1.0,
+    "camera_enabled": false,
+    "camera_name": "front_center",
+    "camera_image_type": 0,
+    "camera_hz": 2.0,
+    "camera_quality": 60,
+    "camera_vehicle": ""
+  },
+  "collision": {
+    "enabled": true,
+    "poll_hz": 5.0,
+    "dedup_window_sec": 1.0,
+    "publish_to_server": true,
+    "publish_no_collision": false,
+    "default_recommended_action": "hold",
+    "pose_feedback_check_enabled": true,
+    "pose_feedback_publish_to_server": false,
+    "pose_feedback_recommended_action": "none",
+    "pose_feedback_error_threshold_m": 0.75,
+    "pose_feedback_sample_hz": 5.0
+  },
+  "unreal": {
+    "executable": "C:\\Users\\kada_odt\\Desktop\\DTAMFramework\\VisualizationModule\\runtime\\Unreal\\Environments\\DTAMVisualization\\Saved\\StagedBuilds\\Windows\\DTAMVisualization.exe",
+    "args": [
+      "/AirSim/KP2A/KP2A_Map",
+      "-windowed",
+      "-NoSplash",
+      "-NoLoadingScreen",
+      "-ResX=1280",
+      "-ResY=720",
+      "-settings=C:\\Users\\kada_odt\\Desktop\\DTAMFramework\\VisualizationModule\\runtime\\Unreal\\Environments\\DTAMVisualization\\settings.json"
+    ],
+    "working_dir": "C:\\Users\\kada_odt\\Desktop\\DTAMFramework\\VisualizationModule\\runtime\\Unreal\\Environments\\DTAMVisualization\\Saved\\StagedBuilds\\Windows",
+    "profile_mode": "off",
+    "profile_args": [],
+    "profile_exec_cmds": []
+  },
+  "pixel_streaming": {
+    "enabled": false,
+    "player_url": "http://127.0.0.1:8080/player.html",
+    "streamer_url": "ws://127.0.0.1:8888",
+    "player_port": 8080,
+    "streamer_port": 8888,
+    "signalling_dir": "C:\\Users\\kada_odt\\Desktop\\DTAMFramework\\VisualizationModule\\runtime\\PixelStreamingWebServers\\SignallingWebServer",
+    "stream_id": "DTAMVisualization",
+    "auto_start_server": false
+  },
+  "metrics": {
+    "enabled": true,
+    "log_interval_sec": 5.0,
+    "history_size": 120,
+    "include_per_vehicle_rpc": false,
+    "include_camera_latency": true,
+    "log_path": "C:\\Users\\kada_odt\\Desktop\\DTAMFramework\\.dtam_runtime\\logs\\visualization_performance.jsonl"
+  },
+  "runtime_optimization": {
+    "vehicle_status_apply_hz": 30.0,
+    "vehicle_status_apply_hz_by_vehicle_count": [
+      {
+        "min": 1,
+        "max": 1,
+        "hz": 30.0
+      },
+      {
+        "min": 2,
+        "max": 3,
+        "hz": 20.0
+      },
+      {
+        "min": 4,
+        "max": 999,
+        "hz": 15.0
+      }
+    ],
+    "telemetry_hz": 10.0,
+    "visual_state_hz": 10.0,
+    "direct_camera_default_fps": 20.0,
+    "direct_camera_max_fps": 30.0,
+    "teststream_default_fps": 20.0
+  },
+  "rendering_performance": {
+    "preset": "balanced",
+    "maximum_screen_space_error": 96.0,
+    "maximum_simultaneous_tile_loads": 4,
+    "maximum_cached_megabytes": 2048,
+    "loading_descendant_limit": 3,
+    "culled_screen_space_error": 512.0,
+    "distance_fog_density": 0.0,
+    "distance_fog_start_distance_m": 5000.0,
+    "distance_fog_max_opacity": 0.0,
+    "frame_rate_limit": 30,
+    "screen_percentage": 70,
+    "scalability_level": 1,
+    "stream_camera_tile_loading": true,
+    "stream_camera_tile_loading_max_cameras": 2,
+    "stream_camera_tile_loading_refresh_s": 0.25,
+    "sky_light_realtime_capture": false,
+    "apply_on_launch": true,
+    "enable_fog_culling": false,
+    "enable_distance_fog": false
+  }
+}

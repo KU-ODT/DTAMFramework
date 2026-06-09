@@ -1,0 +1,25 @@
+{
+  "vertiportId": "봉천",
+  "layoutName": "2FATO 8GATE",
+  "fleet": {
+    "gateAssignments": {
+      "gate-1": {
+        "typeId": "a2",
+        "seats": 2
+      },
+      "gate-2": {
+        "typeId": "a2",
+        "seats": 2
+      },
+      "gate-3": {
+        "typeId": "a2",
+        "seats": 2
+      },
+      "gate-4": {
+        "typeId": "a2",
+        "seats": 2
+      }
+    }
+  },
+  "updatedAt": "2026-05-21T14:24:28.482357+00:00"
+}

@@ -1,0 +1,7 @@
+# Cosys-AirSim PythonClient dependencies used by VisualizationModule.
+-c ../../../constraints.txt
+msgpack-rpc-python==0.4.1
+numpy>=1.26,<2.0
+
+# Optional: only needed if cosysairsim.utils image helper functions are used.
+# opencv-python>=4.10,<4.13

@@ -1,0 +1,40 @@
+{
+  "server": {
+    "bind_ip": "0.0.0.0",
+    "udp_port": 17000
+  },
+  "gui_host": "127.0.0.1",
+  "gui_port": 8095,
+  "db_root": "../Database",
+  "heartbeat_timeout_s": 3.5,
+  "modules": [
+    {
+      "role": "mission",
+      "display_name": "DTAM Mission Management",
+      "ip": "127.0.0.1",
+      "udp_port": 17010,
+      "expected_source": "DTAM_MissionManagement"
+    },
+    {
+      "role": "monitoring",
+      "display_name": "DTAM Operations Console",
+      "ip": "127.0.0.1",
+      "udp_port": 17020,
+      "expected_source": "DTAMOperationsConsole"
+    },
+    {
+      "role": "vehicle",
+      "display_name": "DTAM Air Vehicle",
+      "ip": "127.0.0.1",
+      "udp_port": 17030,
+      "expected_source": "DTAMAirVehicle"
+    },
+    {
+      "role": "visual",
+      "display_name": "DTAM Visualization",
+      "ip": "127.0.0.1",
+      "udp_port": 17040,
+      "expected_source": "DTAMVisualization"
+    }
+  ]
+}

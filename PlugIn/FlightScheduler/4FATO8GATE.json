@@ -1,0 +1,489 @@
+{
+  "meta": {
+    "name": "4FATO8GATE"
+  },
+  "grid": {
+    "width": 1000,
+    "height": 720,
+    "size": 20,
+    "unit": "m"
+  },
+  "entities": [
+    {
+      "id": "fato-1",
+      "type": "fato",
+      "name": "FATO 1",
+      "x": 200,
+      "y": 100,
+      "fatoMode": "takeoff"
+    },
+    {
+      "id": "fato-2",
+      "type": "fato",
+      "name": "FATO 2",
+      "x": 800,
+      "y": 100,
+      "fatoMode": "takeoff"
+    },
+    {
+      "id": "takeoff-point-1",
+      "type": "takeoffPoint",
+      "name": "Takeoff 1",
+      "x": 0,
+      "y": 100,
+      "altitude": 120
+    },
+    {
+      "id": "takeoff-point-2",
+      "type": "takeoffPoint",
+      "name": "Takeoff 2",
+      "x": 1000,
+      "y": 100,
+      "altitude": 120
+    },
+    {
+      "id": "gate-1",
+      "type": "gate",
+      "name": "Gate 1",
+      "x": 300,
+      "y": 200
+    },
+    {
+      "id": "gate-2",
+      "type": "gate",
+      "name": "Gate 2",
+      "x": 300,
+      "y": 300
+    },
+    {
+      "id": "gate-3",
+      "type": "gate",
+      "name": "Gate 3",
+      "x": 300,
+      "y": 400
+    },
+    {
+      "id": "gate-4",
+      "type": "gate",
+      "name": "Gate 4",
+      "x": 300,
+      "y": 500
+    },
+    {
+      "id": "gate-5",
+      "type": "gate",
+      "name": "Gate 5",
+      "x": 700,
+      "y": 200
+    },
+    {
+      "id": "gate-6",
+      "type": "gate",
+      "name": "Gate 6",
+      "x": 700,
+      "y": 300
+    },
+    {
+      "id": "gate-7",
+      "type": "gate",
+      "name": "Gate 7",
+      "x": 700,
+      "y": 400
+    },
+    {
+      "id": "gate-8",
+      "type": "gate",
+      "name": "Gate 8",
+      "x": 700,
+      "y": 500
+    },
+    {
+      "id": "node-1",
+      "type": "node",
+      "name": "Node 1",
+      "x": 300,
+      "y": 100
+    },
+    {
+      "id": "node-2",
+      "type": "node",
+      "name": "Node 2",
+      "x": 400,
+      "y": 100
+    },
+    {
+      "id": "node-3",
+      "type": "node",
+      "name": "Node 3",
+      "x": 500,
+      "y": 100
+    },
+    {
+      "id": "node-4",
+      "type": "node",
+      "name": "Node 4",
+      "x": 600,
+      "y": 100
+    },
+    {
+      "id": "node-5",
+      "type": "node",
+      "name": "Node 5",
+      "x": 700,
+      "y": 100
+    },
+    {
+      "id": "node-6",
+      "type": "node",
+      "name": "Node 6",
+      "x": 500,
+      "y": 200
+    },
+    {
+      "id": "node-7",
+      "type": "node",
+      "name": "Node 7",
+      "x": 500,
+      "y": 300
+    },
+    {
+      "id": "node-8",
+      "type": "node",
+      "name": "Node 8",
+      "x": 500,
+      "y": 400
+    },
+    {
+      "id": "node-9",
+      "type": "node",
+      "name": "Node 9",
+      "x": 500,
+      "y": 500
+    },
+    {
+      "id": "node-10",
+      "type": "node",
+      "name": "Node 10",
+      "x": 400,
+      "y": 200
+    },
+    {
+      "id": "node-11",
+      "type": "node",
+      "name": "Node 11",
+      "x": 600,
+      "y": 200
+    },
+    {
+      "id": "node-12",
+      "type": "node",
+      "name": "Node 12",
+      "x": 400,
+      "y": 300
+    },
+    {
+      "id": "node-13",
+      "type": "node",
+      "name": "Node 13",
+      "x": 600,
+      "y": 300
+    },
+    {
+      "id": "node-14",
+      "type": "node",
+      "name": "Node 14",
+      "x": 400,
+      "y": 400
+    },
+    {
+      "id": "node-15",
+      "type": "node",
+      "name": "Node 15",
+      "x": 600,
+      "y": 400
+    },
+    {
+      "id": "node-16",
+      "type": "node",
+      "name": "Node 16",
+      "x": 600,
+      "y": 500
+    },
+    {
+      "id": "node-17",
+      "type": "node",
+      "name": "Node 17",
+      "x": 400,
+      "y": 500
+    },
+    {
+      "id": "node-18",
+      "type": "node",
+      "name": "Node 18",
+      "x": 500,
+      "y": 600
+    },
+    {
+      "id": "node-19",
+      "type": "node",
+      "name": "Node 19",
+      "x": 400,
+      "y": 600
+    },
+    {
+      "id": "node-20",
+      "type": "node",
+      "name": "Node 20",
+      "x": 300,
+      "y": 600
+    },
+    {
+      "id": "node-21",
+      "type": "node",
+      "name": "Node 21",
+      "x": 600,
+      "y": 600
+    },
+    {
+      "id": "node-22",
+      "type": "node",
+      "name": "Node 22",
+      "x": 700,
+      "y": 600
+    },
+    {
+      "id": "fato-3",
+      "type": "fato",
+      "name": "FATO 3",
+      "x": 200,
+      "y": 600,
+      "fatoMode": "landing"
+    },
+    {
+      "id": "fato-4",
+      "type": "fato",
+      "name": "FATO 4",
+      "x": 800,
+      "y": 600,
+      "fatoMode": "landing"
+    },
+    {
+      "id": "landing-point-1",
+      "type": "landingPoint",
+      "name": "Landing 1",
+      "x": 0,
+      "y": 600,
+      "altitude": 90
+    },
+    {
+      "id": "landing-point-2",
+      "type": "landingPoint",
+      "name": "Landing 2",
+      "x": 1000,
+      "y": 600,
+      "altitude": 90
+    }
+  ],
+  "links": [
+    {
+      "id": "link-1",
+      "from": "landing-point-1",
+      "to": "fato-3"
+    },
+    {
+      "id": "link-2",
+      "from": "fato-3",
+      "to": "node-20"
+    },
+    {
+      "id": "link-3",
+      "from": "node-20",
+      "to": "node-19"
+    },
+    {
+      "id": "link-4",
+      "from": "node-19",
+      "to": "node-18"
+    },
+    {
+      "id": "link-5",
+      "from": "node-18",
+      "to": "node-21"
+    },
+    {
+      "id": "link-6",
+      "from": "node-21",
+      "to": "node-22"
+    },
+    {
+      "id": "link-7",
+      "from": "node-22",
+      "to": "fato-4"
+    },
+    {
+      "id": "link-8",
+      "from": "fato-4",
+      "to": "landing-point-2"
+    },
+    {
+      "id": "link-9",
+      "from": "node-18",
+      "to": "node-9"
+    },
+    {
+      "id": "link-10",
+      "from": "node-9",
+      "to": "node-8"
+    },
+    {
+      "id": "link-11",
+      "from": "node-8",
+      "to": "node-7"
+    },
+    {
+      "id": "link-12",
+      "from": "node-7",
+      "to": "node-6"
+    },
+    {
+      "id": "link-13",
+      "from": "node-6",
+      "to": "node-3"
+    },
+    {
+      "id": "link-14",
+      "from": "takeoff-point-1",
+      "to": "fato-1"
+    },
+    {
+      "id": "link-15",
+      "from": "fato-1",
+      "to": "node-1"
+    },
+    {
+      "id": "link-16",
+      "from": "node-1",
+      "to": "node-2"
+    },
+    {
+      "id": "link-17",
+      "from": "node-2",
+      "to": "node-3"
+    },
+    {
+      "id": "link-18",
+      "from": "node-3",
+      "to": "node-4"
+    },
+    {
+      "id": "link-19",
+      "from": "node-4",
+      "to": "node-5"
+    },
+    {
+      "id": "link-20",
+      "from": "node-5",
+      "to": "fato-2"
+    },
+    {
+      "id": "link-21",
+      "from": "fato-2",
+      "to": "takeoff-point-2"
+    },
+    {
+      "id": "link-22",
+      "from": "gate-1",
+      "to": "node-10"
+    },
+    {
+      "id": "link-23",
+      "from": "node-10",
+      "to": "node-6"
+    },
+    {
+      "id": "link-24",
+      "from": "node-6",
+      "to": "node-11"
+    },
+    {
+      "id": "link-25",
+      "from": "node-11",
+      "to": "gate-5"
+    },
+    {
+      "id": "link-26",
+      "from": "gate-2",
+      "to": "node-12"
+    },
+    {
+      "id": "link-27",
+      "from": "node-12",
+      "to": "node-7"
+    },
+    {
+      "id": "link-28",
+      "from": "node-7",
+      "to": "node-13"
+    },
+    {
+      "id": "link-29",
+      "from": "node-13",
+      "to": "gate-6"
+    },
+    {
+      "id": "link-30",
+      "from": "gate-3",
+      "to": "node-14"
+    },
+    {
+      "id": "link-31",
+      "from": "node-14",
+      "to": "node-8"
+    },
+    {
+      "id": "link-32",
+      "from": "node-8",
+      "to": "node-15"
+    },
+    {
+      "id": "link-33",
+      "from": "node-15",
+      "to": "gate-7"
+    },
+    {
+      "id": "link-34",
+      "from": "gate-4",
+      "to": "node-17"
+    },
+    {
+      "id": "link-35",
+      "from": "node-17",
+      "to": "node-9"
+    },
+    {
+      "id": "link-36",
+      "from": "node-9",
+      "to": "node-16"
+    },
+    {
+      "id": "link-37",
+      "from": "node-16",
+      "to": "gate-8"
+    }
+  ],
+  "simulationParameters": {
+    "vehicle": {
+      "groundSpeedMps": 5,
+      "airSpeedMps": 35,
+      "verticalSpeedMps": 3
+    },
+    "gateProcedure": {
+      "engineStartAndTowDisconnectMinutes": 4,
+      "engineStopAndTowConnectMinutes": 3,
+      "groundHandlingMinutes": 10
+    },
+    "fatoProcedure": {
+      "postOperationLockMinutes": 1
+    }
+  }
+}
