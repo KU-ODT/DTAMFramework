@@ -25,8 +25,8 @@
 | ID | 제목 | 트리거 | 핵심 ICD | 명세 |
 |----|------|--------|----------|------|
 | S1 | 정상 운항 | (없음, 기본 흐름) | 1001, 1003, 2001, 3001, 1002, 2002, 4001, 4101, 0003 | [S1_nominal.md](./S1_nominal.md) |
-| S2 | 실시간 PSU 재계획 | PSU의 4001 분석에서 충돌 위험 감지 | + 확장된 2001(TRAFFIC_CONFLICT), 3001 v2, 3002, 3003 | [S2_psu_replan.md](./S2_psu_replan.md) |
-| S3 | UAO 배터리 대체 vertiport | Vehicle의 4002 LOW_BATTERY critical | + 4002, 확장된 2001(LOW_BATTERY + arrivalVertiportHint), 3001 v2, 3003 land | [S3_uao_battery_alt_vertiport.md](./S3_uao_battery_alt_vertiport.md) |
+| S2 | 실시간 PSU 속도 조정 재계획 | "데모 날씨" 5004 바람 외란 → PSU 궤적 예측 | + 5004, PSU 직접 3003(setSpeed) — 2001 확장/3001 v2/3002 미사용 | [S2_psu_replan.md](./S2_psu_replan.md) |
+| S3 | 배터리 부족 PSU 전술 즉시 개입 | Vehicle 4002 LOW_BATTERY critical | + 4002, PSU 직접 3003(land, VP_KU) — 2001 확장/3001 v2 미사용 | [S3_uao_battery_alt_vertiport.md](./S3_uao_battery_alt_vertiport.md) |
 
 ## 공통 가정
 - 시뮬레이션 시각의 표시는 KST(UTC+09:00) 기준이지만, **모든 ICD timestamp 는 UTC ISO-8601** 로 직렬화한다.
@@ -36,7 +36,7 @@
 - 시뮬레이션 배속 `speed_x` 는 1 (real-time) ~ 10x 사이.
 
 ## 모듈 매트릭스
-| 모듈 | S1 | S2 | S3 |
+| 모듈 | S1 | S2 | 실시간 PSU 속도 조정 재계획 | "데모 날씨" 5004 바람 외란 → PSU 궤적 예측 | + 5004, PSU 직접 3003(setSpeed) — 2001 확장/3001 v2/3002 미사용 | [S2_psu_replan.md](./S2_psu_replan.md) |
 |------|----|----|----|
 | OperationModule | 사용자 입력 → 1001/1003/2001/1002 송신, 4001 dashboard | 동일 + revise 알림 표시 | 동일 + 4002 alert 표시 |
 | MissionModule | 2001 수신 → 3001 발행 | 2001 수신 → 3001 v2 + 3002 + 3003 directTo | 2001 수신 → 3001 v2 + 3003 land (긴급) |
