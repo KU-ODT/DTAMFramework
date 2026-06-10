@@ -4,7 +4,7 @@
 
 - **목적**: 운영자 콘솔의 **"데모 날씨" 버튼**으로 5004 Wind Effect Data 를 발행하면 두 비행체(UAM0001, UAM0002)의 궤적이 바람 영향(crossTrackDrift)으로 흔들리고, **PSU가 4001 스트림(10 Hz) + 5004 바람 데이터를 결합한 지속 궤적 예측(외삽)** 으로 분리 손실(loss of separation)을 사전 감지하여 **3003 Tactical Separation (actions = `setSpeed`, 속도 조정) 을 직접 발행**, 속도 조정만으로 충돌을 예방하는 시나리오를 검증한다. **바람(5004)은 외란 환경 요소일 뿐**이며, Vehicle 의 5004 처리는 시나리오와 무관한 표준 메시지 처리(`on_wind_effect_data`)다. Vehicle 은 3003 의 setSpeed 를 즉시 수행하고, Mission 은 3003 을 **수신만** 하여 plan 정합성을 추적한다. `scenarioId="S2"` 의 Vehicle 측 의미는 **특별 무장 없음 (정보성)** — 시나리오 전용 분기를 두지 않는다. 전략 재계획 경로(2001 확장 → 3001 v2 + 3002)는 SDK 인터페이스로 유지되지만 **S2 데모 흐름에서는 사용하지 않는다**.
 - **주요 참여 모듈 (역할)**
-  - **IntegrationHub (SERVER)**: 메시지 포워딩 (FORWARD_RULES 기반) — 5004 → VEHICLE/VISUAL/PSU, 3003 → VEHICLE/MISSION
+  - **IntegrationHub (SERVER)**: 메시지 포워딩 (FORWARD_RULES 기반) — 5004 → 전 모듈 (활용은 VEHICLE/VISUAL/PSU, 나머지는 수신만), 3003 → VEHICLE/MISSION
   - **SimulationStateModule (SIM_STATE)**: CommonTime(0003) 발생, 1001/1002/1003 소비, playState 제어
   - **VehicleModule (VEHICLE)** × 2: UAM0001, UAM0002 비행 상태 머신, 4001 송출 (10 Hz), 5004 바람 보정(WindModel) 표준 적용, 3003 setSpeed 즉시 수행
   - **MissionModule (MISSION)**: 초기 2001(기본) 소비, 3001 v1 발행. 이후 3003 **수신 전용** (plan 정합성 추적) — S2 트리거 구간에서 발행 없음
@@ -105,7 +105,9 @@ T+20:00  User(OpsConsole) → SERVER  [5004]  WindEffectData — "데모 날씨"
                                             vehicleWindEffects: [ { aircraftId: "UAM0001", crossTrackDriftM: 120.0 },
                                                                   { aircraftId: "UAM0002", crossTrackDriftM: 90.0 } ]
                                           }
-                                          note: FORWARD_RULES[5004]=[VEHICLE, VISUAL, PSU]. full JSON 은 §3.1
+                                          note: FORWARD_RULES[5004]=전 모듈 (VEHICLE/VISUAL/PSU/MISSION/MONITORING/SA).
+                                                본 시나리오에서 활용하는 모듈은 VEHICLE(바람 적용)/VISUAL(시각화)/PSU(궤적 예측)뿐 —
+                                                MISSION/MONITORING/SA 는 수신만 하고 사용하지 않음 (base stub silent drop). full JSON 은 §3.1
 
 T+20:01  VEHICLE    (internal)            5004 적용 — WindModel preset="bad" + localZone(serious) 활성화
                                           note: dynamics 바람 보정 시작 → 궤적이 횡방향으로 흔들리기 시작
