@@ -771,102 +771,69 @@
       "note": "forward"
     },
     {
-      "group": "8. Stakeholder Re-plan"
+      "group": "8. PSU Tactical Intervention (S2)"
     },
     {
-      "from": "vehicle",
+      "from": "monitoring",
       "to": "sim_state",
-      "id": "4001",
-      "name": "Vehicle Status",
+      "id": "5004",
+      "name": "Wind Effect Data",
       "proto": "ws",
-      "note": "S2 / periodic telemetry feeding PSU"
-    },
-    {
-      "from": "psu",
-      "to": "psu",
-      "name": "Detect traffic conflict",
-      "proto": "internal",
-      "note": "S2 / PSU correlates 4001 against corridor occupancy"
-    },
-    {
-      "from": "psu",
-      "to": "sim_state",
-      "id": "2001",
-      "name": "Flight Plan Request",
-      "proto": "ws",
-      "note": "S2 / reasonCode=TRAFFIC_CONFLICT, flightPlanNumber, triggeringEventId"
+      "note": "demo weather trigger"
     },
     {
       "from": "sim_state",
       "to": "db",
-      "id": "2001",
-      "name": "Flight Plan Request",
+      "id": "5004",
+      "name": "Wind Effect Data",
       "proto": "file",
-      "note": "S2 / save re-plan request"
-    },
-    {
-      "from": "sim_state",
-      "to": "mission",
-      "id": "2001",
-      "name": "Flight Plan Request",
-      "proto": "ws",
-      "note": "S2 / forward to Mission Planner"
-    },
-    {
-      "from": "mission",
-      "to": "sim_state",
-      "id": "3001",
-      "name": "Scheduled Flight",
-      "proto": "ws",
-      "note": "S2 / planVersion+1, planStatus=active (prev=superseded)"
+      "note": "save"
     },
     {
       "from": "sim_state",
       "to": "vehicle",
-      "id": "3001",
-      "name": "Scheduled Flight",
+      "id": "5004",
+      "name": "Wind Effect Data",
       "proto": "ws",
-      "note": "S2 / revised plan"
+      "note": "wind applied to dynamics"
     },
     {
       "from": "sim_state",
       "to": "visual",
-      "id": "3001",
-      "name": "Scheduled Flight",
+      "id": "5004",
+      "name": "Wind Effect Data",
       "proto": "ws",
-      "note": "S2 / revised plan"
+      "note": "forward"
     },
     {
       "from": "sim_state",
       "to": "psu",
-      "id": "3001",
-      "name": "Scheduled Flight",
+      "id": "5004",
+      "name": "Wind Effect Data",
       "proto": "ws",
-      "note": "S2 / confirmation to PSU"
+      "note": "wind for trajectory prediction"
     },
     {
-      "from": "mission",
-      "to": "sim_state",
-      "id": "3002",
-      "name": "Strategic Separation",
-      "proto": "ws",
-      "note": "S2 / modificationType=routeUpdate, reasonCode=CORRIDOR_BLOCKED, modifyScope=enRouteOnly"
+      "from": "psu",
+      "to": "psu",
+      "name": "trajectory prediction / conflict detection",
+      "proto": "internal"
     },
     {
-      "from": "sim_state",
-      "to": "vehicle",
-      "id": "3002",
-      "name": "Strategic Separation",
-      "proto": "ws",
-      "note": "S2 / header announce"
-    },
-    {
-      "from": "mission",
+      "from": "psu",
       "to": "sim_state",
       "id": "3003",
       "name": "Tactical Separation",
       "proto": "ws",
-      "note": "S2 / optional directTo for immediate avoidance"
+      "note": "LOSS_OF_SEPARATION_RISK / setSpeed+directTo"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "3003",
+      "name": "Tactical Separation",
+      "proto": "file",
+      "note": "save"
     },
     {
       "from": "sim_state",
@@ -874,10 +841,18 @@
       "id": "3003",
       "name": "Tactical Separation",
       "proto": "ws",
-      "note": "S2 / tactical command"
+      "note": "immediate avoidance"
     },
     {
-      "group": "8.1 S3 Alternate Vertiport for Low Battery"
+      "from": "sim_state",
+      "to": "mission",
+      "id": "3003",
+      "name": "Tactical Separation",
+      "proto": "ws",
+      "note": "plan consistency tracking"
+    },
+    {
+      "group": "8.1 Battery Emergency (S3)"
     },
     {
       "from": "vehicle",
@@ -885,7 +860,7 @@
       "id": "4002",
       "name": "Vehicle Warning Event",
       "proto": "ws",
-      "note": "S3 / LOW_BATTERY critical, recommendedAction=emergency_landing"
+      "note": "LOW_BATTERY critical"
     },
     {
       "from": "sim_state",
@@ -893,78 +868,53 @@
       "id": "4002",
       "name": "Vehicle Warning Event",
       "proto": "ws",
-      "note": "S3 / forward (see Phase 5 fan-out)"
+      "note": "forward"
     },
     {
       "from": "psu",
       "to": "psu",
-      "name": "Select alternate vertiport VP_KU",
-      "proto": "internal",
-      "note": "S3 / PSU picks alternate VP based on battery / range"
+      "name": "select alternate vertiport VP_KU",
+      "proto": "internal"
     },
     {
       "from": "psu",
       "to": "sim_state",
-      "id": "2001",
-      "name": "Flight Plan Request",
+      "id": "3003",
+      "name": "Tactical Separation",
       "proto": "ws",
-      "note": "S3 / reasonCode=LOW_BATTERY, triggeringEventId=4002.eventId, arrivalVertiportHint=VP_KU"
+      "note": "land at VP_KU / LOW_BATTERY"
     },
     {
       "from": "sim_state",
       "to": "db",
-      "id": "2001",
-      "name": "Flight Plan Request",
+      "id": "3003",
+      "name": "Tactical Separation",
       "proto": "file",
-      "note": "S3 / save re-plan request"
+      "note": "save"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "3003",
+      "name": "Tactical Separation",
+      "proto": "ws",
+      "note": "emergency landing"
     },
     {
       "from": "sim_state",
       "to": "mission",
-      "id": "2001",
-      "name": "Flight Plan Request",
-      "proto": "ws",
-      "note": "S3 / forward to Mission Planner"
-    },
-    {
-      "from": "mission",
-      "to": "sim_state",
-      "id": "3001",
-      "name": "Scheduled Flight",
-      "proto": "ws",
-      "note": "S3 / planVersion+1, arrival.vertiport=VP_KU"
-    },
-    {
-      "from": "sim_state",
-      "to": "vehicle",
-      "id": "3001",
-      "name": "Scheduled Flight",
-      "proto": "ws",
-      "note": "S3 / revised plan"
-    },
-    {
-      "from": "sim_state",
-      "to": "psu",
-      "id": "3001",
-      "name": "Scheduled Flight",
-      "proto": "ws",
-      "note": "S3 / confirmation to PSU"
-    },
-    {
-      "from": "mission",
-      "to": "sim_state",
       "id": "3003",
       "name": "Tactical Separation",
       "proto": "ws",
-      "note": "S3 / IMMEDIATE action=land, vertiport=VP_KU, reasonCode=LOW_BATTERY"
+      "note": "plan superseded"
     },
     {
-      "from": "sim_state",
-      "to": "vehicle",
-      "id": "3003",
-      "name": "Tactical Separation",
+      "from": "vehicle",
+      "to": "sim_state",
+      "id": "4002",
+      "name": "Vehicle Warning Event",
       "proto": "ws",
-      "note": "S3 / immediate land command"
+      "note": "status=cleared after landing"
     }
   ]
 }

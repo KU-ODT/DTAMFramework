@@ -20,7 +20,7 @@ FORWARD_RULES: Dict[str, List[Role]] = {
     "2002": [Role.MISSION, Role.MONITORING, Role.VEHICLE, Role.VISUAL, Role.SITUATION_AWARENESS],  # Phase 3
     "3001": [Role.VEHICLE, Role.VISUAL],                                                 # Phase 2
     "3002": [Role.VEHICLE],                                                              # Phase 6
-    "3003": [Role.VEHICLE],                                                              # Phase 6
+    "3003": [Role.VEHICLE, Role.MISSION],                                                # Phase 6 (PSU 발행분을 Mission 도 수신 — plan 정합성 추적)
     "4001": [Role.MONITORING, Role.VISUAL, Role.SITUATION_AWARENESS, Role.PSU],          # Phase 5
     "4002": [Role.MONITORING, Role.SITUATION_AWARENESS, Role.PSU],                       # Phase 5
     "4101": [Role.MONITORING, Role.SITUATION_AWARENESS],                                 # Phase 5
@@ -29,6 +29,7 @@ FORWARD_RULES: Dict[str, List[Role]] = {
     "5001": [Role.VEHICLE],                                                              # Phase 7
     "5002": [Role.VISUAL],                                                               # Phase 7
     "5003": [Role.VISUAL],                                                               # Phase 7
+    "5004": [Role.VEHICLE, Role.VISUAL, Role.PSU],                                       # Phase 7 (데모 날씨 — 기체별 바람 영향)
 }
 
 

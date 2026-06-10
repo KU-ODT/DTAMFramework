@@ -34,6 +34,7 @@ from .msg_phase7 import (
     Msg5001_OperatorControlInput,
     Msg5002_CameraControlCommand,
     Msg5003_AbnormalSituationCommand,
+    Msg5004_WindEffectData,
 )
 
 # mid → dataclass 매핑 (단일 권위)
@@ -57,6 +58,7 @@ ICD_REGISTRY: Dict[str, Type] = {
     "5001": Msg5001_OperatorControlInput,
     "5002": Msg5002_CameraControlCommand,
     "5003": Msg5003_AbnormalSituationCommand,
+    "5004": Msg5004_WindEffectData,
 }
 
 # 역방향 매핑: dataclass type → mid. DtamModule.send 가 dataclass 인스턴스

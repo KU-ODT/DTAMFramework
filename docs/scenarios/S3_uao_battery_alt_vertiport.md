@@ -1,14 +1,14 @@
-# S3 — UAO 배터리 고장 대체 vertiport (긴급 착륙)
+# S3 — 배터리 부족 PSU 전술 즉시 개입 (4002 → 3003 land)
 
 ## 1. 개요
 
-- **목적**: 운항 중인 UAM 기체의 자가 진단으로 배터리 열화/저전압이 감지되었을 때, PSU가 가장 가까운 대체 vertiport를 선정하고 MissionModule이 비행계획을 재계산하여 긴급 착륙(land)까지 수행하는 전 과정을 검증한다. UAO/PSU/Mission/Vehicle 간의 책임 경계와 4002(critical) → 2001(extended) → 3001 v2 + 3003(land) 사슬을 시뮬레이션한다.
+- **목적**: 운항 중인 UAM 기체의 자가 진단으로 배터리 저전압(critical)이 감지되었을 때, PSU가 4002를 받아 가용 vertiport를 직접 분석·선정하고 **3003 TacticalSeparation(land)을 직접 발행**하여 기체가 즉시 비상 착륙하는 전 과정을 검증한다. 전략 재계획(2001 확장 → Mission → 3001 v2) 경로를 거치지 않는 **PSU 전술 즉시 개입** 사슬: 4002(critical) → PSU 판단 → 3003(land) → Vehicle 즉시 착륙 + Mission plan superseded 마킹.
 - **주요 참여 모듈 (역할)**:
-  - **VehicleModule (VEHICLE)**: 자가 진단으로 배터리 임계치 위반을 감지하고 4002(critical)을 발행. 이후 3001 v2 / 3003(land) 명령을 실행.
-  - **MissionModule (MISSION)**: extended 2001을 받아 3001 v2(arrival=VP_KU)와 3003(land, IMMEDIATE)을 발행.
-  - **OperationModule / Monitoring (MONITORING)**: 4002, 2001, 3001 v2, 3003을 UI에 표출하고 운항자(UAO)에게 경고.
-  - **VisualizationModule (VISUAL)**: 3001 v2로 항로를 갱신, 3003으로 land 시각화.
-  - **PSU (Provider of Services for UAM)**: 4002(critical, LOW_BATTERY 계열)을 받아 주변 vertiport availability/거리 평가 후 VP_KU 선정. extended 2001을 server로 송신.
+  - **VehicleModule (VEHICLE)**: 자가 진단으로 배터리 임계치 위반을 감지하고 4002(critical)을 발행. PSU가 발행한 3003(land)을 수신해 즉시 착륙 수행, 착륙 후 4002 cleared 발행.
+  - **MissionModule (MISSION)**: 3003을 수신(`on_tactical_separation`)하여 자기 비행계획(fpn=1201)을 superseded로 마킹. **본 시나리오에서 메시지 발행 없음**.
+  - **OperationModule / Monitoring (MONITORING)**: 4002, 3003을 UI에 표출하고 운항자(UAO)에게 경고.
+  - **VisualizationModule (VISUAL)**: 3003 land 수신 시 비상 착륙 시각화 및 카메라 트래킹.
+  - **PSU (Provider of Services for UAM)**: 4002(critical, LOW_BATTERY 계열)을 받아 주변 vertiport availability/거리 평가 후 VP_KU 선정, **3003(land)을 직접 발행** — 대체 vertiport에 대한 dispatch 권한 보유.
   - **UAO (UAM Air Operator)**: 운항 책임 주체. 이 시나리오에서는 **알림 수신자(informed)** 이며, 대체 vertiport에 대한 **dispatch 권한은 PSU가 보유**(사용자 결정). UAO는 사후 정산/디스패치 책임(post-hoc accountability)에 관여.
 - **시나리오 길이**: 약 32 sim-minutes (정상 운항 ~25분 + 긴급 대응/착륙 ~7분, 배터리 emergency로 단축).
 - **트리거 메커니즘**: 1003 ScenarioSetup의 `scenarioFileName` = `S3_uao_battery_alt_vertiport.json`. 내부적으로 `battery.degradation_profile`을 통해 T+25:00 부근에서 battery_pct가 10% 미만으로 떨어지도록 사전 설정.
@@ -78,29 +78,25 @@ T+25:00  VEHICLE    → SERVER     [4002]  VehicleWarningEvent (critical) — TR
                                                              availableDistance: 4200.0 }
                                           note: critical 임계 — MONITORING/SA/PSU 동시 수신. PSU 의사결정 트리거.
 
-T+25:01  PSU        → SERVER     [2001]  FlightPlanRequest (extended, PSU)
-                                          payload preview: { flightPlanNumber: 1201,
-                                                             reasonCode: "LOW_BATTERY",
-                                                             triggeringEventId: "WARN-UAM0001-20260609-002",
-                                                             arrivalVertiportHint: "VP_KU" }
-                                          note: PSU가 거리/availability 평가 후 VP_KU를 alternate로 hint. MISSION에 reroute 요청.
+T+25:01  PSU        (내부 판단)
+                                          note: 현재 position 기준 가용 vertiport 분석 (거리/availability/class).
+                                                후보 [VP_KU, VP_JAMSIL, VP_YEOUIDO] 중 가장 가까운 VP_KU 선정.
+                                                메시지 발행 없음 — PSU 판단 로직 단계.
 
-T+25:02  MISSION    → SERVER     [3001]  ScheduledFlight v2 (rerouted)
-                                          payload preview: { flightPlanNumber: 1201, planVersion: 2, planStatus: "active",
-                                                             arrival.vertiport: "VP_KU",
-                                                             enRoute: [seq 1..M, shortened] }
-                                          note: planVersion=1은 자동 superseded. VEHICLE/VISUAL이 새 항로로 갱신.
-
-T+25:03  MISSION    → SERVER     [3003]  TacticalSeparation (IMMEDIATE land)
-                                          payload preview: { commandId: "TAC-1201-LAND-001",
+T+25:02  PSU        → SERVER     [3003]  TacticalSeparation (IMMEDIATE land) — PSU 직접 발행
+                                          payload preview: { commandId: "TMP-PSU-1201-LAND-001",
                                                              aircraftId: "UAM0001",
                                                              reasonCode: "LOW_BATTERY",
                                                              actions: [{ type: "land", vertiport: "VP_KU", fatoNumber: "FATO_A" }] }
-                                          note: 정상 스케줄링 우회 — 즉시 착륙 명령.
+                                          note: Hub → VEHICLE + MISSION 양쪽 전달. 전략 재계획(2001 확장) 우회 — 즉시 착륙 명령.
+
+T+25:03  MISSION    (내부 처리)
+                                          note: 3003 수신(on_tactical_separation) → fpn=1201 plan을 superseded로 마킹.
+                                                메시지 발행 없음 (3001 v2 재발행하지 않음).
 
 T+25:04  VEHICLE    → SERVER     [4001]  VehicleStatus
-                                          payload preview: { UAM0001.energy.battery_pct: 9.2, navigation: {...rerouting} }
-                                          note: 새 plan에 따라 descent 진입.
+                                          payload preview: { UAM0001.energy.battery_pct: 9.2, navigation: {...divert_to_VP_KU} }
+                                          note: 3003 land 수행 — VP_KU 향해 즉시 descent 진입.
 
 T+27:00  VEHICLE    → SERVER     [4001]  VehicleStatus
                                           payload preview: { UAM0001.energy.battery_pct: 6.1, position: {VP_KU 접근} }
@@ -156,75 +152,12 @@ T+32:00  User       → SERVER     [1002]  SimulationSetup (pause)
 }
 ```
 
-### 3.2 2001 FlightPlanRequest — extended (PSU, LOW_BATTERY) (T+25:01)
+### 3.2 3003 TacticalSeparation — PSU 직접 발행, IMMEDIATE land at VP_KU (T+25:02)
 
 ```json
 {
-  "timestamp": "2026-06-09T09:25:01.120Z",
-  "scenarioFileName": "S3_uao_battery_alt_vertiport.json",
-  "flightPlanNumber": 1201,
-  "reasonCode": "LOW_BATTERY",
-  "triggeringEventId": "WARN-UAM0001-20260609-002",
-  "arrivalVertiportHint": "VP_KU"
-}
-```
-
-### 3.3 3001 ScheduledFlight v2 — rerouted arrival = VP_KU (T+25:02)
-
-```json
-{
-  "flightPlanNumber": 1201,
-  "planVersion": 2,
-  "planStatus": "active",
-  "aircraftId": "UAM0001",
-  "departure": {
-    "vertiport": "VP_YEOUIDO",
-    "std": "2026-06-09T09:00:00.000Z",
-    "depGateNumber": "G1",
-    "eobt": "2026-06-09T09:00:30.000Z",
-    "depFatoNumber": "FATO_A",
-    "etot": "2026-06-09T09:01:00.000Z"
-  },
-  "arrival": {
-    "vertiport": "VP_KU",
-    "sta": "2026-06-09T09:32:00.000Z",
-    "arrGateNumber": "G1",
-    "eibt": "2026-06-09T09:32:30.000Z",
-    "arrFatoNumber": "FATO_A",
-    "eldt": "2026-06-09T09:31:30.000Z"
-  },
-  "enRoute": [
-    {
-      "seq": 1,
-      "phase": "G",
-      "targetSpeed": 28.0,
-      "startLLA": { "lat": 37.5295, "lon": 127.0123, "alt": 350.0 },
-      "endLLA":   { "lat": 37.5400, "lon": 127.0290, "alt": 280.0 }
-    },
-    {
-      "seq": 2,
-      "phase": "I",
-      "targetSpeed": 18.0,
-      "startLLA": { "lat": 37.5400, "lon": 127.0290, "alt": 280.0 },
-      "endLLA":   { "lat": 37.5453, "lon": 127.0399, "alt": 120.0 }
-    },
-    {
-      "seq": 3,
-      "phase": "J",
-      "targetSpeed": 8.0,
-      "startLLA": { "lat": 37.5453, "lon": 127.0399, "alt": 120.0 },
-      "endLLA":   { "lat": 37.5460, "lon": 127.0415, "alt": 30.0 }
-    }
-  ]
-}
-```
-
-### 3.4 3003 TacticalSeparation — IMMEDIATE land at VP_KU (T+25:03)
-
-```json
-{
-  "timestamp": "2026-06-09T09:25:03.045Z",
-  "commandId": "TAC-1201-LAND-001",
+  "timestamp": "2026-06-09T09:25:02.045Z",
+  "commandId": "TMP-PSU-1201-LAND-001",
   "aircraftId": "UAM0001",
   "reasonCode": "LOW_BATTERY",
   "actions": [
@@ -238,29 +171,34 @@ T+32:00  User       → SERVER     [1002]  SimulationSetup (pause)
 }
 ```
 
+> Hub의 FORWARD_RULES["3003"] = [vehicle, mission] 에 따라 VEHICLE과 MISSION 양쪽에 전달된다.
+> VEHICLE은 즉시 land 수행, MISSION은 `on_tactical_separation`에서 fpn=1201을 superseded로 마킹한다.
+
+> **참고**: 전략 재계획(2001 확장 — `reasonCode`/`triggeringEventId`/`arrivalVertiportHint` 필드) 경로는
+> SDK 인터페이스에 유지되지만, 본 데모 시나리오에서는 사용하지 않는다. 3001 v2(rerouted) 발행도 없다.
+
 ## 4. 모듈별 책임
 
 - **VehicleModule (VEHICLE)**
   - 자가 진단(self-diagnostic) 루프에서 `energy.battery_pct < threshold.critical_pct` 위반 감지 시 4002(critical, BATTERY_VOLTAGE_LOW)를 발행한다.
   - 4001 telemetry(10 Hz)를 지속 publish.
-  - 3001 v2(rerouted)와 3003(land, IMMEDIATE)을 수신/실행 — 정상 plan 종료보다 3003 land를 우선 처리.
+  - PSU가 발행한 3003(land, IMMEDIATE)을 수신/실행 — 정상 plan 시퀀스를 중단하고 land action을 우선 처리.
   - 착륙 완료 후 동일 eventId로 4002 status="cleared" 발행.
 - **MissionModule (MISSION)**
-  - extended 2001(`reasonCode=LOW_BATTERY`, `triggeringEventId`, `arrivalVertiportHint=VP_KU`)을 수신하면 비행계획 1201의 planVersion을 +1 (v2)로 발행, `arrival.vertiport=VP_KU`로 갱신.
-  - 즉시 3003 `actions=[{type:"land", vertiport:"VP_KU", fatoNumber:"FATO_A"}]`을 IMMEDIATE로 발행하여 정상 스케줄링 큐를 우회.
-  - planVersion=1은 자동 superseded.
+  - 3003을 수신(`on_tactical_separation`)하면 자기 비행계획 fpn=1201을 **superseded로 마킹** (plan 정합성 추적).
+  - **본 시나리오에서 메시지 발행 없음** — 3001 v2 재발행, 2001 응답 등 일절 없음.
 - **OperationModule / Monitoring (MONITORING)**
-  - 4002(warning/critical/cleared), 2001(extended), 3001 v2, 3003(land)을 모두 수신하여 UI에 표출.
-  - 운항자(UAO) 콘솔에 critical 경보, reroute 결정 출처(PSU), 새 도착지(VP_KU)를 시각/청각 알람으로 안내.
+  - 4002(warning/critical/cleared), 3003(land)을 수신하여 UI에 표출.
+  - 운항자(UAO) 콘솔에 critical 경보, 착륙 명령 출처(PSU), 새 도착지(VP_KU)를 시각/청각 알람으로 안내.
 - **VisualizationModule (VISUAL)**
   - 1003으로 vertiport(VP_YEOUIDO, VP_JAMSIL, VP_KU)와 routeNetwork 로드.
-  - 3001 v2 수신 시 항로 시각화 갱신, 3003 land 수신 시 강조 표시 및 카메라 트래킹.
+  - 3003 land 수신 시 강조 표시 및 카메라 트래킹.
 - **PSU (Provider of Services for UAM)**
   - 4002 critical(LOW_BATTERY / BATTERY_VOLTAGE_LOW / BATTERY_OVERHEAT 등 energy 계열) 수신을 우선 이벤트 리스트에서 처리.
   - 현재 position과 vertiport DB의 거리/availability/class를 비교, alternate vertiport 선정 알고리즘으로 VP_KU 결정.
-  - extended 2001(`flightPlanNumber`, `reasonCode`, `triggeringEventId`, `arrivalVertiportHint`)을 server로 송신 — **대체 vertiport에 대한 dispatch 권한(authority)은 본 시나리오에서 PSU가 보유**.
+  - **3003 TacticalSeparation(land)을 직접 발행** — `reasonCode=LOW_BATTERY`, `actions=[{type:"land", vertiport:"VP_KU", fatoNumber:"FATO_A", targetLLA}]`. **대체 vertiport에 대한 dispatch 권한(authority)은 본 시나리오에서 PSU가 보유**.
 - **UAO (UAM Air Operator)**
-  - 이 시나리오에서 UAO는 **알림 수신자(informed party)**: MONITORING 콘솔을 통해 4002 critical, PSU 의사결정, 3001 v2, 3003 land를 인지.
+  - 이 시나리오에서 UAO는 **알림 수신자(informed party)**: MONITORING 콘솔을 통해 4002 critical, PSU 의사결정, 3003 land를 인지. (**UAO 모듈은 여전히 SDK 미구현** — informed party로만 모델링.)
   - **대체 vertiport 선정/디스패치 권한은 PSU가 행사하며 UAO는 이를 위임/승인한 상태로 모델링**(사용자 결정).
   - UAO의 역할은 사후(financial / dispatching) 책임 — 정산, 사고 보고, 보험, 승객 케어 등 post-hoc accountability에 한정한다.
   - 주의: PSU의 안전/항공교통 의사결정 권한과 UAO의 운항/계약 책임은 분리해 해석할 것 (혼동 금지).
@@ -269,14 +207,16 @@ T+32:00  User       → SERVER     [1002]  SimulationSetup (pause)
 
 ## 5. 검증 가능한 결과 (acceptance criteria)
 
-- T+25:00 ±200 ms 내에 VEHICLE이 4002(critical, BATTERY_VOLTAGE_LOW, severity=critical, recommendedAction=emergency_landing)을 정확히 1회 publish 한다.
+- T+25:00 ±200 ms 내에 VEHICLE이 4002(critical, BATTERY_VOLTAGE_LOW, severity=critical, recommendedAction=emergency_landing, status=active)를 정확히 **1회** publish 한다.
+- 착륙 완료 직후 VEHICLE이 동일 `eventId`로 4002 `status="cleared"`를 정확히 **1회** 발행한다 — **4002 active 1건 + cleared 1건**.
 - 4002 critical은 FORWARD_RULES에 따라 **MONITORING, SITUATION_AWARENESS, PSU** 세 모듈로 모두 도달한다.
-- PSU는 4002 수신 후 1초 이내에 extended 2001을 publish하며, 4개 신규 필드(`flightPlanNumber=1201`, `reasonCode="LOW_BATTERY"`, `triggeringEventId=4002.eventId`, `arrivalVertiportHint="VP_KU"`)가 모두 채워져 있다.
-- MISSION은 동일 flightPlanNumber=1201에 대해 `planVersion=2`, `planStatus="active"`, `arrival.vertiport="VP_KU"`인 3001을 publish 하고, 직후 `reasonCode="LOW_BATTERY"`, `actions[0].type="land"`, `actions[0].vertiport="VP_KU"`인 3003을 IMMEDIATE로 publish 한다.
-- VEHICLE은 3003 land 수신 후 정상 plan 시퀀스를 중단하고 land action을 우선 실행 — 최종 착륙 위치가 VP_KU FATO_A의 ±15 m 이내.
-- 착륙 완료 직후 VEHICLE이 동일 `eventId`로 4002 `status="cleared"`를 발행한다.
+- PSU는 4002 수신 후 가용 vertiport 분석을 거쳐 `reasonCode="LOW_BATTERY"`, `actions[0].type="land"`, `actions[0].vertiport="VP_KU"`, `actions[0].fatoNumber="FATO_A"`인 **3003을 정확히 1회 직접 발행**한다.
+- 3003은 FORWARD_RULES["3003"]에 따라 **VEHICLE과 MISSION 양쪽**에 전달된다.
+- **2001(확장) 발행 0건, 3001 v2(rerouted) 발행 0건** — 전략 재계획 경로 미사용 검증.
+- MISSION은 3003 수신 후 fpn=1201 plan을 superseded로 마킹하되 어떤 메시지도 발행하지 않는다.
+- VEHICLE은 3003 land 수신 후 정상 plan 시퀀스를 중단하고 land action을 우선 실행 — 최종 착륙 위치가 **VP_KU 50 m 이내**.
 - 시뮬레이션 종료 시점 battery_pct ≥ 3.0 (완전 방전 없이 착륙 성공).
-- MONITORING UI 로그에 "PSU: alternate vertiport = VP_KU" 와 "UAO: informed" 두 이벤트가 시간순으로 기록.
+- MONITORING UI 로그에 "PSU: tactical land → VP_KU" 와 "UAO: informed" 두 이벤트가 시간순으로 기록.
 
 ## 6. ICD payload 예시
 
@@ -440,3 +380,10 @@ ICD 로 송수신되지 않는다.
 > 4002 의 `threshold.warning_pct=20`, `threshold.critical_pct=10` 는 위 `thresholds.battery`
 > 와 1:1 대응. Vehicle 측 진단 로직이 시작 시점에 이 값을 읽어 자신의 4002 발행
 > 기준으로 삼는다.
+
+## 변경 이력
+
+- **2026-06-10 — 시나리오 개편 (사용자 확정)**: 기존 흐름 `4002 → PSU(2001 확장) → Mission(3001 v2 + 3003)` 을 **PSU 전술 즉시 개입** 흐름 `4002 → PSU 판단(가용 vertiport 분석, VP_KU 선정) → PSU 3003 직접 발행(land) → Vehicle 즉시 착륙 + Mission plan superseded 마킹` 으로 교체.
+  - SDK 변경 반영: 3003 direction = `mission|psu->server` (PSU 발행 가능), FORWARD_RULES["3003"] = [vehicle, mission], MissionModule `on_tactical_separation(3003)` stub 신설.
+  - 전략 재계획(2001 확장) 경로는 SDK 인터페이스로 유지되나 본 데모에서는 미사용. 3001 v2 sample 삭제.
+  - 제목 변경: "S3 — UAO 배터리 고장 대체 vertiport (긴급 착륙)" → "S3 — 배터리 부족 PSU 전술 즉시 개입 (4002 → 3003 land)".

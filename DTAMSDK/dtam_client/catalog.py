@@ -92,7 +92,7 @@ CATALOG: Dict[str, MessageSpec] = {
     "3003": MessageSpec(
         mid="3003", alias="tactical_separation",
         name_en="Tactical Separation", name_ko="??? ??",
-        direction="mission->server", rate_hz=0.0, phase=6,
+        direction="mission|psu->server", rate_hz=0.0, phase=6,
         icd_proto="ws", db_folder="TacticalActionCommand",
     ),
     "4001": MessageSpec(
@@ -142,6 +142,12 @@ CATALOG: Dict[str, MessageSpec] = {
         name_en="Abnormal Situation Command", name_ko="비정상 상황/장애물 생성 명령",
         direction="operator->server", rate_hz=0.0, phase=7,
         icd_proto="ws", db_folder="AbnormalSituationCommand",
+    ),
+    "5004": MessageSpec(
+        mid="5004", alias="wind_effect_data",
+        name_en="Wind Effect Data", name_ko="바람 영향 데이터",
+        direction="operator->server", rate_hz=0.0, phase=7,
+        icd_proto="ws", db_folder="WindEffectData",
     ),
 }
 

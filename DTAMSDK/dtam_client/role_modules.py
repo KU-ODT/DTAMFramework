@@ -62,7 +62,8 @@ def _validate_role_base(cls: Type[DtamModule]) -> Type[DtamModule]:
 class MissionModule(DtamModule):
     """Mission Planner 역할의 base 클래스.
 
-    FORWARD_RULES: 2001 (Flight Plan Request), 2002 (DTAM Execute).
+    FORWARD_RULES: 2001 (Flight Plan Request), 2002 (DTAM Execute),
+    3003 (Tactical Separation — PSU 발행분 수신, plan 정합성 추적).
     """
     role = Role.MISSION
 
@@ -74,12 +75,20 @@ class MissionModule(DtamModule):
     def on_dtam_execute(self, msg: Any) -> None:
         """MSG 2002 — DTAM 실행 명령. Override to handle."""
 
+    @on_receive("3003")
+    def on_tactical_separation(self, msg: Any) -> None:
+        """MSG 3003 — PSU 발 전술 분리 명령 (수신 전용).
+
+        PSU 가 즉시 개입(directTo/land 등)했음을 Mission 이 인지하여
+        보유 plan 의 정합성(superseded 마킹 등)을 유지. Override to handle.
+        """
+
 
 @_validate_role_base
 class VehicleModule(DtamModule):
     """Air Mobility 역할의 base 클래스.
 
-    FORWARD_RULES: 0003, 1002, 2002, 3001, 3002, 3003, 4103, 5001.
+    FORWARD_RULES: 0003, 1002, 2002, 3001, 3002, 3003, 4103, 5001, 5004.
     """
     role = Role.VEHICLE
 
@@ -114,6 +123,10 @@ class VehicleModule(DtamModule):
     @on_receive("5001")
     def on_operator_control_input(self, msg: Any) -> None:
         """MSG 5001 — 수동 조종 입력. Override to handle."""
+
+    @on_receive("5004")
+    def on_wind_effect_data(self, msg: Any) -> None:
+        """MSG 5004 — 데모 날씨 기체별 바람 영향 (dynamics 보정). Override to handle."""
 
 
 @_validate_role_base
@@ -161,7 +174,7 @@ class MonitoringModule(DtamModule):
 class VisualModule(DtamModule):
     """Visualization (Unreal) 역할의 base 클래스.
 
-    FORWARD_RULES: 0003, 1002, 1003, 2002, 3001, 4001, 5002, 5003.
+    FORWARD_RULES: 0003, 1002, 1003, 2002, 3001, 4001, 5002, 5003, 5004.
     현재 Visual 은 외부 Unreal Engine 바이너리이고 Python SDK 사용처가
     없지만, 향후 Python 시각화기를 만들 때를 위해 준비.
     """
@@ -198,6 +211,10 @@ class VisualModule(DtamModule):
     @on_receive("5003")
     def on_abnormal_situation_command(self, msg: Any) -> None:
         """MSG 5003 — 비정상 상황/장애물 생성 명령. Override to handle."""
+
+    @on_receive("5004")
+    def on_wind_effect_data(self, msg: Any) -> None:
+        """MSG 5004 — 데모 날씨 기체별 바람 영향 (시각화). Override to handle."""
 
 
 @_validate_role_base
@@ -236,21 +253,28 @@ class SituationAwarenessModule(DtamModule):
 class PSUModule(DtamModule):
     """Provider of Services for UAM (PSU) 외부 이해관계자 역할의 base 클래스.
 
-    ExtenstionModule/PSUModule 이 사용. UAM 운용 모니터링 콘솔로서
-    Vehicle 발 상태/경고/충돌 이벤트를 받아 Priority Event List, 회랑 분석,
-    Traffic Conflict 감지 등에 활용.
+    ExtenstionModule/PSUModule 이 사용. UAM 교통관리 서비스로서
+    Vehicle 발 상태/경고 이벤트를 받아 지속 궤적 예측·충돌 감지를 수행하고,
+    충돌 위험 또는 긴급 상황(배터리 부족 등) 시 3003 Tactical Separation
+    을 직접 발행하여 즉시 개입.
 
-    FORWARD_RULES: 4001 (Vehicle Status 10Hz — 트래픽 분석용), 4002 (Warning).
+    FORWARD_RULES (수신): 4001 (Vehicle Status 10Hz), 4002 (Warning),
+    5004 (Wind Effect — 궤적 예측에 바람 반영).
+    발행: 3003 (Tactical Separation), 2001 (전략 재계획 트리거 — 보조 경로).
     """
     role = Role.PSU
 
     @on_receive("4001")
     def on_vehicle_status(self, msg: Any) -> None:
-        """MSG 4001 — 비행체 10Hz 상태 (회랑·트래픽 분석용). Override to handle."""
+        """MSG 4001 — 비행체 10Hz 상태 (궤적 예측·트래픽 분석용). Override to handle."""
 
     @on_receive("4002")
     def on_vehicle_warning_event(self, msg: Any) -> None:
         """MSG 4002 — 비행체 경고 이벤트 (이상 감지). Override to handle."""
+
+    @on_receive("5004")
+    def on_wind_effect_data(self, msg: Any) -> None:
+        """MSG 5004 — 데모 날씨 기체별 바람 영향 (궤적 예측 보정). Override to handle."""
 
 
 __all__ = [

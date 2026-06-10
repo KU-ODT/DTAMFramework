@@ -213,7 +213,7 @@ flowchart TB
 | 4 | `1002` | 시뮬레이션 제어 | Play/Pause/Reset/Speed/Weather |
 | 5 | `0003`, `4001`, `4002`, `4101`, `4102`, `4103` | 시간·상태·경고·영상·충돌 | State/Vehicle/Visualization → UI/AI/DB/PSU |
 | 6 | `3002`, `3003` | 전략/전술 분리 | Mission/운영 판단 → Vehicle |
-| 7 | `5001`, `5002`, `5003` | 운영자 제어 | 수동 조종, 카메라 제어, 이상상황 |
+| 7 | `5001`, `5002`, `5003`, **`5004`** | 운영자 제어·환경 | 수동 조종, 카메라 제어, 이상상황, 바람 영향 데이터 (★신규) |
 
 ---
 
@@ -247,16 +247,18 @@ Phase 5는 비행체 실시간 상태(`4001`)와 비행체 경고 이벤트(`400
 PSU(Provider of Services for UAM)는 UAM 교통 흐름과 회랑(corridor) 운영을 관리하는 운영 서비스 사업자 역할이다. DTAM Framework에서는 `ExtenstionModule/PSUModule` 로 구현되며, conflict/capacity 분석, 회랑 폐쇄 의사결정, 재계획 트리거 등을 담당한다.
 
 - **PSUModule(DtamModule)** — DTAMSDK `DtamModule` 을 상속하는 PSU role 기본 클래스
-- role = `psu`, 수신 ICD: `4001 VehicleStatus`, `4002 VehicleWarningEvent`
+- role = `psu`, 수신 ICD: `4001 VehicleStatus`, `4002 VehicleWarningEvent`, `5004 WindEffectData`
 - 4001 로 비행체 실시간 상태를 받아 회랑/capacity 모니터링에 사용
 - 4002 로 비행체 측 이상 이벤트를 직접 수신하여 재계획 의사결정에 활용
-- 재계획이 필요할 경우 `2001 FlightPlanRequest` 를 `triggeringEventId` 와 함께 발행
+- 5004 로 운영자가 주입한 바람 영향 데이터를 수신하여 회랑 영향 분석에 활용
+- 전술 개입(tactical intervention)이 필요할 경우 `3003 TacticalSeparation` 을 **직접 발행** (즉시 land/directTo)
+- 전략 재계획이 필요할 경우 `2001 FlightPlanRequest` 를 `triggeringEventId` 와 함께 발행 (보조 경로, strategic re-plan trigger)
 
 ---
 
 ## 8. 실제 Forwarding 정책 요약
 
-★ 이번 SDK 확장으로 `4001` 의 수신자에 **psu** 가 추가되었고, 신규 메시지 `4002` 의 forwarding 이 정의되었다.
+★ 이번 SDK 확장으로 `4001` 의 수신자에 **psu** 가 추가되었고, 신규 메시지 `4002` 의 forwarding 이 정의되었다. 이후 후속 변경으로 신규 메시지 `5004` (wind_effect_data) 가 추가되고 `3003` 수신자에 **mission** 이 추가되었다.
 
 | 메시지 | 발행 주체 | 주요 수신 주체 | 의미 |
 |---|---|---|---|
@@ -268,7 +270,8 @@ PSU(Provider of Services for UAM)는 UAM 교통 흐름과 회랑(corridor) 운�
 | `2001` | Operation / **PSU / UAO** | Mission | 비행계획 요청 (재계획 트리거 포함) |
 | `2002` | Operation | Mission, Monitoring, Vehicle, Visualization, SituationAwareness | 실행 명령 |
 | `3001` | Mission | Vehicle, Visualization | 계획 비행 등록 |
-| `3002`, `3003` | Mission/운영 판단 | Vehicle | 분리/회피 명령 |
+| `3002` | Mission | Vehicle | 전략 분리 명령 |
+| **`3003`** | Mission / **PSU (직접 발행)** | **Vehicle, Mission** ★변경 | 전술 분리 / 즉시 명령 (land/directTo) |
 | **`4001`** | **Vehicle** | **Monitoring, Visualization, SituationAwareness, PSU** ★ | **비행체 상태 (PSU 신규 수신)** |
 | **`4002`** | **Vehicle** | **Monitoring, SituationAwareness, PSU** ★신규 | **비행체 경고 이벤트** |
 | `4101` | Visualization | Monitoring, SituationAwareness | 카메라 snapshot |
@@ -276,6 +279,7 @@ PSU(Provider of Services for UAM)는 UAM 교통 흐름과 회랑(corridor) 운�
 | `5001` | Operation | Vehicle | 수동 조종 입력 |
 | `5002` | Operation | Visualization | 카메라 제어 |
 | `5003` | Operation | Visualization | 이상상황/장애물 주입 |
+| **`5004`** | **Operation** | **Vehicle, Visualization, PSU** ★신규 | **바람 영향 데이터** |
 
 ### SDK FORWARD_RULES (정식 정의 — `DTAMSDK/dtam_client/policy.py`)
 
@@ -284,7 +288,7 @@ PSU(Provider of Services for UAM)는 UAM 교통 흐름과 회랑(corridor) 운�
 4002 → [monitoring, situation_awareness, psu]            # 신규 메시지
 3001 → [vehicle, visual]
 3002 → [vehicle]
-3003 → [vehicle]
+3003 → [vehicle, mission]                                 # mission 추가 (PSU 직접 발행 대응)
 2001 → [mission]
 2002 → [mission, monitoring, vehicle, visual, situation_awareness]
 1001 → [sim_state]
@@ -293,6 +297,7 @@ PSU(Provider of Services for UAM)는 UAM 교통 흐름과 회랑(corridor) 운�
 0003 → [vehicle, visual]
 4101 → [monitoring, situation_awareness]
 4103 → [vehicle, monitoring, situation_awareness]
+5004 → [vehicle, visual, psu]                             # 신규 메시지 (wind_effect_data)
 ```
 
 ---
@@ -439,6 +444,7 @@ sequenceDiagram
 - route planner
 - vertiport/waypoint/DEM/groundmap 데이터 사용
 - Mission ICD export/save
+- 수신 ICD: `2001`, `2002`, `3003` (3003 은 PSU 직접 발행분 수신 — 전술 개입 인지 및 후속 계획 반영)
 - `2001` 수신 후 `3001 ScheduledFlight` 생성/전송
 
 ### VehicleModule

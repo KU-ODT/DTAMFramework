@@ -48,6 +48,7 @@ from .samples import (
     sample_vehicle_collision_event,
     sample_camera_control_command,
     sample_abnormal_situation_command,
+    sample_wind_effect_data,
     sample_common_time_info,
     sample_dtam_execute,
     sample_flight_plan_request,
@@ -119,4 +120,5 @@ __all__ = [
     "sample_operator_control_input",
     "sample_camera_control_command",
     "sample_abnormal_situation_command",
+    "sample_wind_effect_data",
 ]

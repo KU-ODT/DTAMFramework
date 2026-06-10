@@ -6,6 +6,7 @@
 | Message Name | Tactical Separation Command |
 | Transport | WebSocket (`/ws/dtam`) |
 | Encoding | JSON (UTF-8) |
+| Direction | `mission|psu -> server -> vehicle/mission` |
 | Rate | Event-based |
 
 ## 1. Overview
@@ -13,6 +14,9 @@
 MSG 3003 is a tactical action command message for immediate application to a specific aircraft in flight.
 This message is not for conveying analysis results, but for delivering the sequence of actions the simulator should actually execute.
 Actions are defined sequentially in the `actions` array; the next action begins when the previous one completes.
+
+MSG 3003 is issued by Mission OR PSU (`mission|psu -> server`). PSU directly issues 3003 when it detects a collision risk through continuous trajectory prediction, or in an MSG 4002 emergency situation.
+Receivers are Vehicle (executes the actions) and Mission (receives PSU-issued commands — for plan consistency tracking).
 
 ## 2. Top-level layout
 

@@ -771,113 +771,88 @@
       "note": "Visualization 전달"
     },
     {
-      "group": "8. 이해관계자 재계획"
+      "group": "8. PSU 전술 개입 (S2)"
     },
     {
-      "from": "vehicle",
+      "from": "monitoring",
       "to": "sim_state",
-      "id": "4001",
-      "name": "비행체 상태",
+      "id": "5004",
+      "name": "바람 영향 데이터",
       "proto": "ws",
-      "note": "주기적 (S2 트리거 입력)"
-    },
-    {
-      "from": "psu",
-      "to": "psu",
-      "name": "교통 충돌 감지",
-      "proto": "internal",
-      "note": "4001로부터 분석"
-    },
-    {
-      "from": "psu",
-      "to": "sim_state",
-      "id": "2001",
-      "name": "비행계획 요청",
-      "proto": "ws",
-      "note": "확장: flightPlanNumber, reasonCode=TRAFFIC_CONFLICT, triggeringEventId"
+      "note": "데모 날씨 트리거"
     },
     {
       "from": "sim_state",
       "to": "db",
-      "id": "2001",
-      "name": "비행계획 요청",
+      "id": "5004",
+      "name": "바람 영향 데이터",
       "proto": "file",
       "note": "저장"
     },
     {
       "from": "sim_state",
-      "to": "mission",
-      "id": "2001",
-      "name": "비행계획 요청",
-      "proto": "ws",
-      "note": "포워딩"
-    },
-    {
-      "from": "mission",
-      "to": "sim_state",
-      "id": "3001",
-      "name": "계획 비행",
-      "proto": "ws",
-      "note": "planVersion+1, planStatus=active(신규)/superseded(이전)"
-    },
-    {
-      "from": "sim_state",
       "to": "vehicle",
-      "id": "3001",
-      "name": "계획 비행",
+      "id": "5004",
+      "name": "바람 영향 데이터",
       "proto": "ws",
-      "note": "수정본 포워딩"
+      "note": "바람 dynamics 적용"
     },
     {
       "from": "sim_state",
       "to": "visual",
-      "id": "3001",
-      "name": "계획 비행",
-      "proto": "ws",
-      "note": "수정본 포워딩"
-    },
-    {
-      "from": "sim_state",
-      "to": "psu",
-      "id": "3001",
-      "name": "계획 비행",
-      "proto": "ws",
-      "note": "수정본 / 확정 응답"
-    },
-    {
-      "from": "mission",
-      "to": "sim_state",
-      "id": "3002",
-      "name": "전략 분리",
-      "proto": "ws",
-      "note": "modificationType=routeUpdate, reasonCode=CORRIDOR_BLOCKED, planVersion+1, modifyScope=enRouteOnly"
-    },
-    {
-      "from": "sim_state",
-      "to": "vehicle",
-      "id": "3002",
-      "name": "전략 분리",
-      "proto": "ws",
-      "note": "헤더 안내 / 회랑 충돌 회피"
-    },
-    {
-      "from": "mission",
-      "to": "sim_state",
-      "id": "3003",
-      "name": "전술 분리",
-      "proto": "ws",
-      "note": "선택: directTo / 즉시 회피"
-    },
-    {
-      "from": "sim_state",
-      "to": "vehicle",
-      "id": "3003",
-      "name": "전술 분리",
+      "id": "5004",
+      "name": "바람 영향 데이터",
       "proto": "ws",
       "note": "포워딩"
     },
     {
-      "group": "8.1 S3 배터리 부족 대체 vertiport"
+      "from": "sim_state",
+      "to": "psu",
+      "id": "5004",
+      "name": "바람 영향 데이터",
+      "proto": "ws",
+      "note": "궤적 예측 바람 반영"
+    },
+    {
+      "from": "psu",
+      "to": "psu",
+      "name": "궤적 예측 / 충돌 감지",
+      "proto": "internal"
+    },
+    {
+      "from": "psu",
+      "to": "sim_state",
+      "id": "3003",
+      "name": "전술 분리",
+      "proto": "ws",
+      "note": "LOSS_OF_SEPARATION_RISK / setSpeed+directTo"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "3003",
+      "name": "전술 분리",
+      "proto": "file",
+      "note": "저장"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "3003",
+      "name": "전술 분리",
+      "proto": "ws",
+      "note": "즉시 회피 수행"
+    },
+    {
+      "from": "sim_state",
+      "to": "mission",
+      "id": "3003",
+      "name": "전술 분리",
+      "proto": "ws",
+      "note": "plan 정합성 추적"
+    },
+    {
+      "group": "8.1 배터리 비상 (S3)"
     },
     {
       "from": "vehicle",
@@ -885,7 +860,7 @@
       "id": "4002",
       "name": "비행체 경고 이벤트",
       "proto": "ws",
-      "note": "LOW_BATTERY (긴급), recommendedAction=emergency_landing"
+      "note": "LOW_BATTERY (긴급)"
     },
     {
       "from": "sim_state",
@@ -893,78 +868,53 @@
       "id": "4002",
       "name": "비행체 경고 이벤트",
       "proto": "ws",
-      "note": "전달 (Phase 5 흐름 참조)"
+      "note": "전달"
     },
     {
       "from": "psu",
       "to": "psu",
-      "name": "대체 vertiport 선택 (VP_KU)",
-      "proto": "internal",
-      "note": "PSU 내부 판단"
+      "name": "대체 vertiport VP_KU 선정",
+      "proto": "internal"
     },
     {
       "from": "psu",
       "to": "sim_state",
-      "id": "2001",
-      "name": "비행계획 요청",
+      "id": "3003",
+      "name": "전술 분리",
       "proto": "ws",
-      "note": "확장: flightPlanNumber, reasonCode=LOW_BATTERY, triggeringEventId=4002.eventId, arrivalVertiportHint=VP_KU"
+      "note": "VP_KU 착륙 명령"
     },
     {
       "from": "sim_state",
       "to": "db",
-      "id": "2001",
-      "name": "비행계획 요청",
+      "id": "3003",
+      "name": "전술 분리",
       "proto": "file",
       "note": "저장"
     },
     {
       "from": "sim_state",
+      "to": "vehicle",
+      "id": "3003",
+      "name": "전술 분리",
+      "proto": "ws",
+      "note": "비상 착륙 수행"
+    },
+    {
+      "from": "sim_state",
       "to": "mission",
-      "id": "2001",
-      "name": "비행계획 요청",
-      "proto": "ws",
-      "note": "포워딩"
-    },
-    {
-      "from": "mission",
-      "to": "sim_state",
-      "id": "3001",
-      "name": "계획 비행",
-      "proto": "ws",
-      "note": "planVersion+1, arrival.vertiport=VP_KU"
-    },
-    {
-      "from": "sim_state",
-      "to": "vehicle",
-      "id": "3001",
-      "name": "계획 비행",
-      "proto": "ws",
-      "note": "수정본 포워딩"
-    },
-    {
-      "from": "sim_state",
-      "to": "psu",
-      "id": "3001",
-      "name": "계획 비행",
-      "proto": "ws",
-      "note": "확정 응답"
-    },
-    {
-      "from": "mission",
-      "to": "sim_state",
       "id": "3003",
       "name": "전술 분리",
       "proto": "ws",
-      "note": "즉시: action=land, vertiport=VP_KU, reasonCode=LOW_BATTERY"
+      "note": "plan superseded 마킹"
     },
     {
-      "from": "sim_state",
-      "to": "vehicle",
-      "id": "3003",
-      "name": "전술 분리",
+      "from": "vehicle",
+      "to": "sim_state",
+      "id": "4002",
+      "name": "비행체 경고 이벤트",
       "proto": "ws",
-      "note": "대체 vertiport 착륙"
+      "note": "착륙 후 cleared"
     }
   ]
 }
