@@ -83,6 +83,10 @@ class MissionModule(DtamModule):
         보유 plan 의 정합성(superseded 마킹 등)을 유지. Override to handle.
         """
 
+    @on_receive("5004")
+    def on_wind_effect_data(self, msg: Any) -> None:
+        """MSG 5004 — 데모 날씨 기체별 바람 영향 (향후 계획 산정 참고). Override to handle."""
+
 
 @_validate_role_base
 class VehicleModule(DtamModule):
@@ -168,6 +172,9 @@ class MonitoringModule(DtamModule):
     def on_vehicle_collision_event(self, msg: Any) -> None:
         """MSG 4103 — 비행체 충돌 이벤트. Override to handle."""
 
+    @on_receive("5004")
+    def on_wind_effect_data(self, msg: Any) -> None:
+        """MSG 5004 — 데모 날씨 기체별 바람 영향 (자기 발행 echo — 대시보드 표시). Override to handle."""
 
 
 @_validate_role_base
@@ -247,6 +254,10 @@ class SituationAwarenessModule(DtamModule):
     @on_receive("4103")
     def on_vehicle_collision_event(self, msg: Any) -> None:
         """MSG 4103 — 비행체 충돌 이벤트. Override to handle."""
+
+    @on_receive("5004")
+    def on_wind_effect_data(self, msg: Any) -> None:
+        """MSG 5004 — 데모 날씨 기체별 바람 영향 (상황 인식 보조). Override to handle."""
 
 
 @_validate_role_base

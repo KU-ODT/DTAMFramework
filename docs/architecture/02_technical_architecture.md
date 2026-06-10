@@ -279,7 +279,7 @@ PSU(Provider of Services for UAM)는 UAM 교통 흐름과 회랑(corridor) 운�
 | `5001` | Operation | Vehicle | 수동 조종 입력 |
 | `5002` | Operation | Visualization | 카메라 제어 |
 | `5003` | Operation | Visualization | 이상상황/장애물 주입 |
-| **`5004`** | **Operation** | **Vehicle, Visualization, PSU** ★신규 | **바람 영향 데이터** |
+| **`5004`** | **Operation** | **전 모듈 (Vehicle, Visualization, PSU, Mission, Monitoring, SA)** ★전체 개방 | **바람 영향 데이터** |
 
 ### SDK FORWARD_RULES (정식 정의 — `DTAMSDK/dtam_client/policy.py`)
 
@@ -297,7 +297,7 @@ PSU(Provider of Services for UAM)는 UAM 교통 흐름과 회랑(corridor) 운�
 0003 → [vehicle, visual]
 4101 → [monitoring, situation_awareness]
 4103 → [vehicle, monitoring, situation_awareness]
-5004 → [vehicle, visual, psu]                             # 신규 메시지 (wind_effect_data)
+5004 → [vehicle, visual, psu, mission, monitoring, situation_awareness]  # 바람 데이터 전 모듈 개방
 ```
 
 ---

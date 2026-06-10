@@ -6,7 +6,7 @@
 | Message Name | Wind Effect Data |
 | 전송 방식 | WebSocket (`/ws/dtam`) |
 | 인코딩 | JSON only |
-| 방향 | `operator -> server -> vehicle/visual/psu` |
+| 방향 | `operator -> server -> 전 모듈 (vehicle/visual/psu/mission/monitoring/situation_awareness)` |
 | 주기 | 이벤트 기반 |
 | DB Folder | `WindEffectData` |
 
@@ -66,7 +66,7 @@ VehicleModule은 dynamics 바람 보정(WindModel preset/localZone)에, Visual�
 ## 처리 방식
 
 - OperationModule(운영자 콘솔)은 "데모 날씨" 버튼 트리거 시 보유한 데모 바람 프로파일을 사용해 MSG 5004를 발행합니다.
-- IntegrationHub는 5004를 기록하고 SDK forwarding policy(FORWARD_RULES)에 따라 Vehicle, Visual, PSU로 전달합니다.
+- IntegrationHub는 5004를 기록하고 SDK forwarding policy(FORWARD_RULES)에 따라 전 모듈(Vehicle, Visual, PSU, Mission, Monitoring, SituationAwareness)로 전달합니다. 바람 정보가 필요한 모듈은 `on_wind_effect_data` 를 override 하면 즉시 활용 가능합니다.
 - VehicleModule은 5004를 dynamics 바람 보정에 사용합니다 — `windPreset`은 WindModel preset으로, `localZone`은 `WindModel.add_local_zone`으로 적용합니다.
 - Visual은 5004를 기체별 바람 영향 시각화에 사용합니다.
 - PSU는 5004를 궤적 예측 보정에 사용합니다 (`crossTrackDriftM`, `alongTrackDeltaMps` 등).

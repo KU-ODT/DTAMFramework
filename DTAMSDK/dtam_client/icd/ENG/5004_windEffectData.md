@@ -6,7 +6,7 @@
 | Message Name | Wind Effect Data |
 | Transport | WebSocket (`/ws/dtam`) |
 | Encoding | JSON only |
-| Direction | `operator -> server -> vehicle/visual/psu` |
+| Direction | `operator -> server -> all modules (vehicle/visual/psu/mission/monitoring/situation_awareness)` |
 | Rate | Event-based |
 | DB Folder | `WindEffectData` |
 
@@ -66,7 +66,7 @@ VehicleModule uses 5004 for dynamics wind correction (WindModel preset/localZone
 ## Processing
 
 - OperationModule (operator console) publishes MSG 5004 using a stored demo wind profile when the "Demo Weather" button is triggered.
-- IntegrationHub records 5004 and forwards it to Vehicle, Visual, and PSU according to the SDK forwarding policy (FORWARD_RULES).
+- IntegrationHub records 5004 and forwards it to all modules (Vehicle, Visual, PSU, Mission, Monitoring, SituationAwareness) according to the SDK forwarding policy (FORWARD_RULES). Any module needing wind data can simply override `on_wind_effect_data`.
 - VehicleModule uses 5004 for dynamics wind correction — `windPreset` maps to a WindModel preset and `localZone` maps to `WindModel.add_local_zone`.
 - Visual uses 5004 to visualize per-vehicle wind effects.
 - PSU uses 5004 to correct trajectory prediction (`crossTrackDriftM`, `alongTrackDeltaMps`, etc.).
