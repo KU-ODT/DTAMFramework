@@ -51,21 +51,20 @@ T+00:15  User       → SERVER     [1003]  ScenarioSetup
                                           note: 두 대(UAM0001, UAM0002)와 회랑 라우트 네트워크 로드 → SIM_STATE, VISUAL 수신
 
 # Phase 2: Flight Plan Request + Scheduled Flight (T+00:20 ~ T+00:25)
-T+00:20  User       → SERVER     [2001]  FlightPlanRequest (UAM0001 초기, 기본형)
+T+00:20  User       → SERVER     [2001]  FlightPlanRequest (기본형, 1회)
                                           payload preview: { scenarioFileName: "S2_psu_replan.json", flightPlanNumber: null, reasonCode: null, triggeringEventId: null, arrivalVertiportHint: null }
-                                          note: S1과 동일한 base form. MISSION이 신규 계획 생성
-
-T+00:20  User       → SERVER     [2001]  FlightPlanRequest (UAM0002 초기, 기본형)
-                                          payload preview: { scenarioFileName: "S2_psu_replan.json" }
-                                          note: 두 번째 비행체용 base form 2001
+                                          note: ★ 2001 은 한 번만 발행 — MISSION 이 scenarioFileName 으로 데모 플랜 팩
+                                                (data/demo_plans/S2_psu_replan/) 을 감지하여 두 기체 plan 을 일괄 발행.
+                                                (2001 을 두 번 보내면 데모 분기가 두 번 발동해 3001 이 중복 발행되므로 금지)
 
 T+00:23  MISSION    → SERVER     [3001]  ScheduledFlight v1 (UAM0001)
                                           payload preview: { flightPlanNumber: 1201, planVersion: 1, planStatus: "active", aircraftId: "UAM0001" }
-                                          note: enRoute가 회랑 C-NORTH 통과하도록 설정 → VEHICLE, VISUAL 수신
+                                          note: 데모 플랜 팩 로드 (계산 파이프라인 우회) — enRoute 가 회랑 C-NORTH 통과 → VEHICLE, VISUAL 수신
 
 T+00:23  MISSION    → SERVER     [3001]  ScheduledFlight v1 (UAM0002)
                                           payload preview: { flightPlanNumber: 1202, planVersion: 1, planStatus: "active", aircraftId: "UAM0002" }
-                                          note: 동일 회랑 C-NORTH를 ~90초 차이로 통과 — 정상 시 분리 충분
+                                          note: 동일 회랑 C-NORTH 진입 시간차 ~16초 (약 880 m, std 2분차 + 상승률 차이) — 정상 시 분리 충분,
+                                                바람 외란(5004) 누적 시에만 위험으로 발전하는 기하
 
 # Phase 3: 실행 시작 (T+00:25 ~ T+00:30)
 T+00:25  User       → SERVER     [1002]  SimulationSetup (play)

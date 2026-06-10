@@ -26,21 +26,22 @@ T+00:00  User       → SERVER     [1003]  ScenarioSetup
                                                              vertiports: [VP_YEOUIDO, VP_JAMSIL, VP_KU(alt)] }
                                           note: SIM_STATE/VISUAL이 vertiport 3개 + 항로망 로드.
 
-T+00:01  User       → SERVER     [1002]  SimulationSetup (play)
-                                          payload preview: { playState: "play", playbackSpeed: 1, simSecondsOfDay: 32400.0 }
-                                          note: 09:00 시작, 실시간 1배속.
-
-T+00:02  User       → SERVER     [2001]  FlightPlanRequest (base)
+T+00:01  User       → SERVER     [2001]  FlightPlanRequest (base, 1회)
                                           payload preview: { scenarioFileName: "S3_...", flightPlanNumber: null, reasonCode: null }
-                                          note: 최초 요청 — UAM0001 정상 운항 계획.
+                                          note: 최초 요청 — MISSION 이 scenarioFileName 으로 데모 플랜 팩
+                                                (data/demo_plans/S3_uao_battery_alt_vertiport/) 감지 → 사전 작성 plan 발행.
 
-T+00:03  MISSION    → SERVER     [3001]  ScheduledFlight v1
+T+00:02  MISSION    → SERVER     [3001]  ScheduledFlight v1
                                           payload preview: { flightPlanNumber: 1201, planVersion: 1, planStatus: "active",
                                                              aircraftId: "UAM0001",
                                                              departure.vertiport: "VP_YEOUIDO",
                                                              arrival.vertiport: "VP_JAMSIL",
                                                              enRoute: [seq 1..N] }
-                                          note: VEHICLE/VISUAL이 정상 비행 plan 수신.
+                                          note: 데모 플랜 팩 로드 (계산 파이프라인 우회) — VEHICLE/VISUAL 수신.
+
+T+00:04  User       → SERVER     [1002]  SimulationSetup (play)
+                                          payload preview: { playState: "play", playbackSpeed: 1, simSecondsOfDay: 32400.0 }
+                                          note: 09:00 시작, 실시간 1배속. (S1/S2 와 동일하게 plan 수신 후 play — 순서 통일)
 
 T+00:05  User       → SERVER     [2002]  DtamExecute
                                           payload preview: { simModeFileName, simulationSetupFileName, scenarioFileName, flightPlanFolderName,
