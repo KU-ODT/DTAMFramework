@@ -3944,6 +3944,9 @@ class SimulationWorkspace {
 
   syncMissionPlanningUi() {
     const demoLocked = this.isDemoScenarioLocked();
+    this.container.querySelectorAll("[data-demo-scenario]").forEach((button) => {
+      button.classList.toggle("is-active", (this.state.demoScenarioId || "") === (button.dataset.demoScenario || ""));
+    });
     const missionAddButton = this.container.querySelector("[data-mission-action='add']");
     if (missionAddButton) {
       missionAddButton.disabled = demoLocked;
