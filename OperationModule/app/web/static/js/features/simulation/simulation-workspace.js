@@ -7334,6 +7334,14 @@ class SimulationWorkspace {
   }
 
   validateDtamExecutionInputs() {
+    if (this.isDemoScenarioLocked()) {
+      // 데모 시나리오 모드 — 임무계획은 Mission 의 데모 플랜 팩이 발행하므로
+      // 수동 임무 entries (출발/도착/경로) 검증을 건너뛴다. 제어방식만 확인.
+      if (!CONTROLLER_MODES.includes(this.state.mainVehicleController)) {
+        return { ok: false, message: this.t("missionIncomplete") };
+      }
+      return { ok: true, message: "" };
+    }
     if (this.state.operationMode !== "single") {
       return { ok: false, message: this.t("missionIncomplete") };
     }
@@ -7896,6 +7904,7 @@ class SimulationWorkspace {
         ? this.state.mainVehicleController
         : "",
       activeMissionId: this.state.activeMissionId || "",
+      demoScenarioId: this.state.demoScenarioId || "",
       missions: missionEntries,
     });
   }
