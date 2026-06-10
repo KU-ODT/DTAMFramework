@@ -7414,7 +7414,10 @@ class SimulationWorkspace {
     if (options.skipUnrealLaunch) {
       payload.skipUnrealLaunch = true;
     }
-    const result = await postJSON(DTAM_PREPARE_URL, { payload });
+    const result = await postJSON(DTAM_PREPARE_URL, {
+      payload,
+      ...(this.state.demoScenarioId ? { demoScenarioId: this.state.demoScenarioId } : {}),
+    });
     if (result?.ok === false) {
       throw new Error(result.message || "DTAM preparation failed");
     }
@@ -7528,7 +7531,10 @@ class SimulationWorkspace {
       }
       return skipped;
     }
-    const result = await postJSON(DTAM_VFDS_ENSURE_URL, { payload: this.buildModePayload() });
+    const result = await postJSON(DTAM_VFDS_ENSURE_URL, {
+      payload: this.buildModePayload(),
+      ...(this.state.demoScenarioId ? { demoScenarioId: this.state.demoScenarioId } : {}),
+    });
     if (result?.ok === false) {
       throw new Error(result?.runtime?.error || "VFDS/KP2A server is not ready");
     }
@@ -7966,7 +7972,10 @@ class SimulationWorkspace {
       }
       let controlResult = null;
       if (options.applyControl !== false) {
-        controlResult = await postJSON(DTAM_APPLY_CONTROL_URL, { payload: this.buildModePayload() });
+        controlResult = await postJSON(DTAM_APPLY_CONTROL_URL, {
+          payload: this.buildModePayload(),
+          ...(this.state.demoScenarioId ? { demoScenarioId: this.state.demoScenarioId } : {}),
+        });
         if (controlResult?.ok === false) {
           throw new Error(controlResult.message || "controller apply failed");
         }

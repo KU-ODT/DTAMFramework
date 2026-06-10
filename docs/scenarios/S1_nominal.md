@@ -374,7 +374,7 @@ T+45:45  user(OpsConsole) → SERVER  [1002]  Simulation Setup (reset)
 | 4 | 비행 중 (대기) | 재계획 요청 수신 대기 상태 유지 | (없음 — S1 에서 3002/3003 발행 0건) |
 
 > S1 에서는 `3002` 재계획 / `3003` 전술적 분리를 발행하지 않는다. `2001` 1회 → `3001` 1회가 전부.
-> S1 은 데모 팩 없음 — 기존 계산 파이프라인 사용 (데모 팩 규칙은 `MissionModule/data/demo_plans/README.md` 참조).
+> S1 도 데모 팩 (`data/demo_plans/S1_nominal/`) 보유 — 콘솔에서 데모 시나리오 S1 선택 시 사용. [없음] 선택 시 기존 계산 파이프라인 (데모 팩 규칙은 `MissionModule/data/demo_plans/README.md` 참조).
 
 ### 4.4 VehicleModule (Air Mobility UAM0001, UAO 겸업)
 

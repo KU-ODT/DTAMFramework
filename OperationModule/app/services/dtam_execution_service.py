@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import csv
 import json
+import logging
 import math
 import re
 import socket
@@ -17,6 +18,8 @@ from urllib import error as urllib_error
 from urllib import request as urllib_request
 
 from fastapi import HTTPException
+
+logger = logging.getLogger(__name__)
 
 from app.services.module_process_service import (
     cleanup_stale_visualization_processes,
@@ -68,6 +71,15 @@ AIRSIM_RPC_PORT = 41451
 VISUALIZATION_BACKEND_URL = "http://127.0.0.1:8097"
 AIRMOBILITY_BACKEND_URL = "http://127.0.0.1:8100"
 MISSION_INCOMPLETE_MESSAGE = "Complete mission planning first."
+# Demo scenarios lock the console mission editor, so the 1001 payload carries no
+# usable missionPlanning.missions[].  Bridge the gap from the pre-authored demo
+# plan packs (Msg3001 wire dicts) instead.
+DEMO_PLAN_PACKS = {
+    "S1": "S1_nominal",
+    "S2": "S2_psu_replan",
+    "S3": "S3_uao_battery_alt_vertiport",
+}
+DEMO_PLANS_DIR = FRAMEWORK_ROOT / "MissionModule" / "data" / "demo_plans"
 VALID_CONTROLLERS = {"Joystick", "Keyboard", "Autopilot"}
 VALID_DYNAMICS_MODELS = {"simple", "highFidelity"}
 DEFAULT_DYNAMICS_MODEL = "simple"
@@ -231,7 +243,9 @@ def apply_dtam_control_modes(request_payload: dict[str, Any]) -> dict[str, Any]:
     """Apply OperationModule mission controller selections to VehicleModule."""
 
     mode_payload = _mode_payload_from_request(request_payload)
-    missions, controller = _validate_mode_payload(mode_payload)
+    missions, controller = _validate_mode_payload(
+        mode_payload, demo_scenario_id=_demo_scenario_from_request(request_payload)
+    )
     settings_result = _write_unreal_vehicle_settings(missions)
     airmobility_url = ensure_module_backend("airmobility", timeout_s=30.0)
 
@@ -300,7 +314,9 @@ def apply_dtam_control_modes(request_payload: dict[str, Any]) -> dict[str, Any]:
 def ensure_vfds_runtime(request_payload: dict[str, Any]) -> dict[str, Any]:
     """Ensure VehicleModule's embedded VFDS server is ready for high-fidelity missions."""
     mode_payload = _mode_payload_from_request(request_payload)
-    missions, _controller = _validate_mode_payload(mode_payload)
+    missions, _controller = _validate_mode_payload(
+        mode_payload, demo_scenario_id=_demo_scenario_from_request(request_payload)
+    )
     fallback_dynamics = str(
         ((mode_payload.get("singleFlight") or {}).get("vehicleSimType") or {}).get("dynamics")
         or DEFAULT_DYNAMICS_MODEL
@@ -318,7 +334,9 @@ def prepare_dtam_execution(request_payload: dict[str, Any]) -> dict[str, Any]:
         mode_payload.get("_skip_unreal_launch"),
         request_payload.get("skipUnrealLaunch") if isinstance(request_payload, dict) else None,
     )
-    missions, controller = _validate_mode_payload(mode_payload)
+    missions, controller = _validate_mode_payload(
+        mode_payload, demo_scenario_id=_demo_scenario_from_request(request_payload)
+    )
     editor_processes = _find_dtam_unreal_editor_processes()
     # If DT World was already launched through the Visualization-equivalent path,
     # attach to it instead of rebuilding the Unreal/AirSim process from
@@ -490,13 +508,83 @@ def _mode_payload_from_request(request_payload: dict[str, Any]) -> dict[str, Any
     raise HTTPException(status_code=400, detail=MISSION_INCOMPLETE_MESSAGE)
 
 
-def _validate_mode_payload(mode_payload: dict[str, Any]) -> tuple[list[dict[str, Any]], str]:
+def _demo_scenario_from_request(request_payload: dict[str, Any]) -> str:
+    """Read the request-level demoScenarioId (sibling of the ICD payload, not inside it)."""
+    if isinstance(request_payload, dict):
+        return str(request_payload.get("demoScenarioId") or "").strip()
+    return ""
+
+
+def _demo_missions_from_pack(scenario_id: str) -> list[dict[str, Any]] | None:
+    """Synthesize console-shaped mission entries from a demo plan pack of Msg3001 files."""
+    pack = DEMO_PLAN_PACKS.get(str(scenario_id or "").strip())
+    if not pack:
+        return None
+    pack_dir = DEMO_PLANS_DIR / pack
+    if not pack_dir.is_dir():
+        return None
+    entries: list[dict[str, Any]] = []
+    for plan_path in sorted(pack_dir.glob("3001_*.json")):
+        try:
+            rec = json.loads(plan_path.read_text(encoding="utf-8"))
+            departure = rec.get("departure") or {}
+            arrival = rec.get("arrival") or {}
+            std = str(departure.get("std") or "")
+            entries.append(
+                {
+                    "aircraftName": str(rec.get("aircraftId") or ""),
+                    "departureName": str(departure.get("vertiport") or ""),
+                    "arrivalName": str(arrival.get("vertiport") or ""),
+                    "departureTime": std,
+                    "std": std,
+                    "routeData": {"enRoute": rec.get("enRoute") or []},
+                }
+            )
+        except (OSError, ValueError, AttributeError) as exc:
+            logger.warning("Skipping unreadable demo plan %s: %s", plan_path, exc)
+    return entries or None
+
+
+def _validate_mode_payload(
+    mode_payload: dict[str, Any],
+    demo_scenario_id: str = "",
+) -> tuple[list[dict[str, Any]], str]:
+    single_flight = mode_payload.get("singleFlight") or {}
+    vehicle_sim_type = single_flight.get("vehicleSimType") or {}
+
+    if demo_scenario_id:
+        demo_missions = _demo_missions_from_pack(demo_scenario_id)
+        if demo_missions:
+            # Demo mode: the console editor is locked, so skip the
+            # operationMode/missions payload checks and validate the
+            # synthesized plan-pack entries through the same pipeline.
+            controller = str(vehicle_sim_type.get("mainVehicleController") or "").strip()
+            if controller not in VALID_CONTROLLERS:
+                raise HTTPException(status_code=400, detail=MISSION_INCOMPLETE_MESSAGE)
+            dynamics = str(vehicle_sim_type.get("dynamics") or DEFAULT_DYNAMICS_MODEL).strip()
+            if dynamics not in VALID_DYNAMICS_MODELS:
+                raise HTTPException(status_code=400, detail=MISSION_INCOMPLETE_MESSAGE)
+            missions: list[dict[str, Any]] = []
+            for entry in demo_missions:
+                entry_controller = _mission_controller(entry, controller)
+                if entry_controller not in VALID_CONTROLLERS:
+                    raise HTTPException(status_code=400, detail=MISSION_INCOMPLETE_MESSAGE)
+                entry_dynamics = _mission_dynamics(entry, dynamics)
+                if entry_dynamics not in VALID_DYNAMICS_MODELS:
+                    raise HTTPException(status_code=400, detail=MISSION_INCOMPLETE_MESSAGE)
+                prepared_entry = dict(entry)
+                prepared_entry["_dtam_controller"] = entry_controller
+                prepared_entry["_dtam_dynamics"] = entry_dynamics
+                _resolve_settings_start_point(prepared_entry)
+                missions.append(prepared_entry)
+            return missions, controller
+        # Pack missing/misconfigured: fall through to normal validation so the
+        # standard incomplete-mission error still surfaces.
+
     operation_mode = str(mode_payload.get("operationMode") or "").strip()
     if operation_mode != "single":
         raise HTTPException(status_code=400, detail=MISSION_INCOMPLETE_MESSAGE)
 
-    single_flight = mode_payload.get("singleFlight") or {}
-    vehicle_sim_type = single_flight.get("vehicleSimType") or {}
     controller = str(vehicle_sim_type.get("mainVehicleController") or "").strip()
     if controller not in VALID_CONTROLLERS:
         raise HTTPException(status_code=400, detail=MISSION_INCOMPLETE_MESSAGE)

@@ -21,8 +21,9 @@ Mission 이 **사전 작성된 3001 ScheduledFlight** 를 보유하다가 2001 F
 
 | scenario_key | 파일 | fpn | 비고 |
 |---|---|---|---|
+| `S1_nominal` | `3001_UAM0001.json` | 1001 | Yeouido→Jamsil 정상 plan, enRoute seq 1..4 (E/F/F/G) |
 | `S2_psu_replan` | `3001_UAM0001.json` | 1201 | JAMSIL_VP→GIMPO_VP, 회랑 C-NORTH (seq 4) |
 | `S2_psu_replan` | `3001_UAM0002.json` | 1202 | 동일 회랑 구간, std +2분 — T+25 부근 동시 진입 기하 |
 | `S3_uao_battery_alt_vertiport` | `3001_UAM0001.json` | 1201 | VP_YEOUIDO→VP_JAMSIL 정상 plan (VP_KU divert 는 런타임 PSU 3003) |
 
-**S1 은 데모 팩 없음** — `S1_nominal` 은 기존 계산 경로로 3001 을 생성한다 (사용자 결정).
+**S1 도 데모 팩 사용 가능** — 콘솔에서 데모 시나리오 S1 선택 시 사용. [없음] 선택 시 기존 계산 파이프라인으로 3001 을 생성한다.
