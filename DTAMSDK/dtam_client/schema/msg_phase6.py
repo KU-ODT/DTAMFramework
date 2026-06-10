@@ -64,9 +64,22 @@ class TacticalAction:
 
 @dataclass
 class Msg3003_TacticalSeparation:
-    """MSG 3003: 전술적 분리 — 실시간 분리 명령."""
+    """MSG 3003: 전술적 분리 — 실시간 분리 명령.
+
+    ``scenarioId`` (optional): 데모 시나리오 컨텍스트 ("S1"|"S2"|"S3").
+    PSU 가 데모 개입 시 동봉 — Vehicle 이 액션 수행 시 시나리오별
+    세부 세팅(파라미터 분기 등)을 할 수 있게 한다. 생략 시 일반 명령.
+    """
     timestamp: str = ""
     commandId: str = ""
     aircraftId: str = ""
     reasonCode: str = ""               # LOSS_OF_SEPARATION_RISK|LOCAL_CORRIDOR_BLOCKED|LOW_BATTERY|WEATHER_AVOIDANCE|OPERATOR_OVERRIDE|EMERGENCY_LANDING
     actions: List[TacticalAction] = field(default_factory=list)
+    scenarioId: Optional[str] = None   # "S1" | "S2" | "S3" — 데모 컨텍스트 (optional)
+
+    def to_wire(self) -> dict:
+        from dataclasses import asdict
+        payload = asdict(self)
+        if payload.get("scenarioId") is None:
+            payload.pop("scenarioId", None)
+        return payload

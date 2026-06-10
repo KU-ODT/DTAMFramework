@@ -6,7 +6,7 @@
 - **주요 참여 모듈 (역할)**
   - **IntegrationHub (SERVER)**: 메시지 포워딩 (FORWARD_RULES 기반) — 5004 → 전 모듈 (활용은 VEHICLE/VISUAL/PSU, 나머지는 수신만), 3003 → VEHICLE/MISSION
   - **SimulationStateModule (SIM_STATE)**: CommonTime(0003) 발생, 1001/1002/1003 소비, playState 제어
-  - **VehicleModule (VEHICLE)** × 2: UAM0001, UAM0002 비행 상태 머신, 4001 송출 (10 Hz), 5004 바람 보정(WindModel) 표준 적용, 3003 setSpeed 즉시 수행
+  - **VehicleModule (VEHICLE)** × 2: UAM0001, UAM0002 비행 상태 머신, 4001 송출 (10 Hz), 바람은 자체 생성·적용 (5004 는 수신만 — 처리 불필요), 3003 setSpeed 즉시 수행
   - **MissionModule (MISSION)**: 초기 2001(기본) 소비, 3001 v1 발행. 이후 3003 **수신 전용** (plan 정합성 추적) — S2 트리거 구간에서 발행 없음
   - **PSU (Provider of Services for UAM)**: 4001/5004 기반 궤적 예측, 충돌 예상 기체 쌍 식별, **3003(setSpeed) 발행 주체 — 속도 조정 재계획 주체**
   - **OperationModule / OpsConsole (MONITORING)**: 0001/0002/4001/4101 시각화, **"데모 날씨" 버튼으로 5004 발행 주체**
@@ -257,6 +257,7 @@ T+50:00  VEHICLE    → SERVER     [4001]  (UAM0002 착륙 완료)
   "commandId": "TMP-PSU-UAM0002-20260610-0001",
   "aircraftId": "UAM0002",
   "reasonCode": "LOSS_OF_SEPARATION_RISK",
+  "scenarioId": "S2",
   "actions": [
     {
       "type": "setSpeed",
@@ -276,6 +277,7 @@ T+50:00  VEHICLE    → SERVER     [4001]  (UAM0002 착륙 완료)
   "commandId": "TMP-PSU-UAM0002-20260610-0002",
   "aircraftId": "UAM0002",
   "reasonCode": "LOSS_OF_SEPARATION_RISK",
+  "scenarioId": "S2",
   "actions": [ { "type": "setSpeed", "targetSpeed": 55.0 } ]
 }
 ```

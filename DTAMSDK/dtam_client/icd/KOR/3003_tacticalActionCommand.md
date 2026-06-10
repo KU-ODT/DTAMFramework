@@ -39,6 +39,7 @@
 | `aircraftId` | str | `^[A-Z]{2,8}\d{4}$` | 명령 대상 비행체 ID |
 | `reasonCode` | str | 아래 열거형 참조 | 명령 발생 사유 코드 |
 | `actions` | array | 1개 이상 | 수행할 행동 목록 (배열 순서 = 실행 순서) |
+| `scenarioId` | str | optional, `S1`\|`S2`\|`S3` | 데모 시나리오 컨텍스트 — PSU 데모 개입 시 동봉, Vehicle 이 시나리오별 세부 세팅 분기에 사용. 생략 시 일반 명령 |
 
 ### 3.1 reasonCode 열거형
 

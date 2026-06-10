@@ -181,6 +181,7 @@ T+32:00  User       → SERVER     [1002]  SimulationSetup (pause)
   "commandId": "TMP-PSU-1201-LAND-001",
   "aircraftId": "UAM0001",
   "reasonCode": "LOW_BATTERY",
+  "scenarioId": "S3",
   "actions": [
     {
       "type": "land",
