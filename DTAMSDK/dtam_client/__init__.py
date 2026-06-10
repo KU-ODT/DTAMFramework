@@ -36,6 +36,7 @@ from .role_modules import (
     MonitoringModule,
     VisualModule,
     SituationAwarenessModule,
+    PSUModule,
 )
 from .rest import DtamRest, DtamRestError
 from ._ws_client import DtamWsClient
@@ -61,6 +62,7 @@ from .samples import (
     sample_strategic_separation,
     sample_tactical_separation,
     sample_vehicle_status,
+    sample_vehicle_warning_event,
 )
 
 __all__ = [
@@ -91,6 +93,7 @@ __all__ = [
     "MonitoringModule",
     "VisualModule",
     "SituationAwarenessModule",
+    "PSUModule",
     "DtamRest",
     "DtamRestError",
     "DtamWsClient",
@@ -108,6 +111,7 @@ __all__ = [
     "sample_strategic_separation",
     "sample_tactical_separation",
     "sample_vehicle_status",
+    "sample_vehicle_warning_event",
     "sample_camera_image_header",
     "sample_camera_image_bytes",
     "sample_camera_stream_descriptor",

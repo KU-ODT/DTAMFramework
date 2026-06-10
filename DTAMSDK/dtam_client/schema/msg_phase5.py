@@ -154,6 +154,69 @@ class Msg4001_VehicleStatus:
         return cls(timestamp=ts, vehicles=vehicles)
 
 
+# ── MSG 4002 ─────────────────────────────────────────────
+
+@dataclass
+class WarningDetectedValue:
+    """4002 detectedValue — 이상 판단에 사용된 실제 측정값.
+
+    필드는 카테고리에 따라 가변 — 사용 안 하는 항목은 ``None`` (wire 에서 제외).
+    """
+    battery_pct: Optional[float] = None             # %, 0.0..100.0
+    state_of_charge_pct: Optional[float] = None     # %, 0.0..100.0
+
+
+@dataclass
+class WarningThreshold:
+    """4002 threshold — 이상 판단 기준값."""
+    warning_pct: Optional[float] = None             # %, 0.0..100.0
+    critical_pct: Optional[float] = None            # %, 0.0..100.0
+
+
+@dataclass
+class Msg4002_VehicleWarningEvent:
+    """MSG 4002: 비행체 경고 이벤트 — 이벤트 송신 (비주기).
+
+    Vehicle 이 자체 진단으로 이상 감지 시 송신.
+    Forward: monitoring, situation_awareness.
+
+    Wire format (필드 순서는 ICD 명세와 일치)::
+
+        {
+          "messageId": 4002,
+          "messageName": "Vehicle Warning Event",
+          "timestamp": "<ISO-8601 UTC>",
+          "eventId": "WARN-UAM0001-20260609-0001",
+          "vehicleId": "UAM0001",
+          "category": "energy",
+          "subsystem": "battery",
+          "eventType": "LOW_BATTERY",
+          "severity": "warning",
+          "status": "active",
+          "detectedValue": {...},
+          "threshold": {...},
+          "recommendedAction": "return_to_base",
+          "availableDistance": 12500.0,
+          "description": "Battery below 20%"
+        }
+    """
+    messageId: int = 4002
+    messageName: str = "Vehicle Warning Event"
+    timestamp: str = ""
+    eventId: str = ""                                   # WARN-{vehicleId}-{YYYYMMDD}-{SEQ}
+    vehicleId: str = "UAM0001"                          # ^[A-Z]{2,8}\d{4}$
+    category: str = ""                                  # energy|flight|navigation|sensor|collision
+    subsystem: str = ""                                 # battery|motor|gps|imu|barometer|...
+    eventType: str = ""                                 # LOW_BATTERY|BATTERY_OVERHEAT|...
+    severity: str = "warning"                           # info|warning|critical|fatal
+    status: str = "active"                              # active|cleared|updated
+    detectedValue: WarningDetectedValue = field(default_factory=WarningDetectedValue)
+    threshold: WarningThreshold = field(default_factory=WarningThreshold)
+    recommendedAction: str = "continue"                 # continue|return_to_base|emergency_landing|land_immediately
+    availableDistance: float = 0.0                      # m, ≥ 0.0
+    description: str = ""
+
+
 # ── MSG 4101 ─────────────────────────────────────────────
 
 @dataclass

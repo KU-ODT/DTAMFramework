@@ -211,13 +211,52 @@ flowchart TB
 | 2 | `2001`, `3001` | 비행계획 요청/계획 비행 | Operation → Mission → Vehicle/Visualization |
 | 3 | `2002` | DTAM 실행 | Operation → Mission/Vehicle/Visualization/SA |
 | 4 | `1002` | 시뮬레이션 제어 | Play/Pause/Reset/Speed/Weather |
-| 5 | `0003`, `4001`, `4101`, `4102`, `4103` | 시간·상태·영상·충돌 | State/Vehicle/Visualization → UI/AI/DB |
+| 5 | `0003`, `4001`, `4002`, `4101`, `4102`, `4103` | 시간·상태·경고·영상·충돌 | State/Vehicle/Visualization → UI/AI/DB/PSU |
 | 6 | `3002`, `3003` | 전략/전술 분리 | Mission/운영 판단 → Vehicle |
 | 7 | `5001`, `5002`, `5003` | 운영자 제어 | 수동 조종, 카메라 제어, 이상상황 |
 
 ---
 
+## ICD Phase 5 — Status Update + Warning
+
+Phase 5는 비행체 실시간 상태(`4001`)와 비행체 경고 이벤트(`4002`)를 함께 다룬다. 4002는 이번 SDK 확장에서 신규 추가되었으며, PSU 도 정식 수신자로 포함된다.
+
+| 메시지 | 발행 주체 | 주요 수신 주체 | 발행 주기 | 의미 |
+|---|---|---|---|---|
+| `4001` VehicleStatus | Vehicle | Monitoring, Visualization, SituationAwareness, **PSU** | 고빈도 (10~50Hz) | 비행체 위치/자세/속도 등 실시간 상태 |
+| `4002` VehicleWarningEvent | Vehicle | Monitoring, SituationAwareness, **PSU** | event-based | 비행체 자체에서 발생한 경고/이상 이벤트 |
+| `4101` CameraImage | Visualization | Monitoring, SituationAwareness | snapshot | 카메라 snapshot |
+| `4102` CameraStreamDescriptor | Visualization | Monitoring, SituationAwareness | stream desc | 직접 media stream descriptor |
+| `4103` VehicleCollisionEvent | Visualization | Vehicle, Monitoring, SituationAwareness | event | 충돌 이벤트 |
+
+### 4002 VehicleWarningEvent — key fields
+
+- `vehicleId` — 경고 발생 비행체 식별자
+- `eventId` — 경고 이벤트 고유 ID (후속 `2001` 재계획 요청의 `triggeringEventId` 로 참조됨)
+- `category` — 경고 분류 (예: `SUBSYSTEM`, `ENVIRONMENT`, `OPERATIONAL`)
+- `subsystem` — 영향받는 서브시스템 (예: `BATTERY`, `MOTOR`, `NAV`)
+- `eventType` — 이벤트 종류 (예: `LOW_BATTERY`, `OVERHEAT`)
+- `severity` — 심각도 (예: `INFO`, `WARNING`, `CRITICAL`)
+- `recommendedAction` — 권고 조치 (예: `DIVERT`, `LAND_IMMEDIATELY`)
+- `detectedValue` / `threshold` — 측정값과 임계값
+
+---
+
+## Role: PSU (Provider of Services for UAM)
+
+PSU(Provider of Services for UAM)는 UAM 교통 흐름과 회랑(corridor) 운영을 관리하는 운영 서비스 사업자 역할이다. DTAM Framework에서는 `ExtenstionModule/PSUModule` 로 구현되며, conflict/capacity 분석, 회랑 폐쇄 의사결정, 재계획 트리거 등을 담당한다.
+
+- **PSUModule(DtamModule)** — DTAMSDK `DtamModule` 을 상속하는 PSU role 기본 클래스
+- role = `psu`, 수신 ICD: `4001 VehicleStatus`, `4002 VehicleWarningEvent`
+- 4001 로 비행체 실시간 상태를 받아 회랑/capacity 모니터링에 사용
+- 4002 로 비행체 측 이상 이벤트를 직접 수신하여 재계획 의사결정에 활용
+- 재계획이 필요할 경우 `2001 FlightPlanRequest` 를 `triggeringEventId` 와 함께 발행
+
+---
+
 ## 8. 실제 Forwarding 정책 요약
+
+★ 이번 SDK 확장으로 `4001` 의 수신자에 **psu** 가 추가되었고, 신규 메시지 `4002` 의 forwarding 이 정의되었다.
 
 | 메시지 | 발행 주체 | 주요 수신 주체 | 의미 |
 |---|---|---|---|
@@ -226,17 +265,52 @@ flowchart TB
 | `1001` | Operation | StateServer | 모드 설정 |
 | `1002` | Operation | Vehicle, Visualization, StateServer | 재생/정지/속도/날씨 제어 |
 | `1003` | Operation | StateServer, Visualization | 시나리오 설정 |
-| `2001` | Operation | Mission | 비행계획 요청 |
+| `2001` | Operation / **PSU / UAO** | Mission | 비행계획 요청 (재계획 트리거 포함) |
 | `2002` | Operation | Mission, Monitoring, Vehicle, Visualization, SituationAwareness | 실행 명령 |
 | `3001` | Mission | Vehicle, Visualization | 계획 비행 등록 |
 | `3002`, `3003` | Mission/운영 판단 | Vehicle | 분리/회피 명령 |
-| `4001` | Vehicle | Monitoring, Visualization, SituationAwareness | 비행체 상태 |
+| **`4001`** | **Vehicle** | **Monitoring, Visualization, SituationAwareness, PSU** ★ | **비행체 상태 (PSU 신규 수신)** |
+| **`4002`** | **Vehicle** | **Monitoring, SituationAwareness, PSU** ★신규 | **비행체 경고 이벤트** |
 | `4101` | Visualization | Monitoring, SituationAwareness | 카메라 snapshot |
-| `4102` | Visualization | Monitoring, SituationAwareness | 직접 media stream descriptor |
 | `4103` | Visualization | Vehicle, Monitoring, SituationAwareness | 충돌 이벤트 |
 | `5001` | Operation | Vehicle | 수동 조종 입력 |
 | `5002` | Operation | Visualization | 카메라 제어 |
 | `5003` | Operation | Visualization | 이상상황/장애물 주입 |
+
+### SDK FORWARD_RULES (정식 정의 — `DTAMSDK/dtam_client/policy.py`)
+
+```
+4001 → [monitoring, visual, situation_awareness, psu]    # psu 신규
+4002 → [monitoring, situation_awareness, psu]            # 신규 메시지
+3001 → [vehicle, visual]
+3002 → [vehicle]
+3003 → [vehicle]
+2001 → [mission]
+2002 → [mission, monitoring, vehicle, visual, situation_awareness]
+1001 → [sim_state]
+1002 → [vehicle, visual, sim_state]
+1003 → [sim_state, visual]
+0003 → [vehicle, visual]
+4101 → [monitoring, situation_awareness]
+4103 → [vehicle, monitoring, situation_awareness]
+```
+
+---
+
+## 2001 FlightPlanRequest — re-plan trigger extension
+
+`2001 FlightPlanRequest` 는 기존 Operation(user) 발행에 더해, **PSU(회랑 충돌 회피)** 와 **UAO(배터리/이상 → 대체 vertiport)** 가 재계획 트리거로 발행할 수 있도록 확장되었다.
+
+- **Senders extended**: `user | psu | uao`
+
+신규 optional 필드 (재계획 컨텍스트 전달용):
+
+| 필드 | 타입 | 의미 |
+|---|---|---|
+| `flightPlanNumber` | string (optional) | 재계획 대상 기존 비행계획 번호 |
+| `reasonCode` | string (optional) | 재계획 사유 코드 (예: `CORRIDOR_CONFLICT`, `LOW_BATTERY`, `WX_DIVERT`) |
+| `triggeringEventId` | string (optional) | 재계획을 유발한 이벤트 ID (`4002.eventId` 등과 연계) |
+| `arrivalVertiportHint` | string (optional) | 권고/대체 도착 vertiport ID |
 
 ---
 
@@ -523,3 +597,11 @@ sequenceDiagram
 - `D:\DTAMFramework\PlugIn\TrafficSim\app\sim_core.py`
 - `D:\DTAMFramework\ExtenstionModule\PSUModule\README.md`
 - `D:\DTAMFramework\ExtenstionModule\VPOModule\README.md`
+
+---
+
+## Scenarios — see docs/scenarios/
+
+S1 정상 / S2 PSU 회랑 충돌 회피 / S3 UAO 배터리 → 대체 vertiport 3개 시나리오의 상세 시퀀스는 `docs/scenarios/{README,S1_nominal,S2_psu_replan,S3_uao_battery_alt_vertiport}.md` 단일 source 에서 관리. 본 기술 아키텍처 문서는 시나리오 흐름을 중복 기술하지 않음.
+
+→ [docs/scenarios/README.md](../scenarios/README.md)

@@ -44,6 +44,11 @@
       "id": "situation_awareness",
       "name": "Situation\nAwareness",
       "color": "visual"
+    },
+    {
+      "id": "psu",
+      "name": "PSU",
+      "color": "monitoring"
     }
   ],
   "messages": [
@@ -575,6 +580,46 @@
       "note": "stream discovery"
     },
     {
+      "from": "vehicle",
+      "to": "sim_state",
+      "id": "4002",
+      "name": "Vehicle Warning Event",
+      "proto": "ws",
+      "note": "event"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "4002",
+      "name": "Vehicle Warning Event",
+      "proto": "file",
+      "note": "event log"
+    },
+    {
+      "from": "sim_state",
+      "to": "monitoring",
+      "id": "4002",
+      "name": "Vehicle Warning Event",
+      "proto": "ws",
+      "note": "forward / alert"
+    },
+    {
+      "from": "sim_state",
+      "to": "situation_awareness",
+      "id": "4002",
+      "name": "Vehicle Warning Event",
+      "proto": "ws",
+      "note": "forward / AI context"
+    },
+    {
+      "from": "sim_state",
+      "to": "psu",
+      "id": "4002",
+      "name": "Vehicle Warning Event",
+      "proto": "ws",
+      "note": "forward / Priority Event List (optional)"
+    },
+    {
       "from": "visual",
       "to": "sim_state",
       "id": "4103",
@@ -753,6 +798,194 @@
       "name": "Abnormal Situation Command",
       "proto": "ws",
       "note": "forward"
+    },
+    {
+      "group": "8. Stakeholder Re-plan"
+    },
+    {
+      "from": "psu",
+      "to": "psu",
+      "name": "detect traffic conflict from 4001",
+      "proto": "internal",
+      "note": "S2: PSU analyzes periodic vehicle status"
+    },
+    {
+      "from": "psu",
+      "to": "sim_state",
+      "id": "2001",
+      "name": "Flight Plan Request",
+      "proto": "ws",
+      "note": "S2: flightPlanNumber, reasonCode=TRAFFIC_CONFLICT, triggeringEventId"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "2001",
+      "name": "Flight Plan Request",
+      "proto": "file",
+      "note": "S2: save re-plan request"
+    },
+    {
+      "from": "sim_state",
+      "to": "mission",
+      "id": "2001",
+      "name": "Flight Plan Request",
+      "proto": "ws",
+      "note": "S2: forward"
+    },
+    {
+      "from": "mission",
+      "to": "sim_state",
+      "id": "3001",
+      "name": "Scheduled Flight",
+      "proto": "ws",
+      "note": "S2: planVersion+1, planStatus=active for new / superseded for old"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "3001",
+      "name": "Scheduled Flight",
+      "proto": "ws",
+      "note": "S2: revised plan"
+    },
+    {
+      "from": "sim_state",
+      "to": "visual",
+      "id": "3001",
+      "name": "Scheduled Flight",
+      "proto": "ws",
+      "note": "S2: revised plan"
+    },
+    {
+      "from": "sim_state",
+      "to": "psu",
+      "id": "3001",
+      "name": "Scheduled Flight",
+      "proto": "ws",
+      "note": "S2: revised plan confirmation"
+    },
+    {
+      "from": "mission",
+      "to": "sim_state",
+      "id": "3002",
+      "name": "Strategic Separation",
+      "proto": "ws",
+      "note": "S2: modificationType=routeUpdate, reasonCode=CORRIDOR_BLOCKED, planVersion+1, modifyScope=enRouteOnly"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "3002",
+      "name": "Strategic Separation",
+      "proto": "ws",
+      "note": "S2: header announce"
+    },
+    {
+      "from": "mission",
+      "to": "sim_state",
+      "id": "3003",
+      "name": "Tactical Separation",
+      "proto": "ws",
+      "note": "S2: optional directTo for immediate avoidance"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "3003",
+      "name": "Tactical Separation",
+      "proto": "ws",
+      "note": "S2: forward"
+    },
+    {
+      "group": "8.1 S3 alternate vertiport for low battery"
+    },
+    {
+      "from": "vehicle",
+      "to": "sim_state",
+      "id": "4002",
+      "name": "Vehicle Warning Event",
+      "proto": "ws",
+      "note": "S3: LOW_BATTERY critical, recommendedAction=emergency_landing"
+    },
+    {
+      "from": "sim_state",
+      "to": "psu",
+      "id": "4002",
+      "name": "Vehicle Warning Event",
+      "proto": "ws",
+      "note": "S3: forward (see Phase 5 forward chain)"
+    },
+    {
+      "from": "psu",
+      "to": "psu",
+      "name": "select alternate vertiport VP_KU",
+      "proto": "internal",
+      "note": "S3: PSU selects alternate vertiport"
+    },
+    {
+      "from": "psu",
+      "to": "sim_state",
+      "id": "2001",
+      "name": "Flight Plan Request",
+      "proto": "ws",
+      "note": "S3: flightPlanNumber, reasonCode=LOW_BATTERY, triggeringEventId=4002.eventId, arrivalVertiportHint=VP_KU"
+    },
+    {
+      "from": "sim_state",
+      "to": "db",
+      "id": "2001",
+      "name": "Flight Plan Request",
+      "proto": "file",
+      "note": "S3: save"
+    },
+    {
+      "from": "sim_state",
+      "to": "mission",
+      "id": "2001",
+      "name": "Flight Plan Request",
+      "proto": "ws",
+      "note": "S3: forward"
+    },
+    {
+      "from": "mission",
+      "to": "sim_state",
+      "id": "3001",
+      "name": "Scheduled Flight",
+      "proto": "ws",
+      "note": "S3: planVersion+1, arrival.vertiport=VP_KU"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "3001",
+      "name": "Scheduled Flight",
+      "proto": "ws",
+      "note": "S3: revised plan"
+    },
+    {
+      "from": "sim_state",
+      "to": "psu",
+      "id": "3001",
+      "name": "Scheduled Flight",
+      "proto": "ws",
+      "note": "S3: revised plan confirmation"
+    },
+    {
+      "from": "mission",
+      "to": "sim_state",
+      "id": "3003",
+      "name": "Tactical Separation",
+      "proto": "ws",
+      "note": "S3: IMMEDIATE action=land, vertiport=VP_KU, reasonCode=LOW_BATTERY"
+    },
+    {
+      "from": "sim_state",
+      "to": "vehicle",
+      "id": "3003",
+      "name": "Tactical Separation",
+      "proto": "ws",
+      "note": "S3: forward"
     }
   ]
 }

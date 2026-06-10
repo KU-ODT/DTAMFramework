@@ -68,7 +68,7 @@ CATALOG: Dict[str, MessageSpec] = {
     "2001": MessageSpec(
         mid="2001", alias="flight_plan_request",
         name_en="Flight Plan Request", name_ko="???? ??",
-        direction="user->server", rate_hz=0.0, phase=2,
+        direction="user|psu|uao->server", rate_hz=0.0, phase=2,
         icd_proto="ws", db_folder="FlightPlanRequest",
     ),
     "2002": MessageSpec(
@@ -100,6 +100,12 @@ CATALOG: Dict[str, MessageSpec] = {
         name_en="Vehicle Status", name_ko="??? ??",
         direction="vehicle->server", rate_hz=10.0, phase=5,
         icd_proto="ws", db_folder="VehicleStatus",
+    ),
+    "4002": MessageSpec(
+        mid="4002", alias="vehicle_warning_event",
+        name_en="Vehicle Warning Event", name_ko="비행체 경고 이벤트",
+        direction="vehicle->server", rate_hz=0.0, phase=5,
+        icd_proto="ws", db_folder="VehicleWarningEvent",
     ),
     "4101": MessageSpec(
         mid="4101", alias="camera_image",

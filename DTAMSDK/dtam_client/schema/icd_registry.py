@@ -21,6 +21,7 @@ from .msg_phase2 import (
 )
 from .msg_phase5 import (
     Msg4001_VehicleStatus,
+    Msg4002_VehicleWarningEvent,
     Msg4101_CameraImageFrame,
     Msg4102_CameraStreamDescriptor,
     Msg4103_VehicleCollisionEvent,
@@ -49,6 +50,7 @@ ICD_REGISTRY: Dict[str, Type] = {
     "3002": Msg3002_StrategicSeparation,
     "3003": Msg3003_TacticalSeparation,
     "4001": Msg4001_VehicleStatus,
+    "4002": Msg4002_VehicleWarningEvent,
     "4101": Msg4101_CameraImageFrame,
     "4102": Msg4102_CameraStreamDescriptor,
     "4103": Msg4103_VehicleCollisionEvent,

@@ -1,7 +1,7 @@
 """Phase 2/3 메시지 — 2001, 2002, 3001."""
 from __future__ import annotations
-from dataclasses import asdict, dataclass, field
-from typing import List, Optional
+from dataclasses import asdict, dataclass, field, fields as _dc_fields
+from typing import Any, Dict, List, Optional
 
 from .icd_common import LLA
 
@@ -10,9 +10,70 @@ from .icd_common import LLA
 
 @dataclass
 class Msg2001_FlightPlanRequest:
-    """MSG 2001: 비행계획 요청."""
+    """MSG 2001: 비행계획 요청 (초기 + 재계획 트리거).
+
+    초기 계획 요청 (S1 정상): OperationModule 이 ``scenarioFileName`` 으로
+    Mission 에 plan 생성 요청.
+
+    재계획 트리거 (S2 PSU 회랑 충돌 회피 / S3 UAO 배터리 대체 vertiport):
+    PSU/UAO 가 4개 optional 필드로 어느 plan 을 왜 (어떤 4002 eventId)
+    어디로 (대체 vertiport hint) 재계획해야 하는지 Mission 에 전달.
+
+    Mission 은 이 트리거를 받아 본래 의도대로 3001 v2 (revised plan) +
+    3002 (modification header) + 필요 시 3003 (즉시 land action) 를 발행.
+
+    Wire format::
+
+        {
+          "timestamp": "<ISO-8601 UTC>",
+          "scenarioFileName": "<filename>",
+          // optional — 재계획 트리거인 경우
+          "flightPlanNumber": 1234,
+          "reasonCode": "LOW_BATTERY",
+          "triggeringEventId": "WARN-UAM0001-20260610-0001",
+          "arrivalVertiportHint": "VP_KU"
+        }
+    """
     timestamp: str = ""
     scenarioFileName: str = ""
+    # ─ Re-plan 트리거용 (모두 optional) ─────────────────────
+    flightPlanNumber: Optional[int] = None             # 개정 대상 3001 번호 (없으면 신규 plan)
+    reasonCode: Optional[str] = None                   # LOW_BATTERY | BATTERY_OVERHEAT | BATTERY_VOLTAGE_LOW |
+                                                       # TRAFFIC_CONFLICT | LOSS_OF_SEPARATION_RISK |
+                                                       # CORRIDOR_BLOCKED | WEATHER |
+                                                       # VERTIPORT_CAPACITY | VERTIPORT_UNAVAILABLE |
+                                                       # OPERATOR_REQUEST
+    triggeringEventId: Optional[str] = None            # 4002.eventId / 4103.eventId 등 인과 chain
+    arrivalVertiportHint: Optional[str] = None         # PSU/UAO 가 제안하는 대체 도착 vertiport ID
+
+    def to_wire(self) -> Dict[str, Any]:
+        """dataclass → ICD wire dict — optional 필드 중 None 인 것은 제외."""
+        payload: Dict[str, Any] = {
+            "timestamp": self.timestamp,
+            "scenarioFileName": self.scenarioFileName,
+        }
+        if self.flightPlanNumber is not None:
+            payload["flightPlanNumber"] = self.flightPlanNumber
+        if self.reasonCode is not None:
+            payload["reasonCode"] = self.reasonCode
+        if self.triggeringEventId is not None:
+            payload["triggeringEventId"] = self.triggeringEventId
+        if self.arrivalVertiportHint is not None:
+            payload["arrivalVertiportHint"] = self.arrivalVertiportHint
+        return payload
+
+    @classmethod
+    def from_wire(cls, data: Dict[str, Any]) -> "Msg2001_FlightPlanRequest":
+        """ICD wire dict → dataclass — 알 수 없는 key 는 무시 (forward-compat).
+
+        ``to_wire()`` 와 대칭. Mission 측 consumer 가 미래에 추가될 필드를
+        만나도 깨지지 않도록 known field 만 골라서 인스턴스화.
+        """
+        if not isinstance(data, dict):
+            return cls()
+        known = {f.name for f in _dc_fields(cls)}
+        kwargs = {k: v for k, v in data.items() if k in known}
+        return cls(**kwargs)
 
 
 # ── MSG 2002 ─────────────────────────────────────────────

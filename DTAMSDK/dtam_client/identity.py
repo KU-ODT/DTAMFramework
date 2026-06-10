@@ -16,6 +16,7 @@ class Role(str, Enum):
     VEHICLE = "vehicle"
     VISUAL = "visual"
     SITUATION_AWARENESS = "situation_awareness"
+    PSU = "psu"                              # Provider of Services for UAM (ExtenstionModule/PSUModule)
 
     def __str__(self) -> str:
         return self.value
@@ -36,6 +37,7 @@ KNOWN_MODULES: Dict[Role, ModuleIdentity] = {
     Role.SITUATION_AWARENESS: ModuleIdentity(Role.SITUATION_AWARENESS, "SituationAwareness", "Situation Awareness"),
     Role.SIM_STATE: ModuleIdentity(Role.SIM_STATE, "SimulationState", "Simulation State"),
     Role.SERVER: ModuleIdentity(Role.SERVER, "IntegrationHub", "IntegrationHub"),
+    Role.PSU: ModuleIdentity(Role.PSU, "PSUModule", "Provider of Services for UAM"),
 }
 
 

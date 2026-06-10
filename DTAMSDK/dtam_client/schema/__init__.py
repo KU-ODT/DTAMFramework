@@ -47,14 +47,16 @@ from .msg_phase2 import (
     DepartureInfo, ArrivalInfo, EnRouteSegment,
 )
 
-# ── Phase 5: 4001/4101/4102/4103 ───────────────────────────────
+# ── Phase 5: 4001/4002/4101/4102/4103 ───────────────────────────────
 from .msg_phase5 import (
     Msg4001_VehicleStatus,
+    Msg4002_VehicleWarningEvent,
     Msg4101_CameraImageFrame,
     Msg4102_CameraStreamDescriptor,
     Msg4103_VehicleCollisionEvent,
     Position, Attitude, Actuator, Propulsion,
     GPS, IMU, Barometer, Energy, VehicleData,
+    WarningDetectedValue, WarningThreshold,
 )
 
 # ── Phase 6: 3002/3003 ────────────────────────────────────────
@@ -91,7 +93,8 @@ __all__ = [
     "Msg0001_ModuleSettingInfo", "Msg0002_ModuleStatus", "Msg0003_CommonTimeInfo",
     "Msg1001_SimModeSetup", "Msg1002_SimulationSetup", "Msg1003_ScenarioSetup",
     "Msg2001_FlightPlanRequest", "Msg2002_DtamExecute", "Msg3001_ScheduledFlight",
-    "Msg4001_VehicleStatus", "Msg4101_CameraImageFrame", "Msg4102_CameraStreamDescriptor",
+    "Msg4001_VehicleStatus", "Msg4002_VehicleWarningEvent",
+    "Msg4101_CameraImageFrame", "Msg4102_CameraStreamDescriptor",
     "Msg4103_VehicleCollisionEvent",
     "Msg3002_StrategicSeparation", "Msg3003_TacticalSeparation",
     "Msg5001_OperatorControlInput", "Msg5002_CameraControlCommand", "Msg5003_AbnormalSituationCommand",
@@ -104,6 +107,7 @@ __all__ = [
     # Phase 5 sub-dataclass
     "Position", "Attitude", "Actuator", "Propulsion",
     "GPS", "IMU", "Barometer", "Energy", "VehicleData",
+    "WarningDetectedValue", "WarningThreshold",
     # Phase 6 sub-dataclass
     "DirectToTarget", "HoldAction", "LandAction", "TacticalAction",
     # Phase 7 sub-dataclass

@@ -128,6 +128,14 @@ MESSAGE_TABLE: Dict[str, Dict[str, Any]] = {
         "rate_hz": 10.0,
         "phase": 5,
     },
+    "4002": {
+        "name": "Vehicle Warning Event",
+        "name_ko": "비행체 경고 이벤트",
+        "proto": "ws",
+        "direction": "vehicle->server",
+        "rate_hz": 0.0,
+        "phase": 5,
+    },
     "4101": {
         "name": "Camera Image Frame",
         "name_ko": "카메라 이미지 프레임",
@@ -191,6 +199,7 @@ DB_FOLDER_FOR_MID: Dict[str, str] = {
     "3002": "ScheduledFlightModification",
     "3003": "TacticalActionCommand",
     "4001": "VehicleStatus",
+    "4002": "VehicleWarningEvent",
     "4101": "CameraImage",
     "4102": "CameraStreamDescriptor",
     "4103": "VehicleCollisionEvent",
@@ -214,6 +223,7 @@ MODULE_ROLES: List[str] = [
     "visual",
     "situation_awareness",
     "sim_state",
+    "psu",
 ]
 
 

@@ -120,7 +120,7 @@ class VehicleModule(DtamModule):
 class MonitoringModule(DtamModule):
     """Operations Console 역할의 base 클래스.
 
-    FORWARD_RULES: 0001, 0002, 2002, 4001, 4101, 4102, 4103.
+    FORWARD_RULES: 0001, 0002, 2002, 4001, 4002, 4101, 4102, 4103.
     """
     role = Role.MONITORING
 
@@ -139,6 +139,10 @@ class MonitoringModule(DtamModule):
     @on_receive("4001")
     def on_vehicle_status(self, msg: Any) -> None:
         """MSG 4001 — 비행체 10Hz 상태. Override to handle."""
+
+    @on_receive("4002")
+    def on_vehicle_warning_event(self, msg: Any) -> None:
+        """MSG 4002 — 비행체 경고 이벤트 (이상 감지). Override to handle."""
 
     @on_receive("4101")
     def on_camera_image(self, msg: Any) -> None:
@@ -200,7 +204,7 @@ class VisualModule(DtamModule):
 class SituationAwarenessModule(DtamModule):
     """Situation Awareness 플러그인 역할의 base 클래스.
 
-    FORWARD_RULES: 2002, 4001, 4101, 4102, 4103.
+    FORWARD_RULES: 2002, 4001, 4002, 4101, 4102, 4103.
     """
     role = Role.SITUATION_AWARENESS
 
@@ -211,6 +215,10 @@ class SituationAwarenessModule(DtamModule):
     @on_receive("4001")
     def on_vehicle_status(self, msg: Any) -> None:
         """MSG 4001 — 비행체 10Hz 상태. Override to handle."""
+
+    @on_receive("4002")
+    def on_vehicle_warning_event(self, msg: Any) -> None:
+        """MSG 4002 — 비행체 경고 이벤트 (이상 감지). Override to handle."""
 
     @on_receive("4101")
     def on_camera_image(self, msg: Any) -> None:
@@ -224,6 +232,26 @@ class SituationAwarenessModule(DtamModule):
         """MSG 4103 — 비행체 충돌 이벤트. Override to handle."""
 
 
+@_validate_role_base
+class PSUModule(DtamModule):
+    """Provider of Services for UAM (PSU) 외부 이해관계자 역할의 base 클래스.
+
+    ExtenstionModule/PSUModule 이 사용. UAM 운용 모니터링 콘솔로서
+    Vehicle 발 상태/경고/충돌 이벤트를 받아 Priority Event List, 회랑 분석,
+    Traffic Conflict 감지 등에 활용.
+
+    FORWARD_RULES: 4001 (Vehicle Status 10Hz — 트래픽 분석용), 4002 (Warning).
+    """
+    role = Role.PSU
+
+    @on_receive("4001")
+    def on_vehicle_status(self, msg: Any) -> None:
+        """MSG 4001 — 비행체 10Hz 상태 (회랑·트래픽 분석용). Override to handle."""
+
+    @on_receive("4002")
+    def on_vehicle_warning_event(self, msg: Any) -> None:
+        """MSG 4002 — 비행체 경고 이벤트 (이상 감지). Override to handle."""
+
 
 __all__ = [
     "MissionModule",
@@ -231,4 +259,5 @@ __all__ = [
     "MonitoringModule",
     "VisualModule",
     "SituationAwarenessModule",
+    "PSUModule",
 ]

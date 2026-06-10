@@ -20,7 +20,7 @@ from dtam_client.schema import parse_payload, to_dict as icd_to_dict
 from IntegrationHub.CoreServerModule.app.services.registry import ModuleRegistry
 
 logger = logging.getLogger(__name__)
-OPTIONAL_FORWARD_ROLES = {"situation_awareness"}
+OPTIONAL_FORWARD_ROLES = {"situation_awareness", "psu"}
 HIGH_RATE_MIDS = {"4001", "4101", "5001"}
 LATEST_ONLY_FORWARD_MIDS = {"4001", "4101"}
 CAMERA_4101_FORWARD_ROLES = {"situation_awareness"}

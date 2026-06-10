@@ -492,6 +492,35 @@ def sample_vehicle_collision_event(**overrides: Any) -> Dict[str, Any]:
     )
 
 
+def sample_vehicle_warning_event(**overrides: Any) -> Dict[str, Any]:
+    return _merge(
+        {
+            "messageId": 4002,
+            "messageName": "Vehicle Warning Event",
+            "timestamp": ISO_TS,
+            "eventId": "WARN-UAM0001-20260609-0001",
+            "vehicleId": "UAM0001",
+            "category": "energy",
+            "subsystem": "battery",
+            "eventType": "LOW_BATTERY",
+            "severity": "warning",
+            "status": "active",
+            "detectedValue": {
+                "battery_pct": 18.5,
+                "state_of_charge_pct": 17.9,
+            },
+            "threshold": {
+                "warning_pct": 20.0,
+                "critical_pct": 10.0,
+            },
+            "recommendedAction": "return_to_base",
+            "availableDistance": 12500.0,
+            "description": "Battery below 20% — RTB recommended.",
+        },
+        overrides,
+    )
+
+
 def sample_camera_image_bytes() -> bytes:
     return b"\x00\x00\x00"
 
@@ -509,6 +538,7 @@ _SAMPLE_BUILDERS: Dict[str, Callable[..., Dict[str, Any]]] = {
     "3002": sample_strategic_separation,
     "3003": sample_tactical_separation,
     "4001": sample_vehicle_status,
+    "4002": sample_vehicle_warning_event,
     "4101": sample_camera_image_header,
     "4102": sample_camera_stream_descriptor,
     "4103": sample_vehicle_collision_event,
@@ -542,6 +572,10 @@ _ALIASES = {
     "push_tactical_separation": "3003",
     "vehicle_status": "4001",
     "push_vehicle_status": "4001",
+    "vehicle_warning_event": "4002",
+    "push_vehicle_warning_event": "4002",
+    "vehicle_warning": "4002",
+    "warning_event": "4002",
     "camera_image": "4101",
     "camera_image_header": "4101",
     "push_camera_image": "4101",
