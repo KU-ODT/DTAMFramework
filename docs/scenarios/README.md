@@ -12,6 +12,7 @@
 - `S1_nominal.md`
 - `S2_psu_replan.md`
 - `S3_uao_battery_alt_vertiport.md`
+- `MODULE_TASKS.md` — 모듈별 구현 작업 목록 (Vehicle/PSU/Mission/Visualization — 현재 동작 상태 + 남은 일 + acceptance)
 
 보조 자료 (ICD 4002 vehicleWarningEvent 스펙):
 - `DTAMSDK/dtam_client/icd/KOR/4002_vehicleWarningEvent.md`
