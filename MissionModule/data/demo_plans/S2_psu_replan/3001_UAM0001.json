@@ -5,76 +5,140 @@
   "aircraftId": "UAM0001",
   "departure": {
     "vertiport": "JAMSIL_VP",
-    "std": "09:01:00",
+    "std": "06:32:00",
     "depGateNumber": "G1",
-    "eobt": "09:00:30",
+    "eobt": "06:31:30",
     "depFatoNumber": "F1",
-    "etot": "09:02:00"
+    "etot": "06:32:30"
   },
   "arrival": {
     "vertiport": "GIMPO_VP",
-    "sta": "09:50:00",
+    "sta": "07:17:00",
     "arrGateNumber": "G1",
-    "eibt": "09:50:30",
+    "eibt": "07:17:30",
     "arrFatoNumber": "F1",
-    "eldt": "09:49:30"
+    "eldt": "07:16:30"
   },
   "enRoute": [
     {
       "seq": 1,
       "phase": "B",
       "targetSpeed": 2.0,
-      "startLLA": { "lat": 37.5145, "lon": 127.1020, "alt": 30.0 },
-      "endLLA":   { "lat": 37.5145, "lon": 127.1020, "alt": 90.0 }
+      "startLLA": {
+        "lat": 37.5145,
+        "lon": 127.102,
+        "alt": 30.0
+      },
+      "endLLA": {
+        "lat": 37.5145,
+        "lon": 127.102,
+        "alt": 90.0
+      }
     },
     {
       "seq": 2,
       "phase": "C",
       "targetSpeed": 8.0,
-      "startLLA": { "lat": 37.5145, "lon": 127.1020, "alt": 90.0 },
-      "endLLA":   { "lat": 37.5200, "lon": 127.0800, "alt": 150.0 }
+      "startLLA": {
+        "lat": 37.5145,
+        "lon": 127.102,
+        "alt": 90.0
+      },
+      "endLLA": {
+        "lat": 37.52,
+        "lon": 127.08,
+        "alt": 150.0
+      }
     },
     {
       "seq": 3,
       "phase": "E",
       "targetSpeed": 5.0,
-      "startLLA": { "lat": 37.5200, "lon": 127.0800, "alt": 150.0 },
-      "endLLA":   { "lat": 37.5400, "lon": 127.0200, "alt": 370.0 }
+      "startLLA": {
+        "lat": 37.52,
+        "lon": 127.08,
+        "alt": 150.0
+      },
+      "endLLA": {
+        "lat": 37.54,
+        "lon": 127.02,
+        "alt": 370.0
+      }
     },
     {
       "seq": 4,
       "phase": "F",
       "targetSpeed": 55.0,
-      "startLLA": { "lat": 37.5400, "lon": 127.0200, "alt": 370.0 },
-      "endLLA":   { "lat": 37.5550, "lon": 126.9300, "alt": 370.0 }
+      "startLLA": {
+        "lat": 37.54,
+        "lon": 127.02,
+        "alt": 370.0
+      },
+      "endLLA": {
+        "lat": 37.555,
+        "lon": 126.93,
+        "alt": 370.0
+      }
     },
     {
       "seq": 5,
       "phase": "F",
       "targetSpeed": 55.0,
-      "startLLA": { "lat": 37.5550, "lon": 126.9300, "alt": 370.0 },
-      "endLLA":   { "lat": 37.5620, "lon": 126.8400, "alt": 370.0 }
+      "startLLA": {
+        "lat": 37.555,
+        "lon": 126.93,
+        "alt": 370.0
+      },
+      "endLLA": {
+        "lat": 37.562,
+        "lon": 126.84,
+        "alt": 370.0
+      }
     },
     {
       "seq": 6,
       "phase": "G",
       "targetSpeed": 20.0,
-      "startLLA": { "lat": 37.5620, "lon": 126.8400, "alt": 370.0 },
-      "endLLA":   { "lat": 37.5630, "lon": 126.8010, "alt": 90.0 }
+      "startLLA": {
+        "lat": 37.562,
+        "lon": 126.84,
+        "alt": 370.0
+      },
+      "endLLA": {
+        "lat": 37.563,
+        "lon": 126.801,
+        "alt": 90.0
+      }
     },
     {
       "seq": 7,
       "phase": "I",
       "targetSpeed": 5.0,
-      "startLLA": { "lat": 37.5630, "lon": 126.8010, "alt": 90.0 },
-      "endLLA":   { "lat": 37.5630, "lon": 126.8010, "alt": 40.0 }
+      "startLLA": {
+        "lat": 37.563,
+        "lon": 126.801,
+        "alt": 90.0
+      },
+      "endLLA": {
+        "lat": 37.563,
+        "lon": 126.801,
+        "alt": 40.0
+      }
     },
     {
       "seq": 8,
       "phase": "J",
       "targetSpeed": 1.0,
-      "startLLA": { "lat": 37.5630, "lon": 126.8010, "alt": 40.0 },
-      "endLLA":   { "lat": 37.5630, "lon": 126.8010, "alt": 30.0 }
+      "startLLA": {
+        "lat": 37.563,
+        "lon": 126.801,
+        "alt": 40.0
+      },
+      "endLLA": {
+        "lat": 37.563,
+        "lon": 126.801,
+        "alt": 30.0
+      }
     }
   ]
 }

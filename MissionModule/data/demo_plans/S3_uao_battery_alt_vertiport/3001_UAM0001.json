@@ -5,83 +5,155 @@
   "aircraftId": "UAM0001",
   "departure": {
     "vertiport": "VP_YEOUIDO",
-    "std": "09:00:00",
+    "std": "06:32:00",
     "depGateNumber": "G1",
-    "eobt": "08:59:30",
+    "eobt": "06:31:30",
     "depFatoNumber": "F1",
-    "etot": "09:00:30"
+    "etot": "06:32:30"
   },
   "arrival": {
     "vertiport": "VP_JAMSIL",
-    "sta": "09:34:30",
+    "sta": "07:04:00",
     "arrGateNumber": "G2",
-    "eibt": "09:35:00",
+    "eibt": "07:04:30",
     "arrFatoNumber": "F1",
-    "eldt": "09:34:00"
+    "eldt": "07:03:30"
   },
   "enRoute": [
     {
       "seq": 1,
       "phase": "B",
       "targetSpeed": 2.0,
-      "startLLA": { "lat": 37.5252, "lon": 126.9335, "alt": 30.0 },
-      "endLLA":   { "lat": 37.5252, "lon": 126.9335, "alt": 60.0 }
+      "startLLA": {
+        "lat": 37.5252,
+        "lon": 126.9335,
+        "alt": 30.0
+      },
+      "endLLA": {
+        "lat": 37.5252,
+        "lon": 126.9335,
+        "alt": 60.0
+      }
     },
     {
       "seq": 2,
       "phase": "C",
       "targetSpeed": 8.0,
-      "startLLA": { "lat": 37.5252, "lon": 126.9335, "alt": 60.0 },
-      "endLLA":   { "lat": 37.5256, "lon": 126.9520, "alt": 150.0 }
+      "startLLA": {
+        "lat": 37.5252,
+        "lon": 126.9335,
+        "alt": 60.0
+      },
+      "endLLA": {
+        "lat": 37.5256,
+        "lon": 126.952,
+        "alt": 150.0
+      }
     },
     {
       "seq": 3,
       "phase": "E",
       "targetSpeed": 6.0,
-      "startLLA": { "lat": 37.5256, "lon": 126.9520, "alt": 150.0 },
-      "endLLA":   { "lat": 37.5260, "lon": 126.9700, "alt": 370.0 }
+      "startLLA": {
+        "lat": 37.5256,
+        "lon": 126.952,
+        "alt": 150.0
+      },
+      "endLLA": {
+        "lat": 37.526,
+        "lon": 126.97,
+        "alt": 370.0
+      }
     },
     {
       "seq": 4,
       "phase": "F",
       "targetSpeed": 8.0,
-      "startLLA": { "lat": 37.5260, "lon": 126.9700, "alt": 370.0 },
-      "endLLA":   { "lat": 37.5275, "lon": 127.0050, "alt": 370.0 }
+      "startLLA": {
+        "lat": 37.526,
+        "lon": 126.97,
+        "alt": 370.0
+      },
+      "endLLA": {
+        "lat": 37.5275,
+        "lon": 127.005,
+        "alt": 370.0
+      }
     },
     {
       "seq": 5,
       "phase": "F",
       "targetSpeed": 8.0,
-      "startLLA": { "lat": 37.5275, "lon": 127.0050, "alt": 370.0 },
-      "endLLA":   { "lat": 37.5295, "lon": 127.0123, "alt": 350.0 }
+      "startLLA": {
+        "lat": 37.5275,
+        "lon": 127.005,
+        "alt": 370.0
+      },
+      "endLLA": {
+        "lat": 37.5295,
+        "lon": 127.0123,
+        "alt": 350.0
+      }
     },
     {
       "seq": 6,
       "phase": "F",
       "targetSpeed": 8.0,
-      "startLLA": { "lat": 37.5295, "lon": 127.0123, "alt": 350.0 },
-      "endLLA":   { "lat": 37.5160, "lon": 127.0850, "alt": 350.0 }
+      "startLLA": {
+        "lat": 37.5295,
+        "lon": 127.0123,
+        "alt": 350.0
+      },
+      "endLLA": {
+        "lat": 37.516,
+        "lon": 127.085,
+        "alt": 350.0
+      }
     },
     {
       "seq": 7,
       "phase": "G",
       "targetSpeed": 8.0,
-      "startLLA": { "lat": 37.5160, "lon": 127.0850, "alt": 350.0 },
-      "endLLA":   { "lat": 37.5133, "lon": 127.1028, "alt": 120.0 }
+      "startLLA": {
+        "lat": 37.516,
+        "lon": 127.085,
+        "alt": 350.0
+      },
+      "endLLA": {
+        "lat": 37.5133,
+        "lon": 127.1028,
+        "alt": 120.0
+      }
     },
     {
       "seq": 8,
       "phase": "I",
       "targetSpeed": 4.0,
-      "startLLA": { "lat": 37.5133, "lon": 127.1028, "alt": 120.0 },
-      "endLLA":   { "lat": 37.5133, "lon": 127.1028, "alt": 40.0 }
+      "startLLA": {
+        "lat": 37.5133,
+        "lon": 127.1028,
+        "alt": 120.0
+      },
+      "endLLA": {
+        "lat": 37.5133,
+        "lon": 127.1028,
+        "alt": 40.0
+      }
     },
     {
       "seq": 9,
       "phase": "J",
       "targetSpeed": 1.0,
-      "startLLA": { "lat": 37.5133, "lon": 127.1028, "alt": 40.0 },
-      "endLLA":   { "lat": 37.5133, "lon": 127.1028, "alt": 30.0 }
+      "startLLA": {
+        "lat": 37.5133,
+        "lon": 127.1028,
+        "alt": 40.0
+      },
+      "endLLA": {
+        "lat": 37.5133,
+        "lon": 127.1028,
+        "alt": 30.0
+      }
     }
   ]
 }

@@ -5,48 +5,80 @@
   "aircraftId": "UAM0001",
   "departure": {
     "vertiport": "Yeouido",
-    "std": "09:10:00",
+    "std": "06:34:00",
     "depGateNumber": "G2",
-    "eobt": "09:09:30",
+    "eobt": "06:33:30",
     "depFatoNumber": "F1",
-    "etot": "09:10:30"
+    "etot": "06:34:30"
   },
   "arrival": {
     "vertiport": "Jamsil",
-    "sta": "09:55:00",
+    "sta": "07:19:00",
     "arrGateNumber": "G3",
-    "eibt": "09:55:30",
+    "eibt": "07:19:30",
     "arrFatoNumber": "F1",
-    "eldt": "09:54:30"
+    "eldt": "07:18:30"
   },
   "enRoute": [
     {
       "seq": 1,
       "phase": "E",
       "targetSpeed": 25.0,
-      "startLLA": { "lat": 37.5283, "lon": 126.9343, "alt": 30.0 },
-      "endLLA":   { "lat": 37.5290, "lon": 126.9380, "alt": 300.0 }
+      "startLLA": {
+        "lat": 37.5283,
+        "lon": 126.9343,
+        "alt": 30.0
+      },
+      "endLLA": {
+        "lat": 37.529,
+        "lon": 126.938,
+        "alt": 300.0
+      }
     },
     {
       "seq": 2,
       "phase": "F",
       "targetSpeed": 55.0,
-      "startLLA": { "lat": 37.5290, "lon": 126.9380, "alt": 300.0 },
-      "endLLA":   { "lat": 37.5320, "lon": 126.9800, "alt": 450.0 }
+      "startLLA": {
+        "lat": 37.529,
+        "lon": 126.938,
+        "alt": 300.0
+      },
+      "endLLA": {
+        "lat": 37.532,
+        "lon": 126.98,
+        "alt": 450.0
+      }
     },
     {
       "seq": 3,
       "phase": "F",
       "targetSpeed": 55.0,
-      "startLLA": { "lat": 37.5320, "lon": 126.9800, "alt": 450.0 },
-      "endLLA":   { "lat": 37.5180, "lon": 127.0500, "alt": 450.0 }
+      "startLLA": {
+        "lat": 37.532,
+        "lon": 126.98,
+        "alt": 450.0
+      },
+      "endLLA": {
+        "lat": 37.518,
+        "lon": 127.05,
+        "alt": 450.0
+      }
     },
     {
       "seq": 4,
       "phase": "G",
       "targetSpeed": 30.0,
-      "startLLA": { "lat": 37.5180, "lon": 127.0500, "alt": 450.0 },
-      "endLLA":   { "lat": 37.5125, "lon": 127.0830, "alt": 30.0 }
+      "startLLA": {
+        "lat": 37.518,
+        "lon": 127.05,
+        "alt": 450.0
+      },
+      "endLLA": {
+        "lat": 37.5125,
+        "lon": 127.083,
+        "alt": 30.0
+      }
     }
   ]
 }
