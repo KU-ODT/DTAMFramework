@@ -73,7 +73,7 @@ T+00:25  User       → SERVER     [1002]  SimulationSetup (play)
                                           note: SIM 시작 (KST 09:00 기준). 초기 바람은 normal
 
 T+00:28  User       → SERVER     [2002]  DtamExecute
-                                          payload preview: { simModeFileName: "S2.sim.json", scenarioFileName: "S2_psu_replan.json", flightPlanFolderName: "flights/S2/" }
+                                          payload preview: { simModeFileName: "S2.sim.json", scenarioFileName: "S2_psu_replan.json", flightPlanFolderName: "flights/S2/", scenarioId: "S2" }
                                           note: 모든 모듈에 활성 계획 폴더 통지 (MISSION, MONITORING, VEHICLE, VISUAL, SA)
 
 T+00:30  SIM_STATE  → SERVER     [0003]  CommonTimeInfo (1 Hz)
@@ -269,6 +269,7 @@ T+50:00  VEHICLE    → SERVER     [4001]  (UAM0002 착륙 완료)
   - **5004 수신 시 바람 적용**: `windPreset` 을 WindModel preset 으로, `localZone` 을 `WindModel.add_local_zone` 으로 적용 → dynamics 바람 보정으로 궤적 drift 발생.
   - **3003 수신 시 액션 즉시 수행**: setSpeed 로 감속 후 directTo `targetLLAs` 순서대로 추종, 완료 후 원 enRoute(planVersion=1) 재합류.
   - 3001 v1 경로 자체는 시나리오 전 구간 불변 — 전술 이탈만 발생.
+  - Vehicle 은 2002 의 `scenarioId="S2"` 를 받아 바람 영향 수용 모드로 동작 (5004 적용). UAO 역할은 VehicleModule 겸업 명시.
 - **MissionModule**:
   - 초기 2001 (base form) × 2 → 1201, 1202 신규 계획 생성, 3001 v1 발행.
   - **3003 수신 (`on_tactical_separation`) — 수신 전용**: 대상 fpn(1201)에 전술 이탈 활성(commandId, reasonCode) 마킹, 자기 plan 과의 정합성 추적.
@@ -288,7 +289,7 @@ T+50:00  VEHICLE    → SERVER     [4001]  (UAM0002 착륙 완료)
   - 3003 직접 발행: `commandId=TMP-PSU-{aircraftId}-{YYYYMMDD}-{SEQ}`, `reasonCode=LOSS_OF_SEPARATION_RISK`, actions 는 setSpeed/directTo/hold 중 상황에 맞게 구성.
   - **2001 확장(전략 재계획 요청)은 발행하지 않음** — S2 는 전술 직접 개입만 사용.
 - **SimStateModule**: 1001/1002/1003 소비, 0003 CommonTime 1 Hz emit.
-- **(UAO/VPO는 본 시나리오에서 비활성)** — S2 는 PSU 단독 전술 개입.
+- **(UAO 역할은 VehicleModule 이 겸업, 별도 모듈 비활성 / VPO 비활성)** — S2 는 PSU 단독 전술 개입.
 
 ## 5. 검증 가능한 결과 (acceptance criteria)
 

@@ -209,7 +209,7 @@ flowchart TB
 | 0 | `0001`, `0002` | 모듈 설정/상태 | 모듈 heartbeat, registry 갱신 |
 | 1 | `1001`, `1003` | 모드/시나리오 설정 | 사용자 설정 → StateServer/Visualization |
 | 2 | `2001`, `3001` | 비행계획 요청/계획 비행 | Operation → Mission → Vehicle/Visualization |
-| 3 | `2002` | DTAM 실행 | Operation → Mission/Vehicle/Visualization/SA |
+| 3 | `2002` | DTAM 실행 (+`scenarioId` 확장 ★) | Operation → Mission/Vehicle/Visualization/SA |
 | 4 | `1002` | 시뮬레이션 제어 | Play/Pause/Reset/Speed/Weather |
 | 5 | `0003`, `4001`, `4002`, `4101`, `4102`, `4103` | 시간·상태·경고·영상·충돌 | State/Vehicle/Visualization → UI/AI/DB/PSU |
 | 6 | `3002`, `3003` | 전략/전술 분리 | Mission/운영 판단 → Vehicle |
@@ -268,7 +268,7 @@ PSU(Provider of Services for UAM)는 UAM 교통 흐름과 회랑(corridor) 운�
 | `1002` | Operation | Vehicle, Visualization, StateServer | 재생/정지/속도/날씨 제어 |
 | `1003` | Operation | StateServer, Visualization | 시나리오 설정 |
 | `2001` | Operation / **PSU / UAO** | Mission | 비행계획 요청 (재계획 트리거 포함) |
-| `2002` | Operation | Mission, Monitoring, Vehicle, Visualization, SituationAwareness | 실행 명령 |
+| **`2002`** | Operation | Mission, Monitoring, Vehicle, Visualization, SituationAwareness | 실행 명령 (**+scenarioId (S1\|S2\|S3) 확장** ★ — 라우팅 변경 없음) |
 | `3001` | Mission | Vehicle, Visualization | 계획 비행 등록 |
 | `3002` | Mission | Vehicle | 전략 분리 명령 |
 | **`3003`** | Mission / **PSU (직접 발행)** | **Vehicle, Mission** ★변경 | 전술 분리 / 즉시 명령 (land/directTo) |
@@ -290,7 +290,7 @@ PSU(Provider of Services for UAM)는 UAM 교통 흐름과 회랑(corridor) 운�
 3002 → [vehicle]
 3003 → [vehicle, mission]                                 # mission 추가 (PSU 직접 발행 대응)
 2001 → [mission]
-2002 → [mission, monitoring, vehicle, visual, situation_awareness]
+2002 → [mission, monitoring, vehicle, visual, situation_awareness]  # +scenarioId 확장, 라우팅 변경 없음
 1001 → [sim_state]
 1002 → [vehicle, visual, sim_state]
 1003 → [sim_state, visual]
@@ -316,6 +316,12 @@ PSU(Provider of Services for UAM)는 UAM 교통 흐름과 회랑(corridor) 운�
 | `reasonCode` | string (optional) | 재계획 사유 코드 (예: `CORRIDOR_CONFLICT`, `LOW_BATTERY`, `WX_DIVERT`) |
 | `triggeringEventId` | string (optional) | 재계획을 유발한 이벤트 ID (`4002.eventId` 등과 연계) |
 | `arrivalVertiportHint` | string (optional) | 권고/대체 도착 vertiport ID |
+
+---
+
+## 2002 DtamExecute — scenarioId extension
+
+`2002 DtamExecute` 는 optional 필드 `scenarioId` (`"S1" | "S2" | "S3"`) 를 가지도록 확장되었다. Operation Console 이 실행 시점에 현재 시나리오 식별을 전달하면, Vehicle 은 `on_dtam_execute` 에서 이 값으로 동작 모드를 분기한다 — S1 정상 / S2 바람 영향 수용 모드 / S3 배터리 열화 프로필 활성화 + UAO 겸업 판단 로직 무장 (**UAO 역할은 별도 모듈이 아니라 VehicleModule 이 겸업** — 운항사 판단 로직이 Vehicle 모듈 안에 포함, 사용자 확정). `scenarioId` 가 None 이면 wire 에서 omit 되어 기존 payload 와 호환되며 (`from_wire()` 는 unknown key 무시), forwarding 규칙은 변경되지 않는다 — Vehicle 은 기존 2002 수신자.
 
 ---
 

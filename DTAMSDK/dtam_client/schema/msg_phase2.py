@@ -80,12 +80,41 @@ class Msg2001_FlightPlanRequest:
 
 @dataclass
 class Msg2002_DtamExecute:
-    """MSG 2002: DTAM 실행 — 각 모듈에 실행 명령 전달."""
+    """MSG 2002: DTAM 실행 — 각 모듈에 실행 명령 전달.
+
+    ``scenarioId`` (optional): 실행할 데모 시나리오 식별 ("S1" | "S2" | "S3").
+    Vehicle 은 이 값으로 시나리오별 동작을 분기한다 — 예: S3 이면 배터리 열화
+    프로필 활성화 + UAO 겸업 판단 로직 무장(arm), S2 이면 바람 영향 수용 모드.
+    생략 시 일반 실행 (시나리오 분기 없음).
+    """
     timestamp: str = ""
     simModeFileName: str = ""
     simulationSetupFileName: str = ""
     scenarioFileName: str = ""
     flightPlanFolderName: str = ""
+    scenarioId: Optional[str] = None       # "S1" | "S2" | "S3" (optional)
+
+    def to_wire(self) -> Dict[str, Any]:
+        """dataclass → ICD wire dict — scenarioId 가 None 이면 제외."""
+        payload: Dict[str, Any] = {
+            "timestamp": self.timestamp,
+            "simModeFileName": self.simModeFileName,
+            "simulationSetupFileName": self.simulationSetupFileName,
+            "scenarioFileName": self.scenarioFileName,
+            "flightPlanFolderName": self.flightPlanFolderName,
+        }
+        if self.scenarioId is not None:
+            payload["scenarioId"] = self.scenarioId
+        return payload
+
+    @classmethod
+    def from_wire(cls, data: Dict[str, Any]) -> "Msg2002_DtamExecute":
+        """ICD wire dict → dataclass — 알 수 없는 key 는 무시 (forward-compat)."""
+        if not isinstance(data, dict):
+            return cls()
+        known = {f.name for f in _dc_fields(cls)}
+        kwargs = {k: v for k, v in data.items() if k in known}
+        return cls(**kwargs)
 
 
 # ── MSG 3001 ─────────────────────────────────────────────

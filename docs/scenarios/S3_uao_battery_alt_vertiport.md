@@ -9,7 +9,7 @@
   - **OperationModule / Monitoring (MONITORING)**: 4002, 3003을 UI에 표출하고 운항자(UAO)에게 경고.
   - **VisualizationModule (VISUAL)**: 3003 land 수신 시 비상 착륙 시각화 및 카메라 트래킹.
   - **PSU (Provider of Services for UAM)**: 4002(critical, LOW_BATTERY 계열)을 받아 주변 vertiport availability/거리 평가 후 VP_KU 선정, **3003(land)을 직접 발행** — 대체 vertiport에 대한 dispatch 권한 보유.
-  - **UAO (UAM Air Operator)**: 운항 책임 주체. 이 시나리오에서는 **알림 수신자(informed)** 이며, 대체 vertiport에 대한 **dispatch 권한은 PSU가 보유**(사용자 결정). UAO는 사후 정산/디스패치 책임(post-hoc accountability)에 관여.
+  - **UAO (UAM Air Operator)**: 운항 책임 주체 — **별도 모듈이 아니라 VehicleModule 이 겸업**(사용자 결정). Vehicle 은 2002 DtamExecute 의 `scenarioId: "S3"` 를 수신하면 (a) 배터리 열화 프로필 활성화, (b) UAO 겸업 판단 로직(4002 발행 임계 판정 / 긴급 대응 정책)을 무장(arm)한다. 대체 vertiport 에 대한 **dispatch 권한은 여전히 PSU가 보유**. UAO 명의의 사후 정산/디스패치 책임(post-hoc accountability)은 명목상 유지.
 - **시나리오 길이**: 약 32 sim-minutes (정상 운항 ~25분 + 긴급 대응/착륙 ~7분, 배터리 emergency로 단축).
 - **트리거 메커니즘**: 1003 ScenarioSetup의 `scenarioFileName` = `S3_uao_battery_alt_vertiport.json`. 내부적으로 `battery.degradation_profile`을 통해 T+25:00 부근에서 battery_pct가 10% 미만으로 떨어지도록 사전 설정.
 
@@ -43,8 +43,9 @@ T+00:03  MISSION    → SERVER     [3001]  ScheduledFlight v1
                                           note: VEHICLE/VISUAL이 정상 비행 plan 수신.
 
 T+00:05  User       → SERVER     [2002]  DtamExecute
-                                          payload preview: { simModeFileName, simulationSetupFileName, scenarioFileName, flightPlanFolderName }
-                                          note: 모든 모듈 실행 단계 진입.
+                                          payload preview: { simModeFileName, simulationSetupFileName, scenarioFileName, flightPlanFolderName,
+                                                             scenarioId: "S3" }
+                                          note: 모든 모듈 실행 단계 진입. Vehicle 이 scenarioId=S3 수신 → 배터리 열화 프로필 + UAO 겸업 로직 활성화.
 
 T+00:10  VEHICLE    → SERVER     [4001]  VehicleStatus (10 Hz)
                                           payload preview: { UAM0001.energy.battery_pct: 99.5, gps: {...}, position: {...} }
@@ -124,7 +125,26 @@ T+32:00  User       → SERVER     [1002]  SimulationSetup (pause)
 
 ## 3. 메시지별 상세 payload
 
-### 3.1 4002 VehicleWarningEvent — LOW_BATTERY critical (T+25:00)
+### 3.1 2002 DtamExecute — scenarioId 포함 (T+00:05)
+
+```json
+{
+  "timestamp": "2026-06-09T09:00:05.000Z",
+  "simModeFileName": "S3_sim_mode.json",
+  "simulationSetupFileName": "S3_simulation_setup.json",
+  "scenarioFileName": "S3_uao_battery_alt_vertiport.json",
+  "flightPlanFolderName": "S3_flight_plans",
+  "scenarioId": "S3"
+}
+```
+
+> `scenarioId`는 SDK `Msg2002_DtamExecute`의 `Optional[str]` 필드(`"S1"|"S2"|"S3"`) — `None`이면
+> `to_wire()`에서 omit 되고, `from_wire()`는 unknown key를 무시한다(하위 호환).
+> FORWARD_RULES["2002"] = [mission, monitoring, vehicle, visual, situation_awareness] — 라우팅 변경 없음.
+> **Vehicle은 `on_dtam_execute(msg)`에서 `msg.scenarioId`로 분기**: S3 → 배터리 열화 프로필 활성화 +
+> UAO 겸업 판단 로직(4002 발행 임계/긴급 대응 정책) 무장(arm).
+
+### 3.2 4002 VehicleWarningEvent — LOW_BATTERY critical (T+25:00)
 
 ```json
 {
@@ -152,7 +172,7 @@ T+32:00  User       → SERVER     [1002]  SimulationSetup (pause)
 }
 ```
 
-### 3.2 3003 TacticalSeparation — PSU 직접 발행, IMMEDIATE land at VP_KU (T+25:02)
+### 3.3 3003 TacticalSeparation — PSU 직접 발행, IMMEDIATE land at VP_KU (T+25:02)
 
 ```json
 {
@@ -179,8 +199,9 @@ T+32:00  User       → SERVER     [1002]  SimulationSetup (pause)
 
 ## 4. 모듈별 책임
 
-- **VehicleModule (VEHICLE)**
-  - 자가 진단(self-diagnostic) 루프에서 `energy.battery_pct < threshold.critical_pct` 위반 감지 시 4002(critical, BATTERY_VOLTAGE_LOW)를 발행한다.
+- **VehicleModule (VEHICLE) — UAO 겸업**
+  - `on_dtam_execute`에서 2002의 `scenarioId="S3"` 수신 시 **배터리 열화 프로필 활성화 + UAO 겸업 판단 로직(4002 발행 임계/긴급 대응 정책) 무장(arm)**.
+  - 자가 진단(self-diagnostic) 루프에서 `energy.battery_pct < threshold.critical_pct` 위반 감지 시 4002(critical, BATTERY_VOLTAGE_LOW)를 발행한다 — **이 4002 발행 판단은 UAO 책임의 위임 수행(embedded UAO role)**.
   - 4001 telemetry(10 Hz)를 지속 publish.
   - PSU가 발행한 3003(land, IMMEDIATE)을 수신/실행 — 정상 plan 시퀀스를 중단하고 land action을 우선 처리.
   - 착륙 완료 후 동일 eventId로 4002 status="cleared" 발행.
@@ -198,9 +219,9 @@ T+32:00  User       → SERVER     [1002]  SimulationSetup (pause)
   - 현재 position과 vertiport DB의 거리/availability/class를 비교, alternate vertiport 선정 알고리즘으로 VP_KU 결정.
   - **3003 TacticalSeparation(land)을 직접 발행** — `reasonCode=LOW_BATTERY`, `actions=[{type:"land", vertiport:"VP_KU", fatoNumber:"FATO_A", targetLLA}]`. **대체 vertiport에 대한 dispatch 권한(authority)은 본 시나리오에서 PSU가 보유**.
 - **UAO (UAM Air Operator)**
-  - 이 시나리오에서 UAO는 **알림 수신자(informed party)**: MONITORING 콘솔을 통해 4002 critical, PSU 의사결정, 3003 land를 인지. (**UAO 모듈은 여전히 SDK 미구현** — informed party로만 모델링.)
-  - **대체 vertiport 선정/디스패치 권한은 PSU가 행사하며 UAO는 이를 위임/승인한 상태로 모델링**(사용자 결정).
-  - UAO의 역할은 사후(financial / dispatching) 책임 — 정산, 사고 보고, 보험, 승객 케어 등 post-hoc accountability에 한정한다.
+  - **별도 모듈 없음 — VehicleModule 겸업**(사용자 결정). UAO 판단 로직(4002 발행 임계 판정/긴급 대응 정책)은 VehicleModule 내부에 들어가며, 2002 `scenarioId="S3"` 수신 시 무장된다.
+  - **informed/사후 정산 부분만 명목상 UAO 명의로 남는다** — MONITORING 콘솔 표출(4002 critical, PSU 의사결정, 3003 land 인지) 및 정산, 사고 보고, 보험, 승객 케어 등 post-hoc accountability.
+  - **대체 vertiport 선정/디스패치 권한은 여전히 PSU가 행사**(사용자 결정).
   - 주의: PSU의 안전/항공교통 의사결정 권한과 UAO의 운항/계약 책임은 분리해 해석할 것 (혼동 금지).
 - **(참고) VPO (Vertiport Operator)**
   - 본 시나리오에서는 명시적 메시지 송수신 없음. 향후 vertiport availability를 동적으로 PSU에 공급하는 역할로 확장 가능.
@@ -372,7 +393,7 @@ ICD 로 송수신되지 않는다.
     "alternateVertiportPolicy": "nearest_available",
     "candidateVertiports": ["VP_KU", "VP_JAMSIL", "VP_YEOUIDO"],
     "dispatchAuthority": "PSU",
-    "uaoRole": "informed"
+    "uaoRole": "vehicle_embedded"
   }
 }
 ```
@@ -380,9 +401,14 @@ ICD 로 송수신되지 않는다.
 > 4002 의 `threshold.warning_pct=20`, `threshold.critical_pct=10` 는 위 `thresholds.battery`
 > 와 1:1 대응. Vehicle 측 진단 로직이 시작 시점에 이 값을 읽어 자신의 4002 발행
 > 기준으로 삼는다.
+>
+> `uaoRole: "vehicle_embedded"` — UAO는 별도 모듈이 아니라 **VehicleModule 이 겸업**한다는
+> 표시(사용자 결정). UAO 판단 로직은 Vehicle 내부에서 2002 `scenarioId="S3"` 수신 시
+> 무장되며, dispatch 권한은 여전히 PSU(`dispatchAuthority: "PSU"`).
 
 ## 변경 이력
 
+- **2026-06-10 — UAO=Vehicle 겸업 (사용자 확정)**: UAO 역할을 별도 모듈이 아닌 **VehicleModule 겸업**으로 확정. SDK `Msg2002_DtamExecute`에 `scenarioId: Optional[str]`(`"S1"|"S2"|"S3"`) 추가 — Operation Console이 실행 시점에 시나리오를 Vehicle에 통지, Vehicle은 `on_dtam_execute`에서 S3 분기 시 배터리 열화 프로필 + UAO 겸업 판단 로직 무장. dispatch 권한은 PSU 유지, `uaoRole: "vehicle_embedded"`로 갱신.
 - **2026-06-10 — 시나리오 개편 (사용자 확정)**: 기존 흐름 `4002 → PSU(2001 확장) → Mission(3001 v2 + 3003)` 을 **PSU 전술 즉시 개입** 흐름 `4002 → PSU 판단(가용 vertiport 분석, VP_KU 선정) → PSU 3003 직접 발행(land) → Vehicle 즉시 착륙 + Mission plan superseded 마킹` 으로 교체.
   - SDK 변경 반영: 3003 direction = `mission|psu->server` (PSU 발행 가능), FORWARD_RULES["3003"] = [vehicle, mission], MissionModule `on_tactical_separation(3003)` stub 신설.
   - 전략 재계획(2001 확장) 경로는 SDK 인터페이스로 유지되나 본 데모에서는 미사용. 3001 v2 sample 삭제.

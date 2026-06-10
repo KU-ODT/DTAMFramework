@@ -142,7 +142,8 @@ T+00:28  user(OpsConsole) → SERVER  [2002]  DTAM Execute
                     simModeFileName:"S1_simMode.json",
                     simulationSetupFileName:"S1_simulationSetup.json",
                     scenarioFileName:"S1_nominal.json",
-                    flightPlanFolderName:"flightPlans/UAM0001_v1" }
+                    flightPlanFolderName:"flightPlans/UAM0001_v1",
+                    scenarioId:"S1" }
          note: 4-target forward (MISSION/MONITORING/VEHICLE/VISUAL/SA) — 실제 비행 시작
 
 T+00:29  SERVER → MISSION,MONITORING,VEHICLE,VISUAL,SITUATION_AWARENESS  [2002]  fan-out
@@ -325,6 +326,7 @@ T+45:45  user(OpsConsole) → SERVER  [1002]  Simulation Setup (reset)
   - `3001` plan 수신 → 내부 mission queue 에 enRoute seq=1..4 load
   - `0003` CommonTime 으로 시계 sync, `4001` 10 Hz 발행 (정상 비행 trajectory)
   - **S1 에서는 4002 / 4103 발행하지 않음** (이상/충돌 없음)
+  - UAO 역할은 별도 모듈이 아니라 VehicleModule 이 겸업 — UAO (Vehicle 모듈 겸업) 는 본 시나리오에서는 관찰만
 - **MissionModule (Mission Planner)**:
   - `2001` 수신 → baseline 비행계획 생성, `3001` planVersion=1 발행
   - S1 에서는 `3002` / `3003` 재계획/전술적 분리 발행하지 않음

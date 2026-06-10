@@ -137,6 +137,7 @@ const DEFAULT_STATE = {
   fogIntensity: 0,
   weatherVisualizationEnabled: false,
   windGrade: "normal",
+  demoScenarioId: null,
   operationMode: "single",
   dynamics: "simple",
   mainVehicleController: "Autopilot",
@@ -1960,6 +1961,14 @@ class SimulationWorkspace {
       <div class="scenario-row scenario-row-single">
         <button type="button" class="scenario-btn" data-action="demo-weather">데모 날씨</button>
       </div>
+      <div class="scenario-title">데모 시나리오</div>
+      <div class="scenario-grid">
+        ${["", "S1", "S2", "S3"].map((id) => `
+          <button type="button" class="scenario-btn scenario-preset-btn ${(this.state.demoScenarioId || "") === id ? "is-active" : ""}" data-demo-scenario="${id}">
+            ${id || "없음"}
+          </button>
+        `).join("")}
+      </div>
       <div class="scenario-title">${this.t("localWind")}</div>
       <div class="scenario-row">
         <button type="button" class="scenario-btn scenario-toggle-btn ${this.state.gustApplyMode ? "is-active" : ""}" data-action="toggle-gust-apply">
@@ -2723,6 +2732,14 @@ class SimulationWorkspace {
       this.updateWindVisualization();
       this.sendDemoWeatherIcd();
       this.scheduleWeatherIcdSend({ immediate: true });
+    });
+
+    this.container.querySelectorAll("[data-demo-scenario]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const id = button.dataset.demoScenario || "";
+        this.state.demoScenarioId = ["S1", "S2", "S3"].includes(id) ? id : null;
+        this.refresh();
+      });
     });
 
     this.container.querySelectorAll("[data-map-theme]").forEach((button) => {
@@ -7268,6 +7285,7 @@ class SimulationWorkspace {
       simulationSetupFileName: `simulationSetup_${stamp}.json`,
       scenarioFileName,
       flightPlanFolderName: "latest",
+      ...(this.state.demoScenarioId ? { scenarioId: this.state.demoScenarioId } : {}),
     };
   }
 
