@@ -423,6 +423,7 @@ Object.assign(COPY.en, {
   missionAddAircraft: "Add Aircraft",
   missionDeleteAircraft: "Delete aircraft",
   missionEditing: "Editing",
+  demoScenarioLockNotice: "Demo scenario mode ({scenarioId}) — manual vehicle/mission editing is disabled. The mission plan is published in bulk by Mission's demo plan pack. To unlock, select [없음] under 데모 시나리오.",
   missionAircraft: "Aircraft",
   departureTime: "Departure time (STD)",
   timeHour: "Hour",
@@ -504,6 +505,7 @@ Object.assign(COPY.ko, {
   missionAddAircraft: "비행기 추가",
   missionDeleteAircraft: "비행체 삭제",
   missionEditing: "편집 중",
+  demoScenarioLockNotice: "데모 시나리오 모드 ({scenarioId}) — 비행체/임무 수동 편집이 비활성화됩니다. 임무 계획은 Mission 의 데모 플랜 팩이 일괄 발행합니다. 해제하려면 데모 시나리오에서 [없음] 선택.",
   missionAircraft: "비행체",
   departureTime: "출발시간(STD)",
   missionFrom: "출발",
@@ -2005,6 +2007,14 @@ class SimulationWorkspace {
     return this.t("modeSaveIdle");
   }
 
+  isDemoScenarioLocked() {
+    return Boolean(this.state.demoScenarioId);
+  }
+
+  demoScenarioLockNoticeText() {
+    return this.tf("demoScenarioLockNotice", { scenarioId: this.state.demoScenarioId || "-" });
+  }
+
   activeMissionEntry() {
     return (this.state.missionEntries || []).find((entry) => entry.id === this.state.activeMissionId) || this.state.missionEntries?.[0] || null;
   }
@@ -2209,10 +2219,11 @@ class SimulationWorkspace {
     if (!entries.length) {
       return `<div class="mission-card-empty">${this.t("missionNoAircraft")}</div>`;
     }
+    const lockedAttr = this.isDemoScenarioLocked() ? "disabled" : "";
     return entries.map((entry, index) => {
       const [departureHour, departureMinute, departureSecond] = this.missionDepartureTimeParts(entry);
       return `
-      <article class="mission-aircraft-card ${entry.id === this.state.activeMissionId ? "is-active" : ""}" data-mission-card="${entry.id}" tabindex="0" role="button" aria-pressed="${entry.id === this.state.activeMissionId ? "true" : "false"}">
+      <article class="mission-aircraft-card ${entry.id === this.state.activeMissionId ? "is-active" : ""}" data-mission-card="${entry.id}" tabindex="0" role="button" aria-pressed="${entry.id === this.state.activeMissionId ? "true" : "false"}" aria-disabled="${lockedAttr ? "true" : "false"}">
         <span class="mission-aircraft-media">
           <img src="/resource/simulation_sign.png" alt="" loading="lazy" />
         </span>
@@ -2227,11 +2238,11 @@ class SimulationWorkspace {
           <label class="mission-aircraft-controller mission-aircraft-setting mission-aircraft-time">
             <b>${this.t("departureTime")}</b>
             <span class="mission-time-input-group" data-mission-time-group="${escapeHtml(entry.id)}" role="group" aria-label="${this.t("departureTime")}">
-              <input type="text" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="2" value="${escapeHtml(departureHour)}" data-mission-departure-time-id="${entry.id}" data-mission-time-part="hours" aria-label="${this.t("timeHour")}" title="${this.t("timeHour")}" />
+              <input type="text" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="2" value="${escapeHtml(departureHour)}" data-mission-departure-time-id="${entry.id}" data-mission-time-part="hours" aria-label="${this.t("timeHour")}" title="${this.t("timeHour")}" ${lockedAttr} />
               <span class="mission-time-separator" aria-hidden="true">:</span>
-              <input type="text" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="2" value="${escapeHtml(departureMinute)}" data-mission-departure-time-id="${entry.id}" data-mission-time-part="minutes" aria-label="${this.t("timeMinute")}" title="${this.t("timeMinute")}" />
+              <input type="text" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="2" value="${escapeHtml(departureMinute)}" data-mission-departure-time-id="${entry.id}" data-mission-time-part="minutes" aria-label="${this.t("timeMinute")}" title="${this.t("timeMinute")}" ${lockedAttr} />
               <span class="mission-time-separator" aria-hidden="true">:</span>
-              <input type="text" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="2" value="${escapeHtml(departureSecond)}" data-mission-departure-time-id="${entry.id}" data-mission-time-part="seconds" aria-label="${this.t("timeSecond")}" title="${this.t("timeSecond")}" />
+              <input type="text" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="2" value="${escapeHtml(departureSecond)}" data-mission-departure-time-id="${entry.id}" data-mission-time-part="seconds" aria-label="${this.t("timeSecond")}" title="${this.t("timeSecond")}" ${lockedAttr} />
             </span>
           </label>
           <span class="mission-aircraft-controller mission-aircraft-setting">
@@ -2240,7 +2251,7 @@ class SimulationWorkspace {
           </span>
           <span class="mission-dynamics-options" data-mission-dynamics-row="${entry.id}">
             ${DYNAMICS_MODELS.map((model) => `
-              <button type="button" class="scenario-btn ${normalizeDynamicsModel(entry.dynamics) === model ? "is-active" : ""}" data-mission-dynamics-model="${model}" data-mission-dynamics-id="${entry.id}">
+              <button type="button" class="scenario-btn ${normalizeDynamicsModel(entry.dynamics) === model ? "is-active" : ""}" data-mission-dynamics-model="${model}" data-mission-dynamics-id="${entry.id}" ${lockedAttr}>
                 ${this.t(model)}
               </button>
             `).join("")}
@@ -2250,11 +2261,11 @@ class SimulationWorkspace {
             <i>${escapeHtml(this.missionControllerLabel(entry))}</i>
           </span>
           <span class="mission-controller-override" data-mission-controller-row="${entry.id}">
-            <button type="button" class="scenario-btn ${!entry.controllerOverride ? "is-active" : ""}" data-mission-controller-mode="" data-mission-controller-id="${entry.id}">
+            <button type="button" class="scenario-btn ${!entry.controllerOverride ? "is-active" : ""}" data-mission-controller-mode="" data-mission-controller-id="${entry.id}" ${lockedAttr}>
               ${this.t("inheritController")}
             </button>
             ${CONTROLLER_MODES.map((controller) => `
-              <button type="button" class="scenario-btn ${entry.controllerOverride === controller ? "is-active" : ""}" data-mission-controller-mode="${controller}" data-mission-controller-id="${entry.id}">
+              <button type="button" class="scenario-btn ${entry.controllerOverride === controller ? "is-active" : ""}" data-mission-controller-mode="${controller}" data-mission-controller-id="${entry.id}" ${lockedAttr}>
                 ${controller}
               </button>
             `).join("")}
@@ -2263,7 +2274,7 @@ class SimulationWorkspace {
         </span>
         <span class="mission-card-actions">
           <small>UAM ${index + 1}</small>
-          <button type="button" class="mission-card-delete" data-mission-delete="${entry.id}" title="${this.t("missionDeleteAircraft")}" aria-label="${this.t("missionDeleteAircraft")}">
+          <button type="button" class="mission-card-delete" data-mission-delete="${entry.id}" title="${this.t("missionDeleteAircraft")}" aria-label="${this.t("missionDeleteAircraft")}" ${lockedAttr}>
             ${simIcon("trash")}
           </button>
         </span>
@@ -2342,8 +2353,9 @@ class SimulationWorkspace {
                 <span>${this.t("missionEditing")}</span>
                 <strong data-mission-active-label>${escapeHtml(activeMission?.aircraftName || "-")}</strong>
               </div>
-              <button type="button" class="scenario-btn mission-add-btn" data-mission-action="add">${this.t("missionAddAircraft")}</button>
+              <button type="button" class="scenario-btn mission-add-btn" data-mission-action="add" ${this.isDemoScenarioLocked() ? "disabled" : ""}>${this.t("missionAddAircraft")}</button>
             </div>
+            <div class="scenario-hint mission-demo-lock-notice" data-demo-lock-notice ${this.isDemoScenarioLocked() ? "" : "hidden"}>${escapeHtml(this.demoScenarioLockNoticeText())}</div>
             <div class="mission-card-list" data-mission-list>${this.renderMissionCards()}</div>
             <div class="mission-status" data-mission-status-level="${this.missionStatusLevel()}" data-mission-status>${this.missionStatusText()}</div>
             <div class="mission-route-info-wrap" data-mission-route-info>${this.renderMissionRouteInfo()}</div>
@@ -3057,6 +3069,9 @@ class SimulationWorkspace {
   }
 
   addMissionAircraft() {
+    if (this.isDemoScenarioLocked()) {
+      return;
+    }
     this.missionEntryCount += 1;
     const nextEntry = createMissionAircraftEntry(this.missionEntryCount, normalizeDynamicsModel(this.state.dynamics));
     this.state.missionEntries = [...(this.state.missionEntries || []), nextEntry];
@@ -3127,6 +3142,9 @@ class SimulationWorkspace {
   }
 
   removeMissionAircraft(id) {
+    if (this.isDemoScenarioLocked()) {
+      return;
+    }
     const entries = Array.isArray(this.state.missionEntries) ? this.state.missionEntries : [];
     const removeIndex = entries.findIndex((entry) => entry.id === id);
     if (removeIndex < 0) {
@@ -3148,6 +3166,9 @@ class SimulationWorkspace {
   }
 
   setMissionDynamics(id, dynamics) {
+    if (this.isDemoScenarioLocked()) {
+      return;
+    }
     const entry = (this.state.missionEntries || []).find((item) => item.id === id);
     if (!entry) {
       return;
@@ -3161,6 +3182,9 @@ class SimulationWorkspace {
   }
 
   setMissionDepartureTime(id, value, options = {}) {
+    if (this.isDemoScenarioLocked()) {
+      return;
+    }
     const entry = (this.state.missionEntries || []).find((item) => item.id === id);
     if (!entry) {
       return;
@@ -3180,6 +3204,9 @@ class SimulationWorkspace {
   }
 
   setMissionControllerOverride(id, controller) {
+    if (this.isDemoScenarioLocked()) {
+      return;
+    }
     const entry = (this.state.missionEntries || []).find((item) => item.id === id);
     if (!entry) {
       return;
@@ -3193,6 +3220,9 @@ class SimulationWorkspace {
   }
 
   activateMissionEntry(id, options = {}) {
+    if (this.isDemoScenarioLocked()) {
+      return;
+    }
     const entry = (this.state.missionEntries || []).find((item) => item.id === id);
     if (!entry) {
       return;
@@ -3912,6 +3942,16 @@ class SimulationWorkspace {
   }
 
   syncMissionPlanningUi() {
+    const demoLocked = this.isDemoScenarioLocked();
+    const missionAddButton = this.container.querySelector("[data-mission-action='add']");
+    if (missionAddButton) {
+      missionAddButton.disabled = demoLocked;
+    }
+    const demoLockNotice = this.container.querySelector("[data-demo-lock-notice]");
+    if (demoLockNotice) {
+      demoLockNotice.hidden = !demoLocked;
+      demoLockNotice.textContent = demoLocked ? this.demoScenarioLockNoticeText() : "";
+    }
     const missionList = this.container.querySelector("[data-mission-list]");
     if (missionList) {
       missionList.innerHTML = this.renderMissionCards();
