@@ -1963,14 +1963,6 @@ class SimulationWorkspace {
       <div class="scenario-row scenario-row-single">
         <button type="button" class="scenario-btn" data-action="demo-weather">데모 날씨</button>
       </div>
-      <div class="scenario-title">데모 시나리오</div>
-      <div class="scenario-grid">
-        ${["", "S1", "S2", "S3"].map((id) => `
-          <button type="button" class="scenario-btn scenario-preset-btn ${(this.state.demoScenarioId || "") === id ? "is-active" : ""}" data-demo-scenario="${id}">
-            ${id || "없음"}
-          </button>
-        `).join("")}
-      </div>
       <div class="scenario-title">${this.t("localWind")}</div>
       <div class="scenario-row">
         <button type="button" class="scenario-btn scenario-toggle-btn ${this.state.gustApplyMode ? "is-active" : ""}" data-action="toggle-gust-apply">
@@ -2331,6 +2323,15 @@ class SimulationWorkspace {
     return `
       <div class="scenario-section scenario-section-tab mission-planning-section" data-panel-section="mission">
         <div class="scenario-title">${this.t("missionPlanning")}</div>
+        <div class="scenario-title">데모 시나리오</div>
+        <div class="scenario-grid">
+          ${["", "S1", "S2", "S3"].map((id) => `
+            <button type="button" class="scenario-btn scenario-preset-btn ${(this.state.demoScenarioId || "") === id ? "is-active" : ""}" data-demo-scenario="${id}">
+              ${id || "없음"}
+            </button>
+          `).join("")}
+        </div>
+        <div class="scenario-hint">데모 시나리오 선택 시 2002 DtamExecute 에 scenarioId 가 포함되고, 아래 비행체/임무 수동 편집이 잠깁니다. 임무 계획은 Mission 의 데모 플랜 팩이 일괄 발행합니다.</div>
         <div class="mode-option-grid">
           ${OPERATION_MODES.map((mode) => `
             <button type="button" class="mode-option-card ${this.state.operationMode === mode ? "is-active" : ""}" data-operation-mode="${mode}">
