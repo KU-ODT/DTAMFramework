@@ -10,8 +10,10 @@
 | Rate | Event-based |
 | DB Folder | `WindEffectData` |
 
-MSG 5004 is published by OperationModule (triggered by the "Demo Weather" button on the operator console) and distributes per-vehicle wind effect data based on a stored demo wind profile.
-VehicleModule uses 5004 for dynamics wind correction (WindModel preset/localZone), Visual uses it for visualization, and PSU uses it to correct trajectory prediction.
+> **Status: On hold (2026-06-11)** — No publisher currently exists. In the demo, wind is handled by the operator's 1002 weather selection plus the Vehicle's own wind generation. This ICD is retained as a contract for when per-vehicle wind effect sharing becomes necessary in the future.
+
+MSG 5004 distributes per-vehicle wind effect data (no publisher at present — see the hold notice above).
+When used, VehicleModule applies 5004 for dynamics wind correction (WindModel preset/localZone), Visual uses it for visualization, and PSU uses it to correct trajectory prediction.
 
 ## Payload example
 
@@ -65,9 +67,9 @@ VehicleModule uses 5004 for dynamics wind correction (WindModel preset/localZone
 
 ## Processing
 
-- OperationModule (operator console) publishes MSG 5004 using a stored demo wind profile when the "Demo Weather" button is triggered.
+- **No publisher (on hold)** — in the demo, wind is handled by the operator's 1002 weather selection (weather dock) plus the Vehicle's own wind generation; 5004 is not published.
 - IntegrationHub records 5004 and forwards it to all modules (Vehicle, Visual, PSU, Mission, Monitoring, SituationAwareness) according to the SDK forwarding policy (FORWARD_RULES). Any module needing wind data can simply override `on_wind_effect_data`.
-- VehicleModule uses 5004 for dynamics wind correction — `windPreset` maps to a WindModel preset and `localZone` maps to `WindModel.add_local_zone`.
-- Visual uses 5004 to visualize per-vehicle wind effects.
-- PSU uses 5004 to correct trajectory prediction (`crossTrackDriftM`, `alongTrackDeltaMps`, etc.).
+- (When used) VehicleModule may apply 5004 for dynamics wind correction — `windPreset` maps to a WindModel preset and `localZone` maps to `WindModel.add_local_zone`.
+- (When used) Visual may visualize per-vehicle wind effects from 5004.
+- (When used) PSU may use 5004 to correct trajectory prediction (`crossTrackDriftM`, `alongTrackDeltaMps`, etc.) — the current demo's conflict prediction uses 4001 only.
 - When `windSeed` is non-zero, the same seed must reproduce the same wind effects.

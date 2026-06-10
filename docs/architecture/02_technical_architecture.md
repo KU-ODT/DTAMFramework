@@ -213,7 +213,7 @@ flowchart TB
 | 4 | `1002` | 시뮬레이션 제어 | Play/Pause/Reset/Speed/Weather |
 | 5 | `0003`, `4001`, `4002`, `4101`, `4102`, `4103` | 시간·상태·경고·영상·충돌 | State/Vehicle/Visualization → UI/AI/DB/PSU |
 | 6 | `3002`, `3003` | 전략/전술 분리 | Mission/운영 판단 → Vehicle |
-| 7 | `5001`, `5002`, `5003`, **`5004`** | 운영자 제어·환경 | 수동 조종, 카메라 제어, 이상상황, 바람 영향 데이터 (★신규) |
+| 7 | `5001`, `5002`, `5003`, **`5004`** | 운영자 제어·환경 | 수동 조종, 카메라 제어, 이상상황, 바람 영향 데이터 (★신규 — **보류: 발행처 없음, Vehicle 자체 바람 생성으로 대체**) |
 
 ---
 
@@ -250,7 +250,7 @@ PSU(Provider of Services for UAM)는 UAM 교통 흐름과 회랑(corridor) 운�
 - role = `psu`, 수신 ICD: `4001 VehicleStatus`, `4002 VehicleWarningEvent`, `5004 WindEffectData`
 - 4001 로 비행체 실시간 상태를 받아 회랑/capacity 모니터링에 사용
 - 4002 로 비행체 측 이상 이벤트를 직접 수신하여 재계획 의사결정에 활용
-- 5004 로 운영자가 주입한 바람 영향 데이터를 수신하여 회랑 영향 분석에 활용
+- 5004 WindEffectData 는 **보류 (발행처 없음 — Vehicle 자체 바람 생성으로 대체)**; 현 데모의 충돌 예측은 4001 스트림만 사용
 - 전술 개입(tactical intervention)이 필요할 경우 `3003 TacticalSeparation` 을 **직접 발행** (즉시 land/directTo)
 - 전략 재계획이 필요할 경우 `2001 FlightPlanRequest` 를 `triggeringEventId` 와 함께 발행 (보조 경로, strategic re-plan trigger)
 
@@ -279,7 +279,7 @@ PSU(Provider of Services for UAM)는 UAM 교통 흐름과 회랑(corridor) 운�
 | `5001` | Operation | Vehicle | 수동 조종 입력 |
 | `5002` | Operation | Visualization | 카메라 제어 |
 | `5003` | Operation | Visualization | 이상상황/장애물 주입 |
-| **`5004`** | **Operation** | **전 모듈 (Vehicle, Visualization, PSU, Mission, Monitoring, SA)** ★전체 개방 | **바람 영향 데이터** |
+| **`5004`** | **(보류 — 발행처 없음)** | **전 모듈 (Vehicle, Visualization, PSU, Mission, Monitoring, SA)** ★전체 개방 | **바람 영향 데이터 (보류 — 발행처 없음, Vehicle 자체 바람 생성으로 대체)** |
 
 ### SDK FORWARD_RULES (정식 정의 — `DTAMSDK/dtam_client/policy.py`)
 
@@ -297,7 +297,7 @@ PSU(Provider of Services for UAM)는 UAM 교통 흐름과 회랑(corridor) 운�
 0003 → [vehicle, visual]
 4101 → [monitoring, situation_awareness]
 4103 → [vehicle, monitoring, situation_awareness]
-5004 → [vehicle, visual, psu, mission, monitoring, situation_awareness]  # 바람 데이터 전 모듈 개방
+5004 → [vehicle, visual, psu, mission, monitoring, situation_awareness]  # 바람 데이터 전 모듈 개방 (보류 — 발행처 없음)
 ```
 
 ---

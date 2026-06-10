@@ -10,8 +10,10 @@
 | 주기 | 이벤트 기반 |
 | DB Folder | `WindEffectData` |
 
-MSG 5004는 OperationModule(운영자 콘솔)의 "데모 날씨" 버튼 트리거로 발행되며, 보유한 데모 바람 프로파일을 사용해 각 기체별 바람 영향 데이터를 배포하는 메시지입니다.
-VehicleModule은 dynamics 바람 보정(WindModel preset/localZone)에, Visual은 시각화에, PSU는 궤적 예측 보정에 5004를 사용합니다.
+> **상태: 보류 (2026-06-11)** — 현재 발행처 없음. 데모에서 바람은 운영자의 1002 날씨 선택 + Vehicle 자체 바람 생성으로 처리. 본 ICD 는 향후 기체별 바람 영향 공유가 필요할 때를 위한 계약으로 유지.
+
+MSG 5004는 각 기체별 바람 영향 데이터를 배포하는 메시지입니다 (현재 발행처 없음 — 상단 보류 공지 참조).
+활용 시 VehicleModule은 dynamics 바람 보정(WindModel preset/localZone)에, Visual은 시각화에, PSU는 궤적 예측 보정에 5004를 사용할 수 있습니다.
 
 ## Payload 예시
 
@@ -65,9 +67,9 @@ VehicleModule은 dynamics 바람 보정(WindModel preset/localZone)에, Visual�
 
 ## 처리 방식
 
-- OperationModule(운영자 콘솔)은 "데모 날씨" 버튼 트리거 시 보유한 데모 바람 프로파일을 사용해 MSG 5004를 발행합니다.
+- **발행처 없음 (보류)** — 데모에서 바람은 운영자의 1002 날씨 선택(기상 dock) + Vehicle 자체 바람 생성으로 처리되며, 5004 는 발행되지 않습니다.
 - IntegrationHub는 5004를 기록하고 SDK forwarding policy(FORWARD_RULES)에 따라 전 모듈(Vehicle, Visual, PSU, Mission, Monitoring, SituationAwareness)로 전달합니다. 바람 정보가 필요한 모듈은 `on_wind_effect_data` 를 override 하면 즉시 활용 가능합니다.
-- VehicleModule은 5004를 dynamics 바람 보정에 사용합니다 — `windPreset`은 WindModel preset으로, `localZone`은 `WindModel.add_local_zone`으로 적용합니다.
-- Visual은 5004를 기체별 바람 영향 시각화에 사용합니다.
-- PSU는 5004를 궤적 예측 보정에 사용합니다 (`crossTrackDriftM`, `alongTrackDeltaMps` 등).
+- (활용 시) VehicleModule은 5004를 dynamics 바람 보정에 사용할 수 있습니다 — `windPreset`은 WindModel preset으로, `localZone`은 `WindModel.add_local_zone`으로 적용합니다.
+- (활용 시) Visual은 5004를 기체별 바람 영향 시각화에 사용할 수 있습니다.
+- (활용 시) PSU는 5004를 궤적 예측 보정에 사용할 수 있습니다 (`crossTrackDriftM`, `alongTrackDeltaMps` 등) — 현 데모의 충돌 예측은 4001 만 사용합니다.
 - `windSeed`가 0이 아니면 동일 시드로 동일한 바람 효과가 재현되어야 합니다.

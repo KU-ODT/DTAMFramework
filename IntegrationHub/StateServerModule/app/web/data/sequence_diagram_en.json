@@ -776,48 +776,41 @@
     {
       "from": "monitoring",
       "to": "sim_state",
-      "id": "5004",
-      "name": "Wind Effect Data",
+      "id": "1002",
+      "name": "Simulation Setup",
       "proto": "ws",
-      "note": "demo weather trigger"
+      "note": "wind grade=serious — operator weather selection (existing feature)"
     },
     {
       "from": "sim_state",
       "to": "db",
-      "id": "5004",
-      "name": "Wind Effect Data",
+      "id": "1002",
+      "name": "Simulation Setup",
       "proto": "file",
       "note": "save"
     },
     {
       "from": "sim_state",
       "to": "vehicle",
-      "id": "5004",
-      "name": "Wind Effect Data",
+      "id": "1002",
+      "name": "Simulation Setup",
       "proto": "ws",
-      "note": "wind applied to dynamics"
+      "note": "vehicle generates its own wind"
     },
     {
       "from": "sim_state",
       "to": "visual",
-      "id": "5004",
-      "name": "Wind Effect Data",
+      "id": "1002",
+      "name": "Simulation Setup",
       "proto": "ws",
       "note": "forward"
-    },
-    {
-      "from": "sim_state",
-      "to": "psu",
-      "id": "5004",
-      "name": "Wind Effect Data",
-      "proto": "ws",
-      "note": "wind for trajectory prediction"
     },
     {
       "from": "psu",
       "to": "psu",
       "name": "trajectory prediction / conflict detection",
-      "proto": "internal"
+      "proto": "internal",
+      "note": "from 4001 stream"
     },
     {
       "from": "psu",

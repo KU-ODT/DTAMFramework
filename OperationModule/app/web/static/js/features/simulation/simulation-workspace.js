@@ -1966,9 +1966,6 @@ class SimulationWorkspace {
           </button>
         `).join("")}
       </div>
-      <div class="scenario-row scenario-row-single">
-        <button type="button" class="scenario-btn" data-action="demo-weather">데모 날씨</button>
-      </div>
       <div class="scenario-title">${this.t("localWind")}</div>
       <div class="scenario-row">
         <button type="button" class="scenario-btn scenario-toggle-btn ${this.state.gustApplyMode ? "is-active" : ""}" data-action="toggle-gust-apply">
@@ -2743,14 +2740,6 @@ class SimulationWorkspace {
         this.updateWindVisualization();
         this.scheduleWeatherIcdSend({ immediate: true });
       });
-    });
-
-    this.container.querySelector("[data-action='demo-weather']")?.addEventListener("click", () => {
-      this.state.windGrade = "serious";
-      this.refresh();
-      this.updateWindVisualization();
-      this.sendDemoWeatherIcd();
-      this.scheduleWeatherIcdSend({ immediate: true });
     });
 
     this.container.querySelectorAll("[data-demo-scenario]").forEach((button) => {
@@ -8090,47 +8079,6 @@ class SimulationWorkspace {
       // the ICD to VisualizationModule whenever it is connected.
       skipExecutionArm: true,
     });
-  }
-
-  async sendDemoWeatherIcd() {
-    const vehicles = Array.isArray(this.uamVehicles) && this.uamVehicles.length > 0 ? this.uamVehicles : [null];
-    const vehicleWindEffects = vehicles.map((vehicle, index) => {
-      const id = (vehicle && this.uamVehicleId(vehicle)) || "UAM0001";
-      const effect = {
-        aircraftId: id,
-        windSpeedMps: 7.5,
-        windDirFromDeg: 270,
-        gustFactor: 1.3,
-        crossTrackDriftM: 120,
-        alongTrackDeltaMps: -2.0,
-      };
-      if (index === 0) {
-        const lngLat = vehicle
-          ? this.uamVehicleMarkerPositions.get(id) || this.uamVehicleLngLat(vehicle)
-          : null;
-        effect.localZone = {
-          lat: lngLat ? lngLat[1] : 37.53,
-          lon: lngLat ? lngLat[0] : 126.98,
-          radiusM: 3000,
-          preset: "serious",
-        };
-      }
-      return effect;
-    });
-    try {
-      await postJSON("/api/v1/icd/5004/send", {
-        payload: {
-          timestamp: new Date().toISOString(),
-          profileId: "DEMO_WIND_01",
-          windGrade: "serious",
-          windPreset: "bad",
-          windSeed: 20260610,
-          vehicleWindEffects,
-        },
-      });
-    } catch (error) {
-      console.warn("MSG 5004 demo weather send failed", error);
-    }
   }
 
   async sendCurrentPayload(options = {}) {

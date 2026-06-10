@@ -776,48 +776,41 @@
     {
       "from": "monitoring",
       "to": "sim_state",
-      "id": "5004",
-      "name": "바람 영향 데이터",
+      "id": "1002",
+      "name": "시뮬레이션 설정",
       "proto": "ws",
-      "note": "데모 날씨 트리거"
+      "note": "바람 등급 serious — 운영자 날씨 선택 (기존 기능)"
     },
     {
       "from": "sim_state",
       "to": "db",
-      "id": "5004",
-      "name": "바람 영향 데이터",
+      "id": "1002",
+      "name": "시뮬레이션 설정",
       "proto": "file",
       "note": "저장"
     },
     {
       "from": "sim_state",
       "to": "vehicle",
-      "id": "5004",
-      "name": "바람 영향 데이터",
+      "id": "1002",
+      "name": "시뮬레이션 설정",
       "proto": "ws",
-      "note": "바람 dynamics 적용"
+      "note": "Vehicle 자체 바람 생성"
     },
     {
       "from": "sim_state",
       "to": "visual",
-      "id": "5004",
-      "name": "바람 영향 데이터",
+      "id": "1002",
+      "name": "시뮬레이션 설정",
       "proto": "ws",
       "note": "포워딩"
-    },
-    {
-      "from": "sim_state",
-      "to": "psu",
-      "id": "5004",
-      "name": "바람 영향 데이터",
-      "proto": "ws",
-      "note": "궤적 예측 바람 반영"
     },
     {
       "from": "psu",
       "to": "psu",
       "name": "궤적 예측 / 충돌 감지",
-      "proto": "internal"
+      "proto": "internal",
+      "note": "4001 스트림 기반"
     },
     {
       "from": "psu",
