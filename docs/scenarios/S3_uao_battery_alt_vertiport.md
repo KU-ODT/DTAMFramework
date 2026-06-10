@@ -197,33 +197,84 @@ T+32:00  User       → SERVER     [1002]  SimulationSetup (pause)
 > **참고**: 전략 재계획(2001 확장 — `reasonCode`/`triggeringEventId`/`arrivalVertiportHint` 필드) 경로는
 > SDK 인터페이스에 유지되지만, 본 데모 시나리오에서는 사용하지 않는다. 3001 v2(rerouted) 발행도 없다.
 
-## 4. 모듈별 책임
+## 4. 모듈별 동작 → 발행 메시지
 
-- **VehicleModule (VEHICLE) — UAO 겸업**
-  - `on_dtam_execute`에서 2002의 `scenarioId="S3"` 수신 시 **배터리 열화 프로필 활성화 + UAO 겸업 판단 로직(4002 발행 임계/긴급 대응 정책) 무장(arm)**.
-  - 자가 진단(self-diagnostic) 루프에서 `energy.battery_pct < threshold.critical_pct` 위반 감지 시 4002(critical, BATTERY_VOLTAGE_LOW)를 발행한다 — **이 4002 발행 판단은 UAO 책임의 위임 수행(embedded UAO role)**.
-  - 4001 telemetry(10 Hz)를 지속 publish.
-  - PSU가 발행한 3003(land, IMMEDIATE)을 수신/실행 — 정상 plan 시퀀스를 중단하고 land action을 우선 처리.
-  - 착륙 완료 후 동일 eventId로 4002 status="cleared" 발행.
-- **MissionModule (MISSION)**
-  - 3003을 수신(`on_tactical_separation`)하면 자기 비행계획 fpn=1201을 **superseded로 마킹** (plan 정합성 추적).
-  - **본 시나리오에서 메시지 발행 없음** — 3001 v2 재발행, 2001 응답 등 일절 없음.
-- **OperationModule / Monitoring (MONITORING)**
-  - 4002(warning/critical/cleared), 3003(land)을 수신하여 UI에 표출.
-  - 운항자(UAO) 콘솔에 critical 경보, 착륙 명령 출처(PSU), 새 도착지(VP_KU)를 시각/청각 알람으로 안내.
-- **VisualizationModule (VISUAL)**
-  - 1003으로 vertiport(VP_YEOUIDO, VP_JAMSIL, VP_KU)와 routeNetwork 로드.
-  - 3003 land 수신 시 강조 표시 및 카메라 트래킹.
-- **PSU (Provider of Services for UAM)**
-  - 4002 critical(LOW_BATTERY / BATTERY_VOLTAGE_LOW / BATTERY_OVERHEAT 등 energy 계열) 수신을 우선 이벤트 리스트에서 처리.
-  - 현재 position과 vertiport DB의 거리/availability/class를 비교, alternate vertiport 선정 알고리즘으로 VP_KU 결정.
-  - **3003 TacticalSeparation(land)을 직접 발행** — `reasonCode=LOW_BATTERY`, `actions=[{type:"land", vertiport:"VP_KU", fatoNumber:"FATO_A", targetLLA}]`. **대체 vertiport에 대한 dispatch 권한(authority)은 본 시나리오에서 PSU가 보유**.
+> §2 timeline 이 전체 흐름(시간순)이라면, 본 절은 **모듈 관점 재구성** — 각 모듈 개발자는
+> 자기 모듈의 표만 보고 "어떤 트리거에 어떤 동작을 하고 무엇을 발행하는지" 구현할 수 있다.
+> 모든 행은 `트리거 → 동작 → 발행` 3단 인과로 기술하며, 발행이 없으면 명시한다.
+
+### 4.1 VehicleModule (VEHICLE) — UAO 겸업
+
+| # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
+|---|---|---|---|
+| 1 | **3001** v1 수신 (fpn=1201) | plan 을 mission state machine 에 로드 — VP_YEOUIDO→VP_JAMSIL 정상 운항 준비 | (없음 — 수신만) |
+| 2 | **2002** 수신 (scenarioId=S3) | `on_dtam_execute`에서 `scenarioId` 분기: **배터리 열화 프로필 활성화 + UAO 겸업 판단 로직(4002 발행 임계/긴급 대응 정책) 무장(arm)** | (없음 — 내부 처리) |
+| 3 | 비행 중 (내부, 10Hz tick) | 위치/자세/에너지 상태 산출 | **4001** VehicleStatus (10 Hz) |
+| 4 | 배터리 18.0% (내부 자가 진단) | warning 임계(20%) 위반 판정 — return_to_base 권고 | **4002** (warning) LOW_BATTERY, status=active |
+| 5 | 배터리 9.4% (내부 자가 진단) | critical 임계(10%) 위반 판정 — UAO 겸업 정책으로 emergency_landing 권고 | **4002** (critical) BATTERY_VOLTAGE_LOW, status=active, availableDistance=4200.0 |
+| 6 | **3003** land 수신 (PSU 발행) | 정상 plan 시퀀스 중단, land action 우선 실행 — VP_KU FATO_A 향해 즉시 강하(descent) | **4001** navigation=divert_to_VP_KU 반영 (10 Hz 지속) |
+| 7 | 착륙 완료 (내부 — VP_KU FATO_A onGround, motor_rpm→0) | 동일 eventId 로 critical 이벤트 종결 | **4002** (cleared) eventId 동일, recommendedAction=continue |
+
+자가 진단(self-diagnostic) 루프의 4002 발행 판단은 **UAO 책임의 위임 수행(embedded UAO role)** —
+UAO 는 별도 모듈이 아니라 VehicleModule 이 겸업한다(사용자 결정). 임계값(warning 20% / critical 10%)은
+§6.3 의 `thresholds.battery` 를 시작 시점에 읽어 사용하며, 대체 vertiport dispatch 권한은 PSU 가 보유한다.
+
+### 4.2 PSU (Provider of Services for UAM)
+
+| # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
+|---|---|---|---|
+| 1 | **4002** (warning) 수신 (battery 18.0%) | 아직 critical 아님 — 이벤트 리스트 등재 후 관찰만 | (없음 — 수신만) |
+| 2 | **4002** (critical) 수신 (battery 9.4%, BATTERY_VOLTAGE_LOW) | 현재 position 기준 가용 vertiport 분석(거리/availability/class) — 후보 [VP_KU, VP_JAMSIL, VP_YEOUIDO] 중 가장 가까운 VP_KU 선정 (내부 판단, T+25:01) | **3003** TacticalSeparation (IMMEDIATE land) — reasonCode=LOW_BATTERY, actions=[{type:"land", vertiport:"VP_KU", fatoNumber:"FATO_A", targetLLA}] |
+| 3 | **4002** (cleared) 수신 | 동일 eventId 이벤트 종결 처리 | (없음 — 수신만) |
+
+4002 critical 중 energy 계열(LOW_BATTERY / BATTERY_VOLTAGE_LOW / BATTERY_OVERHEAT 등)은 우선 이벤트
+리스트에서 처리한다. **대체 vertiport 에 대한 dispatch 권한(authority)은 본 시나리오에서 PSU 가 보유** —
+전략 재계획(2001 확장 → Mission → 3001 v2) 경로를 우회하는 전술 즉시 개입이다.
+
+### 4.3 MissionModule (MISSION)
+
+| # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
+|---|---|---|---|
+| 1 | **2001** 수신 (base, T+00:02) | UAM0001 정상 운항 비행계획 산출 — VP_YEOUIDO→VP_JAMSIL | **3001** ScheduledFlight v1 (fpn=1201, planVersion=1, planStatus=active) |
+| 2 | **3003** 수신 (PSU 발행) | `on_tactical_separation` — 자기 비행계획 fpn=1201 을 **superseded 로 마킹** (plan 정합성 추적) | (없음 — 내부 처리) |
+
+PSU 개입 이후 **본 시나리오에서 메시지 발행 없음** — 3001 v2(rerouted) 재발행, 2001 응답 등 일절 없음.
+
+### 4.4 OperationModule / Monitoring (MONITORING)
+
+| # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
+|---|---|---|---|
+| 1 | **4002** (warning/critical) 수신 | UI alert 표출 — 운항자(UAO) 콘솔에 critical 경보를 시각/청각 알람으로 안내 | (없음 — 수신만) |
+| 2 | **3003** (land) 수신 | 착륙 명령 출처(PSU)와 새 도착지(VP_KU) 안내 — "PSU: tactical land → VP_KU", "UAO: informed" 이벤트를 시간순 로그 기록 | (없음 — 수신만) |
+| 3 | **4002** (cleared) 수신 | 경보 종결 표출 | (없음 — 수신만) |
+
+### 4.5 IntegrationHub (SIM_STATE — forward/DB 저장)
+
+| # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
+|---|---|---|---|
+| 1 | **2002** 수신 | FORWARD_RULES["2002"] 조회 + DB 저장 | **2002** → mission/monitoring/vehicle/visual/situation_awareness forward |
+| 2 | **3001** 수신 | FORWARD_RULES["3001"] 조회 + DB 저장 (plan 이력) | **3001** → vehicle/visual forward |
+| 3 | **4001** 수신 (10 Hz) | FORWARD_RULES["4001"] 조회 + DB 저장 — 고주기 메시지는 latest-only forward | **4001** → monitoring/visual/situation_awareness/psu forward |
+| 4 | **4002** 수신 (warning/critical/cleared) | FORWARD_RULES["4002"] 조회 + DB 저장 | **4002** → monitoring/situation_awareness/psu forward |
+| 5 | **3003** 수신 (PSU 발행) | FORWARD_RULES["3003"] 조회 + DB 저장 | **3003** → vehicle/mission forward |
+
+### 4.6 VisualizationModule (VISUAL)
+
+| # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
+|---|---|---|---|
+| 1 | **1003** 수신 | vertiport 3개(VP_YEOUIDO, VP_JAMSIL, VP_KU) + routeNetwork 로드 | (없음 — 수신만) |
+| 2 | **3001** v1 수신 | 정상 비행 plan 표시 | (없음 — 수신만) |
+| 3 | **4001** 수신 (10 Hz) | 기체 위치/자세 렌더링 | (없음 — 수신만) |
+| 4 | **3003** (land) 수신 | 비상 착륙 강조 표시 + VP_KU 카메라 트래킹 | (없음 — 수신만) |
+
+### 4.7 (참고) UAO / VPO — 메시지 없는 역할
+
 - **UAO (UAM Air Operator)**
   - **별도 모듈 없음 — VehicleModule 겸업**(사용자 결정). UAO 판단 로직(4002 발행 임계 판정/긴급 대응 정책)은 VehicleModule 내부에 들어가며, 2002 `scenarioId="S3"` 수신 시 무장된다.
   - **informed/사후 정산 부분만 명목상 UAO 명의로 남는다** — MONITORING 콘솔 표출(4002 critical, PSU 의사결정, 3003 land 인지) 및 정산, 사고 보고, 보험, 승객 케어 등 post-hoc accountability.
   - **대체 vertiport 선정/디스패치 권한은 여전히 PSU가 행사**(사용자 결정).
   - 주의: PSU의 안전/항공교통 의사결정 권한과 UAO의 운항/계약 책임은 분리해 해석할 것 (혼동 금지).
-- **(참고) VPO (Vertiport Operator)**
+- **VPO (Vertiport Operator)**
   - 본 시나리오에서는 명시적 메시지 송수신 없음. 향후 vertiport availability를 동적으로 PSU에 공급하는 역할로 확장 가능.
 
 ## 5. 검증 가능한 결과 (acceptance criteria)

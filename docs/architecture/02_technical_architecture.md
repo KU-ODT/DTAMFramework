@@ -321,7 +321,7 @@ PSU(Provider of Services for UAM)는 UAM 교통 흐름과 회랑(corridor) 운�
 
 ## 2002 DtamExecute — scenarioId extension
 
-`2002 DtamExecute` 는 optional 필드 `scenarioId` (`"S1" | "S2" | "S3"`) 를 가지도록 확장되었다. Operation Console 이 실행 시점에 현재 시나리오 식별을 전달하면, Vehicle 은 `on_dtam_execute` 에서 이 값으로 동작 모드를 분기한다 — S1 정상 / S2 바람 영향 수용 모드 / S3 배터리 열화 프로필 활성화 + UAO 겸업 판단 로직 무장 (**UAO 역할은 별도 모듈이 아니라 VehicleModule 이 겸업** — 운항사 판단 로직이 Vehicle 모듈 안에 포함, 사용자 확정). `scenarioId` 가 None 이면 wire 에서 omit 되어 기존 payload 와 호환되며 (`from_wire()` 는 unknown key 무시), forwarding 규칙은 변경되지 않는다 — Vehicle 은 기존 2002 수신자.
+`2002 DtamExecute` 는 optional 필드 `scenarioId` (`"S1" | "S2" | "S3"`) 를 가지도록 확장되었다. Operation Console 이 실행 시점에 현재 시나리오 식별을 전달하면, Vehicle 은 `on_dtam_execute` 에서 이 값으로 동작 모드를 분기한다 — S1 정상 / S2 특별 무장 없음 (정보성 — S2 는 PSU 속도 조정 재계획 시나리오로, 바람 5004 와 3003 setSpeed 는 시나리오 무관 표준 메시지 처리) / S3 배터리 열화 프로필 활성화 + UAO 겸업 판단 로직 무장 (**UAO 역할은 별도 모듈이 아니라 VehicleModule 이 겸업** — 운항사 판단 로직이 Vehicle 모듈 안에 포함, 사용자 확정). Vehicle 측 시나리오 전용 분기는 S3 뿐이다. `scenarioId` 가 None 이면 wire 에서 omit 되어 기존 payload 와 호환되며 (`from_wire()` 는 unknown key 무시), forwarding 규칙은 변경되지 않는다 — Vehicle 은 기존 2002 수신자.
 
 ---
 

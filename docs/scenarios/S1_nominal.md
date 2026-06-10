@@ -318,35 +318,110 @@ T+45:45  user(OpsConsole) → SERVER  [1002]  Simulation Setup (reset)
 
 ---
 
-## 4. 모듈별 책임
+## 4. 모듈별 동작 → 발행 메시지
 
-- **VehicleModule (Air Mobility, UAM0001)**:
-  - `0001` 자기 등록, `0002` 1 Hz 상태 보고
-  - `1002 playState="play"` 수신 후 sim clock 따라 비행 state machine 가동
-  - `3001` plan 수신 → 내부 mission queue 에 enRoute seq=1..4 load
-  - `0003` CommonTime 으로 시계 sync, `4001` 10 Hz 발행 (정상 비행 trajectory)
-  - **S1 에서는 4002 / 4103 발행하지 않음** (이상/충돌 없음)
-  - UAO 역할은 별도 모듈이 아니라 VehicleModule 이 겸업 — UAO (Vehicle 모듈 겸업) 는 본 시나리오에서는 관찰만
-- **MissionModule (Mission Planner)**:
-  - `2001` 수신 → baseline 비행계획 생성, `3001` planVersion=1 발행
-  - S1 에서는 `3002` / `3003` 재계획/전술적 분리 발행하지 않음
-- **OperationModule (Monitoring / Ops Console)**:
-  - 모든 `0001`/`0002` 수신하여 모듈 상태 대시보드 업데이트
-  - `4001`/`4101`/`4002` 수신 (S1 에서 4002 는 0건)
-  - user actor 로서 `1001`/`1003`/`2001`/`1002`/`2002` 발행
-- **VisualizationModule (Unreal/AirSim)**:
-  - `1003` 수신 시 vertiport actor 배치 (Yeouido / Jamsil), routeNetwork waypoint 시각화
-  - `1002 play` 이후 sim clock 따라 scene 진행
-  - `3001` 수신해 trajectory 시각화
-  - `4101` Camera Image Frame 5 Hz 발행 (UAM0001 front cam, scene 타입)
-- **PSU (Provider of Services for UAM)**:
-  - `4002` Vehicle Warning Event 수신 listener만 구독 — **S1 에서는 한 건도 수신하지 않음**
-  - 어떤 우선순위 이벤트 처리 / 2001 재요청도 발행하지 않음
-- **SimStateModule**:
-  - `1001`/`1002`/`1003` 수신해 내부 sim time/mode 관리
-  - `0003` CommonTime 1 Hz emit (T+00:30 이후 sim clock 가동)
-- **SituationAwareness**:
-  - `4001`/`4101`/`4103` 수신해 SA 화면 갱신 (S1 에선 4103 0건)
+각 모듈 표는 "트리거 (수신 메시지/내부 이벤트) → 동작 → 동작 후 발행 메시지" 3단 인과로
+시간순 정렬되어 있다. 모듈 개발자는 자기 모듈 표만 보고 S1 동작을 구현할 수 있어야 한다.
+전체 시간 흐름은 §2 timeline 참조.
+
+### 4.1 OperationModule (Ops Console, MONITORING)
+
+| # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
+|---|---|---|---|
+| 1 | 모듈 부팅 (내부) | Ops Console 자기 식별 등록 | **0001** ModuleSettingInfo (moduleId="OPS-Console", role="MONITORING") |
+| 2 | 부팅 완료 (내부, 1 Hz tick) | heartbeat 상태 보고 시작 | **0002** ModuleStatus (state="READY", 1 Hz) |
+| 3 | 0001/0002 수신 (전 모듈, forward) | 모듈 상태 대시보드 업데이트 | (없음 — 수신만) |
+| 4 | 운용자 입력 (T+00:10) | 단일 비행 모드 설정 — UAM0001 Yeouido→Jamsil 미션 정의 | **1001** SimModeSetup (operationMode="single", activeMissionId="UAM0001") |
+| 5 | 운용자 입력 (T+00:15) | 시나리오 파일 로딩 지시 — vertiport 2개 + waypoint 5개 | **1003** ScenarioSetup (scenarioFileName="S1_nominal.json") |
+| 6 | 운용자 입력 (T+00:20) | baseline 초기 비행계획 요청 | **2001** FlightPlanRequest (flightPlanNumber=null, reasonCode=null) |
+| 7 | 운용자 입력 (T+00:25) | sim clock 가동 지시 | **1002** SimulationSetup (playState="play", playbackSpeed=8) |
+| 8 | 운용자 입력 (T+00:28) | DTAM 본 실행 — 실제 비행 시작 | **2002** DtamExecute (scenarioId="S1") |
+| 9 | 4001 수신 (10 Hz) / 4101 수신 (5 Hz) | 비행 상태·카메라 패널 갱신, warning panel 비어 있음 유지 | (없음 — 수신만) |
+| 10 | 착륙 확인 (T+45:40, 운용자 입력) | 시뮬레이션 일시정지 | **1002** (playState="pause") |
+| 11 | 운용자 입력 (T+45:45) | 시나리오 정상 종료 | **1002** (playState="reset") |
+
+> user actor 로서 `1001`/`1003`/`2001`/`1002`/`2002` 발행 주체. `4002` listener 도 구독하지만
+> S1 에서는 4002 수신 0건 — warning panel 은 시나리오 종료까지 비어 있어야 한다 (§5).
+
+### 4.2 IntegrationHub (SERVER + sim_state)
+
+| # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
+|---|---|---|---|
+| 1 | sim_state 부팅 (내부) | 자기 식별 등록 + heartbeat 시작 | **0001** (moduleId="SIM-State") + **0002** (1 Hz) |
+| 2 | 0001 수신 (각 모듈 부팅, ×6) | FORWARD_RULES[0001]=[MONITORING] 조회 + DB 저장 | **0001** → MONITORING forward |
+| 3 | 0002 수신 (전 모듈, 1 Hz) | FORWARD_RULES 조회 + DB 저장 | **0002** → MONITORING forward |
+| 4 | 1001 수신 | forward + DB 저장; sim_state 가 단일 비행 모드로 내부 상태 설정 | **1001** → SIM_STATE forward |
+| 5 | 1003 수신 | forward + DB 저장; sim_state 시나리오 컨텍스트 로드 | **1003** → SIM_STATE/VISUAL forward |
+| 6 | 2001 수신 | FORWARD_RULES[2001]=[MISSION] 조회 + DB 저장 | **2001** → MISSION forward |
+| 7 | 3001 수신 | forward + DB 저장 | **3001** → VEHICLE/VISUAL forward |
+| 8 | 1002 수신 (playState="play") | forward + DB 저장; sim_state sim clock 가동 준비 | **1002** → VEHICLE/VISUAL/SIM_STATE forward |
+| 9 | 2002 수신 | 5-target fan-out + DB 저장 | **2002** → MISSION/MONITORING/VEHICLE/VISUAL/SA fan-out |
+| 10 | sim clock 가동 (내부, 1 Hz, T+00:30~) | sim_state 가 sim 시각 산출 — 전 모듈 시계 sync 기준 | **0003** CommonTimeInfo (simSecondsOfDay, playbackSpeed=8, 1 Hz) → VEHICLE/VISUAL forward |
+| 11 | 4001 수신 (10 Hz) | forward + DB 저장 | **4001** → MONITORING/VISUAL/SA fan-out |
+| 12 | 4101 수신 (5 Hz) | forward + DB 저장 | **4101** → MONITORING/SA forward |
+| 13 | 1002 수신 (pause/reset, T+45:40/45:45) | forward; sim_state sim clock 정지/리셋 | **1002** → VEHICLE/VISUAL/SIM_STATE forward |
+
+> sim_state 는 IntegrationHub 측 역할 — `1001`/`1002`/`1003` 을 소비해 내부 sim time/mode 를 관리하고
+> `0003` CommonTime 1 Hz emitter 를 담당. S1 에서는 4002/4103/3002/3003 forward 트래픽이 0건이다.
+
+### 4.3 MissionModule (Mission Planner)
+
+| # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
+|---|---|---|---|
+| 1 | 모듈 부팅 (내부) | 자기 식별 등록 + heartbeat 시작 | **0001** (moduleId="MIS-Planner") + **0002** (1 Hz) |
+| 2 | 2001 수신 (reasonCode=null) | baseline 비행계획 생성 — Yeouido→Jamsil, enRoute seq=1..4 | **3001** ScheduledFlight (flightPlanNumber=1001, planVersion=1, planStatus="active") |
+| 3 | 2002 수신 (scenarioId="S1") | 시나리오 컨텍스트 인지 — S1 은 재계획 트리거 없음 | (없음 — 내부 처리) |
+| 4 | 비행 중 (대기) | 재계획 요청 수신 대기 상태 유지 | (없음 — S1 에서 3002/3003 발행 0건) |
+
+> S1 에서는 `3002` 재계획 / `3003` 전술적 분리를 발행하지 않는다. `2001` 1회 → `3001` 1회가 전부.
+
+### 4.4 VehicleModule (Air Mobility UAM0001, UAO 겸업)
+
+| # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
+|---|---|---|---|
+| 1 | 모듈 부팅 (내부) | 자기 식별 등록 | **0001** (moduleId="VEH-UAM0001", role="VEHICLE") |
+| 2 | 부팅 완료 (내부, 1 Hz tick) | heartbeat 상태 보고 | **0002** (state="READY", 1 Hz) |
+| 3 | 3001 수신 | plan 을 내부 mission state machine 에 로드 — enRoute seq=1..4 mission queue 적재 | (없음 — 수신만) |
+| 4 | 1002 수신 (playState="play") | sim clock 따라 비행 state machine 가동 | (없음 — 내부 처리) |
+| 5 | 2002 수신 (scenarioId="S1") | 비행 시작 — S1 은 이상 주입 없음, UAO 겸업 로직은 대기 상태 유지 | (없음 — 내부 처리) |
+| 6 | 0003 수신 (1 Hz) | sim 시계 sync | (없음 — 수신만) |
+| 7 | 비행 중 (내부, 10 Hz tick) | 위치/자세/GPS/에너지 상태 산출 — WP_DEP→WP_EN1→WP_EN2→WP_EN3→WP_ARR 순차 진행 | **4001** VehicleStatus (10 Hz, battery_pct 98→42%) |
+| 8 | touchdown @ Jamsil FATO 1 (T+45:30, 내부) | navigation.phase="landed", actuator throttle→0 | **4001** (최종 frame) + **0002** (state="LANDED") |
+
+> UAO 역할은 별도 모듈이 아니라 VehicleModule 이 겸업 — S1 에서는 관찰만 하고 개입하지 않는다.
+> **S1 에서는 4002 / 4103 발행하지 않음** (이상/충돌 없음, 정상 비행 trajectory 유지).
+
+### 4.5 VisualizationModule (Unreal/AirSim)
+
+| # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
+|---|---|---|---|
+| 1 | 모듈 부팅 (내부) | 자기 식별 등록 + heartbeat 시작 | **0001** (moduleId="VIZ-Unreal") + **0002** (1 Hz) |
+| 2 | 1003 수신 | Unreal scene load — vertiport actor 배치 (Yeouido/Jamsil), routeNetwork waypoint 5개 시각화 | (없음 — 수신만) |
+| 3 | 3001 수신 | 비행계획 trajectory 시각화 | (없음 — 수신만) |
+| 4 | 1002 수신 (playState="play") | sim clock 따라 scene 진행 시작 | (없음 — 내부 처리) |
+| 5 | 0003 수신 (1 Hz) | scene 시계 sync | (없음 — 수신만) |
+| 6 | 4001 수신 (10 Hz) | UAM0001 actor 위치/자세 갱신 | (없음 — 수신만) |
+| 7 | scene 렌더링 (내부, 5 Hz) | UAM0001 front cam scene 프레임 캡처 + jpeg 인코딩 | **4101** CameraImageFrame (5 Hz, 640×360, encoding="jpeg") |
+
+### 4.6 PSU (Provider of Services for UAM)
+
+| # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
+|---|---|---|---|
+| 1 | 모듈 부팅 (내부) | 자기 식별 등록 + heartbeat 시작 | **0001** (moduleId="EXT-PSU", role="PSU") + **0002** (1 Hz) |
+| 2 | 4002 listener 대기 (상시) | Vehicle Warning Event 수신 listener 구독 — **S1 에서는 한 건도 수신하지 않음** | (없음 — 발행 없음) |
+
+> 관찰만. 어떤 우선순위 이벤트 처리 / `2001` 재요청도 발행하지 않는다.
+
+### 4.7 SituationAwareness (SA 플러그인)
+
+| # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
+|---|---|---|---|
+| 1 | 2002 수신 (fan-out) | 시나리오 컨텍스트 인지 (scenarioId="S1") | (없음 — 수신만) |
+| 2 | 4001 수신 (10 Hz) | SA 화면 비행 상태 갱신 | (없음 — 수신만) |
+| 3 | 4101 수신 (5 Hz) | SA 화면 카메라 view 갱신 | (없음 — 수신만) |
+| 4 | 4103 listener 대기 (상시) | 충돌 이벤트 구독 — S1 에서는 4103 수신 0건 | (없음 — 발행 없음) |
+
+> 관찰만. S1 전 구간에서 SA 는 어떤 메시지도 발행하지 않는다.
 
 ---
 

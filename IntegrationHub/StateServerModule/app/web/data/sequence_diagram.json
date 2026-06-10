@@ -800,7 +800,7 @@
       "note": "forward"
     },
     {
-      "group": "8. PSU Tactical Intervention (S2)"
+      "group": "8. PSU Speed Adjustment (S2)"
     },
     {
       "from": "monitoring",
@@ -854,7 +854,7 @@
       "id": "3003",
       "name": "Tactical Separation",
       "proto": "ws",
-      "note": "LOSS_OF_SEPARATION_RISK / setSpeed+directTo"
+      "note": "LOSS_OF_SEPARATION_RISK / setSpeed (speed adjustment)"
     },
     {
       "from": "sim_state",
@@ -870,7 +870,7 @@
       "id": "3003",
       "name": "Tactical Separation",
       "proto": "ws",
-      "note": "immediate avoidance"
+      "note": "speed adjustment applied"
     },
     {
       "from": "sim_state",

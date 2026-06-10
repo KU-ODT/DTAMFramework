@@ -771,7 +771,7 @@
       "note": "Visualization 전달"
     },
     {
-      "group": "8. PSU 전술 개입 (S2)"
+      "group": "8. PSU 속도 조정 (S2)"
     },
     {
       "from": "monitoring",
@@ -825,7 +825,7 @@
       "id": "3003",
       "name": "전술 분리",
       "proto": "ws",
-      "note": "LOSS_OF_SEPARATION_RISK / setSpeed+directTo"
+      "note": "LOSS_OF_SEPARATION_RISK / setSpeed (속도 조정)"
     },
     {
       "from": "sim_state",
@@ -841,7 +841,7 @@
       "id": "3003",
       "name": "전술 분리",
       "proto": "ws",
-      "note": "즉시 회피 수행"
+      "note": "속도 조정 수행"
     },
     {
       "from": "sim_state",
