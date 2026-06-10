@@ -7,6 +7,7 @@ helpers. It handles inbound 2001/2002 messages, automatically builds and sends
 from __future__ import annotations
 
 import datetime
+import json
 import logging
 import re
 import sys
@@ -26,6 +27,9 @@ from .mission_icd_export import build_mission_icd_export, validate_mission_icd_r
 from .route_planner import RoutePlanner
 
 logger = logging.getLogger(__name__)
+
+# Pre-built 3001 demo plan packs: MissionModule/data/demo_plans/<scenario_key>/3001_*.json
+DEMO_PLANS_DIR = Path(__file__).resolve().parents[2] / "data" / "demo_plans"
 
 
 def _result_raw(result: Any) -> Dict[str, Any]:
@@ -156,6 +160,36 @@ class MissionService(MissionModule):
             self._last_rx_2001 = scenario_file_name or str(raw)
         logger.info("2001 received: scenario=%s", scenario_file_name)
 
+        # Demo plan pack short-circuit: if data/demo_plans/<scenario_key>/ exists,
+        # publish the pre-built 3001 records as-is and skip the planning pipeline.
+        demo_records = self._load_demo_plan_records(scenario_file_name)
+        if demo_records is not None:
+            scenario_key = Path(scenario_file_name).stem
+            send_result = self.send_scheduled_flights(demo_records)
+            ok = bool(send_result.get("ok"))
+            count = int(send_result.get("count") or 0)
+            with self._mc_lock:
+                if ok:
+                    self._auto_3001_count += count
+                    self._last_auto_3001 = (
+                        f"demo plan pack: {scenario_key}, sent {count} scheduled flight(s)"
+                    )
+                    self._last_auto_3001_error = ""
+                    logger.info(
+                        "auto_3001 demo plan pack sent: scenario=%s count=%d",
+                        scenario_key, count,
+                    )
+                else:
+                    errors_out: List[str] = []
+                    for item in send_result.get("results", []) or []:
+                        if isinstance(item, dict):
+                            errors_out.extend(str(e) for e in (item.get("errors") or []))
+                    self._last_auto_3001_error = "; ".join(errors_out) or "send failed"
+                    logger.warning(
+                        "auto_3001 demo plan pack failed: %s", self._last_auto_3001_error
+                    )
+            return
+
     # Auto-3001 helper methods used by on_flight_plan_request
         try:
             scenario: Dict[str, Any] = {}
@@ -221,6 +255,27 @@ class MissionService(MissionModule):
                         errors_out.extend(str(e) for e in (item.get("errors") or []))
                 self._last_auto_3001_error = "; ".join(errors_out) or "send failed"
                 logger.warning("auto_3001 failed: %s", self._last_auto_3001_error)
+
+    def _load_demo_plan_records(self, scenario_file_name: str) -> Optional[List[Dict[str, Any]]]:
+        """Load pre-built 3001 records for a scenario, or ``None`` if no pack exists."""
+        scenario_key = Path(str(scenario_file_name or "")).stem
+        if not scenario_key:
+            return None
+        demo_dir = DEMO_PLANS_DIR / scenario_key
+        if not demo_dir.is_dir():
+            return None
+        records: List[Dict[str, Any]] = []
+        for path in sorted(demo_dir.glob("3001_*.json")):
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError) as exc:
+                logger.warning("demo plan skipped (%s): %s", path.name, exc)
+                continue
+            if not self.looks_like_icd_record(payload):
+                logger.warning("demo plan skipped (%s): not a valid ICD record", path.name)
+                continue
+            records.append(payload)
+        return records or None
 
     @on_receive("2002")
     def on_dtam_execute(self, msg: Any) -> None:

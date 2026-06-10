@@ -326,7 +326,7 @@ T+50:00  VEHICLE    → SERVER     [4001]  (UAM0002 착륙 완료)
 
 | # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
 |---|---|---|---|
-| 1 | 2001 수신 (base form × 2) | 신규 계획 1201/1202 생성 | **3001** ScheduledFlight v1 × 2 (`planVersion=1`, `planStatus=active`) |
+| 1 | 2001 수신 (`scenarioFileName=S2_psu_replan.json`) | 데모 플랜 팩 (`data/demo_plans/S2_psu_replan/`) 로드 — 계산 파이프라인 우회 | **3001** ×2 (fpn=1201 UAM0001, fpn=1202 UAM0002, 사전 작성) |
 | 2 | 3003 수신 (`on_tactical_separation`) | **수신 전용** — fpn=1202 에 전술 이탈 활성(commandId, reasonCode) 마킹, 자기 plan 과의 정합성 추적 | (없음 — 수신만) |
 
 > **S2 에서 3001 v2 / 3002 / 추가 3003 을 발행하지 않음** — 전략 재계획 경로(2001 확장)는 SDK 인터페이스로 유지되나 본 시나리오에서 미사용.
@@ -558,6 +558,10 @@ profile** 이 추가된다 — OpsConsole "데모 날씨" 버튼이 이 프로�
 > `separation.minHorizontalM` / `lookaheadSec` 은 PSU 의 충돌 예측 파라미터로, §5 의
 > 분리 임계값(300 m)과 1:1 대응. `windDemoProfiles[0]` 는 §3.1 의 5004 wire payload 와
 > 필드 단위로 동일하며, `windSeed` 가 0 이 아니므로 동일 시드로 바람 효과가 재현된다.
+
+> **데모 플랜 팩**: S2 의 3001 은 Mission 계산 파이프라인이 아니라 사전 작성된 데모 플랜 팩
+> (`MissionModule/data/demo_plans/S2_psu_replan/`)에서 로드되어 발행된다. S1 은 데모 팩 없이
+> 기존 계산 경로를 사용한다.
 
 ## 변경 이력
 

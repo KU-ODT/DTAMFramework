@@ -235,7 +235,7 @@ UAO 는 별도 모듈이 아니라 VehicleModule 이 겸업한다(사용자 결�
 
 | # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
 |---|---|---|---|
-| 1 | **2001** 수신 (base, T+00:02) | UAM0001 정상 운항 비행계획 산출 — VP_YEOUIDO→VP_JAMSIL | **3001** ScheduledFlight v1 (fpn=1201, planVersion=1, planStatus=active) |
+| 1 | **2001** 수신 (`scenarioFileName=S3_uao_battery_alt_vertiport.json`) | 데모 플랜 팩 (`data/demo_plans/S3_uao_battery_alt_vertiport/`) 로드 — 계산 파이프라인 우회 | **3001** ×1 (fpn=1201 UAM0001, 사전 작성) |
 | 2 | **3003** 수신 (PSU 발행) | `on_tactical_separation` — 자기 비행계획 fpn=1201 을 **superseded 로 마킹** (plan 정합성 추적) | (없음 — 내부 처리) |
 
 PSU 개입 이후 **본 시나리오에서 메시지 발행 없음** — 3001 v2(rerouted) 재발행, 2001 응답 등 일절 없음.
@@ -456,6 +456,10 @@ ICD 로 송수신되지 않는다.
 > `uaoRole: "vehicle_embedded"` — UAO는 별도 모듈이 아니라 **VehicleModule 이 겸업**한다는
 > 표시(사용자 결정). UAO 판단 로직은 Vehicle 내부에서 2002 `scenarioId="S3"` 수신 시
 > 무장되며, dispatch 권한은 여전히 PSU(`dispatchAuthority: "PSU"`).
+
+> **데모 플랜 팩**: S3 의 3001 은 Mission 계산 파이프라인이 아니라 사전 작성된 데모 플랜 팩
+> (`MissionModule/data/demo_plans/S3_uao_battery_alt_vertiport/`)에서 로드되어 발행된다.
+> S1 은 데모 팩 없이 기존 계산 경로를 사용한다.
 
 ## 변경 이력
 
