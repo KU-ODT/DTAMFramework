@@ -319,6 +319,15 @@ def cleanup_stale_stack(*, use_lifecycle: bool = True, settle_s: float = 0.35) -
     """Stop any previously running local DTAM processes before a fresh start."""
     summary: dict[str, object] = {}
 
+    # Lifecycle API 정리는 IntegrationHub 가 살아 있을 때만 의미가 있다.
+    # 스택이 이미 죽어 있으면 (가장 흔한 재시작 케이스) API 시도를 건너뛰어
+    # connection-refused 반복으로 멈춘 것처럼 보이는 상황을 피한다.
+    if use_lifecycle and not (
+        _is_port_open("127.0.0.1", 8095) or _is_port_open("127.0.0.1", 8096)
+    ):
+        use_lifecycle = False
+        summary["lifecycle_service"] = "skipped: stack not running"
+
     # First use the OperationModule lifecycle service when available; it knows
     # how to stop child modules through the current IntegrationHub API.
     if use_lifecycle:
@@ -333,7 +342,7 @@ def cleanup_stale_stack(*, use_lifecycle: bool = True, settle_s: float = 0.35) -
         except Exception as exc:
             summary["lifecycle_service"] = f"skipped: {type(exc).__name__}: {exc}"
     else:
-        summary["lifecycle_service"] = "skipped"
+        summary.setdefault("lifecycle_service", "skipped")
 
     processes = _windows_processes() if os.name == "nt" else []
     scripts = _force_stop_script_processes(processes)
