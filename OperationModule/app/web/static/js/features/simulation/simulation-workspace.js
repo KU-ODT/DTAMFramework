@@ -87,6 +87,12 @@ const SCHEDULED_FLIGHT_POLL_MS = 300;
 const DTAM_EXECUTE_READY_WAIT_MS = 5000;
 const FLIGHT_PLAN_REQUEST_URL = "/api/v1/icd/2001/send";
 const DTAM_EXECUTE_URL = "/api/v1/icd/2002/send";
+// 데모 시나리오 → Mission 데모 플랜 팩 (MissionModule/data/demo_plans/<stem>/) 매핑
+const DEMO_SCENARIO_FILES = {
+  S1: "S1_nominal.json",
+  S2: "S2_psu_replan.json",
+  S3: "S3_uao_battery_alt_vertiport.json",
+};
 const ABNORMAL_SITUATION_URL = "/api/v1/icd/5003/send";
 const ENV_LINK_SOURCE_ID = "operational-environment-links";
 const ENV_VERTIPORT_SOURCE_ID = "operational-environment-vertiports";
@@ -7309,6 +7315,12 @@ class SimulationWorkspace {
   }
 
   buildScenarioFileName() {
+    // 데모 시나리오 모드: Mission 의 데모 플랜 팩 키와 일치해야
+    // 2001 수신 시 사전 작성 3001 들이 발행된다 (data/demo_plans/<stem>/).
+    const demoFile = DEMO_SCENARIO_FILES[this.state.demoScenarioId];
+    if (demoFile) {
+      return demoFile;
+    }
     const now = new Date();
     const stamp = now.toISOString().replaceAll(":", "").replaceAll("-", "").replace(/\.\d{3}Z$/, "Z");
     return `scenarioSetup_${stamp}.json`;
@@ -7753,14 +7765,26 @@ class SimulationWorkspace {
 
     await this.sendModeSettings({ throwOnError: true, applyControl: false });
     this.pushOperationLog(this.t("flightPlanWaiting"), { title: "3001", level: "info" });
-    let scheduledReady = await this.waitForScheduledFlightReady({ baselineRx3001 });
-    if (!scheduledReady.ok) {
-      this.pushOperationLog(this.t("flightPlanFallback"), { title: "2001", level: "warning" });
+    let scheduledReady;
+    if (this.isDemoScenarioLocked()) {
+      // 데모 시나리오: 2001 이 (fallback 이 아닌) 주 경로 — Mission 이
+      // scenarioFileName 으로 데모 플랜 팩을 감지해 3001 을 일괄 발행한다.
+      this.pushOperationLog(`데모 플랜 팩 요청 (${scenarioFileName})`, { title: "2001", level: "info" });
       await this.requestFlightPlan(scenarioFileName);
       scheduledReady = await this.waitForScheduledFlightReady({
         baselineRx3001,
         timeoutMs: SCHEDULED_FLIGHT_WAIT_MS,
       });
+    } else {
+      scheduledReady = await this.waitForScheduledFlightReady({ baselineRx3001 });
+      if (!scheduledReady.ok) {
+        this.pushOperationLog(this.t("flightPlanFallback"), { title: "2001", level: "warning" });
+        await this.requestFlightPlan(scenarioFileName);
+        scheduledReady = await this.waitForScheduledFlightReady({
+          baselineRx3001,
+          timeoutMs: SCHEDULED_FLIGHT_WAIT_MS,
+        });
+      }
     }
     if (!scheduledReady.ok) {
       throw new Error("3001 ScheduledFlight was not registered in VehicleModule");
