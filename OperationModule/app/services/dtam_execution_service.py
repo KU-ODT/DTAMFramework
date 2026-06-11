@@ -410,7 +410,7 @@ def prepare_dtam_execution(request_payload: dict[str, Any]) -> dict[str, Any]:
     )
     if skip_unreal_launch:
         unreal_status = _request_visualization_status(visualization_url, timeout_s=3.0).get("unreal", {})
-        airsim_status = _wait_for_airsim_connection(visualization_url, timeout_s=90.0)
+        airsim_status = _wait_for_airsim_connection(visualization_url, timeout_s=180.0)
     elif editor_processes:
         try:
             airsim_status = _wait_for_airsim_connection(visualization_url, timeout_s=8.0)
@@ -443,7 +443,9 @@ def prepare_dtam_execution(request_payload: dict[str, Any]) -> dict[str, Any]:
             )
         else:
             unreal_status = _request_unreal_launch(visualization_url)
-            airsim_status = _wait_for_airsim_connection(visualization_url, timeout_s=150.0)
+            # 다수 기체(136대급) 스폰은 150초를 초과함 (실측: S2 3,360편 셋에서
+            # 504 발생). 브라우저 fetch 자체 한계(~300초)보다는 짧게 유지.
+            airsim_status = _wait_for_airsim_connection(visualization_url, timeout_s=280.0)
     controller_by_aircraft = _controller_by_aircraft(settings_result["vehicles"], controller)
     dynamics_by_aircraft = _dynamics_by_aircraft(settings_result["vehicles"])
     provider_by_aircraft = _provider_by_aircraft(settings_result["vehicles"])
