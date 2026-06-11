@@ -82,15 +82,21 @@ class SimulationEngine:
         )
 
     def _clock_loop(self):
+        # 시계 스레드는 어떤 예외에도 죽지 않아야 한다 — push_to_role 은 모듈
+        # WS 단절 시점에 예외를 낼 수 있고, 보호 없이는 0003 이 영구 정지한다
+        # (실측 2회: 수 분 가동 후 무로그 정지 → 전 기체 이륙 불가).
+        from IntegrationHub.CoreServerModule.app.model.message import FORWARD_RULES
         while not self._stop_evt.is_set():
-            payload = self.snapshot()
-            # Registration handling
-            # Registration handling
-            from IntegrationHub.CoreServerModule.app.model.message import FORWARD_RULES
-            targets = FORWARD_RULES.get("0003", ["vehicle", "visual"])
-            for t in targets:
-                self.hub.push_to_role(t, "0003", payload)
-                
+            try:
+                payload = self.snapshot()
+                targets = FORWARD_RULES.get("0003", ["vehicle", "visual"])
+                for t in targets:
+                    try:
+                        self.hub.push_to_role(t, "0003", payload)
+                    except Exception:
+                        logger.exception("[SIM] 0003 push_to_role(%s) failed — clock continues", t)
+            except Exception:
+                logger.exception("[SIM] clock tick failed — clock continues")
             self._stop_evt.wait(1.0)
 
     @property

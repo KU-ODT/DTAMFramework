@@ -34,6 +34,22 @@ DEMO_PLANS_DIR = Path(__file__).resolve().parents[2] / "data" / "demo_plans"
 
 # FlightScheduler FPL packs: PlugIn/FlightScheduler/FPL/<scenario_key>/FPL_all.csv
 FPL_DIR = Path(__file__).resolve().parents[3] / "PlugIn" / "FlightScheduler" / "FPL"
+# 데모 임시 운용 (2026-06-11 사용자 결정): Vehicle 모듈이 기체당 plan 1개만
+# 보유하므로 (V-5 다회 운항 미지원 — MODULE_TASKS 참조), 스케줄러 셋 발행 시
+# 기체당 "최초 출발 1편" 만 내보낸다. V-5 완료 후 False 로 되돌릴 것.
+FPL_FIRST_FLIGHT_PER_AIRCRAFT = True
+
+
+def _first_flight_per_aircraft(items, aircraft_of, std_of):
+    """기체별 최초 출발 1편만 남긴다 (std 오름차순 비교, HH:MM:SS 문자열)."""
+    chosen = {}
+    for item in items:
+        key = str(aircraft_of(item) or "")
+        std = str(std_of(item) or "")
+        prev = chosen.get(key)
+        if prev is None or std < str(std_of(prev) or ""):
+            chosen[key] = item
+    return list(chosen.values())
 
 
 def _result_raw(result: Any) -> Dict[str, Any]:
@@ -350,6 +366,17 @@ class MissionService(MissionModule):
                 logger.warning("FPL prebuilt skipped (%s): not a valid ICD record", path.name)
                 continue
             records.append(payload)
+        if FPL_FIRST_FLIGHT_PER_AIRCRAFT and records:
+            total = len(records)
+            records = _first_flight_per_aircraft(
+                records,
+                lambda r: r.get("aircraftId"),
+                lambda r: (r.get("departure") or {}).get("std"),
+            )
+            logger.info(
+                "FPL prebuilt: first-flight-per-aircraft 적용 — %d편 → %d대 (V-5 전 임시)",
+                total, len(records),
+            )
         return records or None
 
     def _load_fpl_csv_rows(self, scenario_file_name: str) -> Optional[List[Dict[str, Any]]]:
@@ -379,6 +406,17 @@ class MissionService(MissionModule):
         except (OSError, csv.Error) as exc:
             logger.warning("FPL pack unreadable (%s): %s", csv_path, exc)
             return None
+        if FPL_FIRST_FLIGHT_PER_AIRCRAFT and rows:
+            total = len(rows)
+            rows = _first_flight_per_aircraft(
+                rows,
+                lambda r: r.get("aircraft_id"),
+                lambda r: r.get("takeoff_time"),
+            )
+            logger.info(
+                "FPL pack: first-flight-per-aircraft 적용 — %d편 → %d대 (V-5 전 임시)",
+                total, len(rows),
+            )
         return rows or None
 
     def _publish_fpl_pack(self, scenario_key: str, rows: List[Dict[str, Any]]) -> None:
