@@ -81,8 +81,18 @@ async def start_module(role: str):
             raise FileNotFoundError(f"Script not found at {script_path}")
 
         if info["type"] == "python":
+            # 모듈 폴더에 전용 venv (.venv311) 가 있으면 그 인터프리터로 구동.
+            # VisualizationModule 의 AirSim 클라이언트 (msgpack-rpc-python==0.4.1,
+            # tornado 4.5.3) 가 py3.12+ 와 비호환이라 py3.11 venv 로 격리 (실측:
+            # py3.13 에선 대체 포크도 실서버 교환 중 AssertionError → VM 크래시
+            # → 자식 UE 동반 사망).
+            interpreter = sys.executable
+            module_venv = script_path.parent / ".venv311" / "Scripts" / "python.exe"
+            if module_venv.is_file():
+                interpreter = str(module_venv)
+                print(f"[DTAM Core] {role}: module venv interpreter -> {module_venv}")
             new_proc = subprocess.Popen(
-                [sys.executable, str(script_path), *list(info.get("args", []))],
+                [interpreter, str(script_path), *list(info.get("args", []))],
                 cwd=str(script_path.parent),
                 creationflags=_creation_flags(),
             )

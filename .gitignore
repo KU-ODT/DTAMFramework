@@ -91,3 +91,6 @@ output/
 *.swp
 token.txt
 _tmp_*.png
+
+# 모듈 전용 py3.11 venv (AirSim 클라이언트 격리 — uv venv 로 로컬 생성)
+.venv311/
