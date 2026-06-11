@@ -251,6 +251,8 @@ PSU(Provider of Services for UAM)는 UAM 교통 흐름과 회랑(corridor) 운�
 - 전술 개입(tactical intervention)이 필요할 경우 `3003 TacticalSeparation` 을 **직접 발행** (즉시 land/directTo)
 - 전략 재계획이 필요할 경우 `2001 FlightPlanRequest` 를 `triggeringEventId` 와 함께 발행 (보조 경로, strategic re-plan trigger)
 
+2026-06-11 **개선판 PSU 모듈 반입**: SDK 미사용 **REST 기반** 으로 동작하며 (허브 `POST /api/msg/{mid}` 호환 검증 완료), 운영자가 PSU UI 에서 **3002/3003 을 draft→dispatch** 로 발행하는 반자동 개입을 시연한다. 이에 따라 3002 의 발행 주체에 PSU 가 허용되었다 (catalog direction `psu|mission->server`, 수신은 Vehicle 불변).
+
 ---
 
 ## 8. 실제 Forwarding 정책 요약
@@ -266,7 +268,7 @@ PSU(Provider of Services for UAM)는 UAM 교통 흐름과 회랑(corridor) 운�
 | `2001` | Operation / **PSU / UAO** | Mission | 비행계획 요청 (재계획 트리거 포함) |
 | **`2002`** | Operation | Mission, Monitoring, Vehicle, Visualization, SituationAwareness | 실행 명령 (**+scenarioId (S1\|S2\|S3) 확장** ★ — 라우팅 변경 없음) |
 | `3001` | Mission | Vehicle, Visualization | 계획 비행 등록 |
-| `3002` | Mission | Vehicle | 전략 분리 명령 |
+| **`3002`** | **PSU / Mission** ★확장 (sender `psu\|mission`) | Vehicle | 전략 분리 명령 — 수신은 Vehicle 그대로 |
 | **`3003`** | Mission / **PSU (직접 발행)** | **Vehicle, Mission** ★변경 | 전술 분리 / 즉시 명령 (land/directTo) |
 | **`4001`** | **Vehicle** | **Monitoring, Visualization, SituationAwareness, PSU** ★ | **비행체 상태 (PSU 신규 수신)** |
 | **`4002`** | **Vehicle** | **Monitoring, SituationAwareness, PSU** ★신규 | **비행체 경고 이벤트** |

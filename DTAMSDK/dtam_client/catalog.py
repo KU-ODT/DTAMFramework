@@ -86,7 +86,7 @@ CATALOG: Dict[str, MessageSpec] = {
     "3002": MessageSpec(
         mid="3002", alias="strategic_separation",
         name_en="Strategic Separation", name_ko="??? ??",
-        direction="mission->server", rate_hz=0.0, phase=6,
+        direction="psu|mission->server", rate_hz=0.0, phase=6,
         icd_proto="ws", db_folder="ScheduledFlightModification",
     ),
     "3003": MessageSpec(

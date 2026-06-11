@@ -28,9 +28,11 @@ from .services.operational_environment import (
 from .services.psu_icd_gateway import (
     build_3002_draft,
     build_3003_draft,
+    build_3003_land_draft_from_warning,
     dispatch_3002_command,
     dispatch_3003_command,
     load_scheduled_flights,
+    load_warning_events,
     summarize_vehicle_snapshot,
 )
 
@@ -616,6 +618,7 @@ def create_app() -> FastAPI:
                 "strategic_3002_dispatch_integrated": True,
                 "live_4001_data_integrated": True,
                 "tactical_3003_dispatch_integrated": True,
+                "warning_4002_view_integrated": True,
                 "dt_world_status_integrated": True,
             },
             "map": _map_config_payload(app),
@@ -716,6 +719,29 @@ def create_app() -> FastAPI:
             "mode": "psu-local-test",
             **result,
         }
+
+    @app.get("/api/psu/warning-events")
+    async def psu_warning_events() -> dict[str, object]:
+        return load_warning_events()
+
+    @app.post("/api/psu/warning-events/draft-3003")
+    async def psu_warning_event_draft_3003(request: Request) -> dict[str, object]:
+        body = await request.json()
+        body = body if isinstance(body, dict) else {}
+        event_id = str(body.get("eventId") or "").strip()
+        vehicle_id = str(body.get("vehicleId") or body.get("aircraftId") or "").strip()
+        if not event_id and not vehicle_id:
+            raise HTTPException(status_code=422, detail="eventId or vehicleId is required")
+        events = load_warning_events().get("events") or []
+        for event in events:
+            if event_id and str(event.get("eventId")) == event_id:
+                return build_3003_land_draft_from_warning(event)
+        for event in events:
+            if vehicle_id and str(event.get("vehicleId")) == vehicle_id:
+                return build_3003_land_draft_from_warning(event)
+        if vehicle_id:
+            return build_3003_land_draft_from_warning({"vehicleId": vehicle_id})
+        raise HTTPException(status_code=404, detail=f"Unknown 4002 eventId: {event_id}")
 
     @app.post("/api/tactical/command/draft")
     async def tactical_command_draft(request: Request) -> dict[str, object]:

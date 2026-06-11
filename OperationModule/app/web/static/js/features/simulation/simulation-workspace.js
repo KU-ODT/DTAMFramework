@@ -93,7 +93,7 @@ const DTAM_EXECUTE_URL = "/api/v1/icd/2002/send";
 // 데모 시나리오 → Mission 데모 플랜 팩 (MissionModule/data/demo_plans/<stem>/) 매핑
 const DEMO_SCENARIO_FILES = {
   S1: "S1_nominal.json",
-  S2: "S2_psu_replan.json",
+  S2: "20260611_131306_98f166edc22f.json",  // 3,360편 실traffic 셋 (prebuilt 3001)
   S3: "S3_uao_battery_alt_vertiport.json",
 };
 const ABNORMAL_SITUATION_URL = "/api/v1/icd/5003/send";

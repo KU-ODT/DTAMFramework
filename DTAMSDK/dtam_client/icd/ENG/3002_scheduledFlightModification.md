@@ -6,6 +6,7 @@
 | Message Name | Strategic Separation Command |
 | Transport | WebSocket (`/ws/dtam`) |
 | Encoding | JSON (UTF-8) |
+| Direction | `psu|mission -> server -> vehicle` |
 | Rate | Event-based |
 
 ## 1. Overview
@@ -13,6 +14,9 @@
 MSG 3002 is a strategic command message for modifying existing MSG 3001 scheduled flight information.
 This message specifies which flight plan to modify, at which version, and from when the modification becomes effective.
 Actual modification details (seq, route specifics, resource specifics) are managed in separate data or reference structures.
+
+The primary issuer of MSG 3002 is the PSU (`psu|mission -> server`); Mission may also issue it.
+It is typically published via the PSU console's draft→dispatch flow, and the hub forwards it to vehicle according to FORWARD_RULES. The receiver is the Vehicle.
 
 ## 2. Top-level layout
 

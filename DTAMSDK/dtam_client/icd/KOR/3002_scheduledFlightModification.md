@@ -6,6 +6,7 @@
 | Message Name | 전략 분리 명령 |
 | 전송 방식 | WebSocket (`/ws/dtam`) |
 | 인코딩 | JSON (UTF-8) |
+| 방향 | `psu|mission -> server -> vehicle` |
 | 주기 | 이벤트성 |
 
 ## 1. 개요
@@ -13,6 +14,9 @@
 3002는 기존 3001 정기편 정보를 수정하기 위한 전략적 명령 메시지이다.
 이 메시지는 어떤 정기편을, 어떤 버전으로, 언제부터 유효하게 수정할 것인지 지정한다.
 실제 수정 대상 seq, 경로 세부값, 자원 세부값은 별도 데이터 또는 참조 구조에서 관리한다.
+
+3002의 1차 발행 주체는 PSU이며 (`psu|mission -> server`), Mission도 발행할 수 있다.
+통상 PSU 콘솔의 draft→dispatch 절차로 발행되며, 허브가 FORWARD_RULES에 따라 vehicle로 전달한다. 수신자는 Vehicle이다.
 
 ## 2. 최상위 구조
 

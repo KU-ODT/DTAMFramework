@@ -57,6 +57,8 @@ TACTICAL_REASONS = {
     "EMERGENCY_LANDING",
 }
 TACTICAL_ACTION_TYPES = {"setSpeed", "directTo", "hold", "rejoinPlan", "land"}
+WARNING_SEVERITIES = {"info", "warning", "critical", "fatal"}
+WARNING_FILE_LIMIT = 20
 
 
 def _state_base_url() -> str:
@@ -459,6 +461,152 @@ def load_scheduled_flights() -> dict[str, Any]:
     }
 
 
+def _warning_event_files(limit: int = WARNING_FILE_LIMIT) -> tuple[list[Path], dict[str, Any]]:
+    session_dir, state_status = _session_dir_from_state()
+    search_dirs: list[Path] = []
+    if session_dir and session_dir.is_dir():
+        search_dirs.append(session_dir)
+    else:
+        search_dirs.extend(_fallback_session_dirs())
+
+    files: list[Path] = []
+    for root in search_dirs:
+        folder = root / "VehicleWarningEvent"
+        if not folder.is_dir():
+            continue
+        try:
+            files.extend(path for path in folder.glob("*.json") if path.is_file())
+        except Exception:
+            continue
+    files.sort(key=lambda item: item.stat().st_mtime, reverse=True)
+    state_status["searched_session_dirs"] = [str(path) for path in search_dirs]
+    return files[:limit], state_status
+
+
+def _latest_4002_payload() -> tuple[dict[str, Any] | None, dict[str, Any]]:
+    url = f"{_state_base_url()}/api/db/messages/4002/latest"
+    try:
+        latest = _fetch_json(url, timeout_s=0.45)
+    except Exception as exc:
+        return None, {"connected": False, "url": url, "error": str(exc)}
+    payload = latest.get("payload") if isinstance(latest.get("payload"), dict) else None
+    return payload, {
+        "connected": True,
+        "url": url,
+        "ok": bool(latest.get("ok")),
+        "path": str(latest.get("path") or ""),
+        "modified_at": str(latest.get("modified_at") or ""),
+    }
+
+
+def _warning_battery_pct(raw: dict[str, Any]) -> float | None:
+    detected = raw.get("detectedValue") if isinstance(raw.get("detectedValue"), dict) else {}
+    return _as_float(
+        detected.get("battery_pct")
+        or detected.get("batteryPct")
+        or detected.get("state_of_charge_pct")
+        or raw.get("battery_pct")
+    )
+
+
+def _normalize_4002(raw: dict[str, Any], *, source: str, modified_at: str = "") -> dict[str, Any] | None:
+    if not isinstance(raw, dict):
+        return None
+    raw = _repair_value(raw)
+    if not any(key in raw for key in ("eventId", "vehicleId", "eventType", "severity")):
+        return None
+
+    vehicle_id = str(raw.get("vehicleId") or raw.get("aircraftId") or "").strip()
+    severity = str(raw.get("severity") or "").strip().lower()
+    if not vehicle_id or severity not in WARNING_SEVERITIES:
+        return None
+    event_id = str(raw.get("eventId") or "").strip() or f"WARN-{vehicle_id}"
+
+    return {
+        "eventId": event_id,
+        "vehicleId": vehicle_id,
+        "severity": severity,
+        "eventType": str(raw.get("eventType") or "").strip(),
+        "status": str(raw.get("status") or "").strip(),
+        "battery_pct": _warning_battery_pct(raw),
+        "recommendedAction": str(raw.get("recommendedAction") or "").strip(),
+        "availableDistance": _as_float(raw.get("availableDistance")),
+        "timestamp": str(raw.get("timestamp") or ""),
+        "description": str(raw.get("description") or ""),
+        "isCritical": severity in {"critical", "fatal"},
+        "source": source,
+        "modifiedAt": modified_at,
+        "raw": raw,
+    }
+
+
+def _dedupe_warning_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    deduped: dict[str, dict[str, Any]] = {}
+    for event in events:
+        key = str(event.get("eventId") or "")
+        if not key:
+            continue
+        current = deduped.get(key)
+        if current is None or str(event.get("modifiedAt") or "") >= str(current.get("modifiedAt") or ""):
+            deduped[key] = event
+    return sorted(
+        deduped.values(),
+        key=lambda item: (str(item.get("timestamp") or ""), str(item.get("modifiedAt") or "")),
+        reverse=True,
+    )
+
+
+def load_warning_events() -> dict[str, Any]:
+    """Load received MSG 4002 vehicle warning events.
+
+    Reads the StateServer REST latest payload first and falls back to the
+    session DB VehicleWarningEvent folder, mirroring load_scheduled_flights.
+    Malformed payloads are skipped silently by the normalizer.
+    """
+    events: list[dict[str, Any]] = []
+    latest_payload, latest_status = _latest_4002_payload()
+    if latest_payload:
+        normalized = _normalize_4002(
+            latest_payload,
+            source="StateServerREST/4002",
+            modified_at=str(latest_status.get("modified_at") or ""),
+        )
+        if normalized:
+            events.append(normalized)
+
+    files, state_status = _warning_event_files()
+    for path in files:
+        payload = _read_json_file(path)
+        normalized = _normalize_4002(
+            payload,
+            source="StateServerDB/4002",
+            modified_at=datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat(),
+        )
+        if normalized:
+            events.append(normalized)
+
+    events = _dedupe_warning_events(events)
+    critical_count = sum(1 for event in events if event.get("isCritical"))
+    return {
+        "ok": True,
+        "message_id": "4002",
+        "events": events,
+        "critical_count": critical_count,
+        "summary": {
+            "total": len(events),
+            "critical": critical_count,
+            "active": sum(1 for event in events if str(event.get("status") or "").lower() == "active"),
+        },
+        "data_link": {
+            "state_server": state_status,
+            "latest_rest": latest_status,
+            "file_count": len(files),
+            "using_only_received_4002": True,
+        },
+        "generated_at": _utc_iso(),
+    }
+
+
 def build_3002_draft(data: dict[str, Any]) -> dict[str, Any]:
     now = _utc_now()
     payload = {
@@ -660,6 +808,32 @@ def build_3003_draft(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def build_3003_land_draft_from_warning(event: dict[str, Any]) -> dict[str, Any]:
+    """Build a prefilled 3003 land draft from a normalized 4002 warning event.
+
+    The vertiport/FATO landing target is intentionally left for the operator,
+    so the draft keeps a validation issue until the target is selected.
+    """
+    event = event if isinstance(event, dict) else {}
+    draft = build_3003_draft(
+        {
+            "aircraftId": str(event.get("vehicleId") or "").strip(),
+            "reasonCode": "LOW_BATTERY",
+            "actions": [{"type": "land"}],
+        }
+    )
+    draft["draft_source"] = "4002-warning-event"
+    draft["warning_event"] = {
+        "eventId": event.get("eventId"),
+        "vehicleId": event.get("vehicleId"),
+        "severity": event.get("severity"),
+        "eventType": event.get("eventType"),
+        "battery_pct": event.get("battery_pct"),
+        "recommendedAction": event.get("recommendedAction"),
+    }
+    return draft
+
+
 def _dispatch_payload(mid: str, payload: dict[str, Any], *, target_role: str = "") -> dict[str, Any]:
     base_url = _state_base_url()
     endpoint = f"{base_url}/api/msg/{mid}"
@@ -781,8 +955,10 @@ def summarize_vehicle_snapshot(snapshot: dict[str, Any]) -> dict[str, int]:
 __all__ = [
     "build_3002_draft",
     "build_3003_draft",
+    "build_3003_land_draft_from_warning",
     "dispatch_3002_command",
     "dispatch_3003_command",
     "load_scheduled_flights",
+    "load_warning_events",
     "summarize_vehicle_snapshot",
 ]

@@ -4496,6 +4496,47 @@ html[data-theme="light"] .traffic-card .section-heading h4 {
   overflow-wrap: anywhere;
 }
 
+.warning-event-list {
+  display: grid;
+  gap: 8px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.warning-event {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-left: 3px solid rgba(245, 158, 11, 0.8);
+  background: rgba(10, 14, 26, 0.36);
+  color: var(--text-primary);
+  text-align: left;
+}
+
+.warning-event.is-critical {
+  border-left-color: rgba(248, 113, 113, 0.88);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.warning-event strong {
+  display: block;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.warning-event small {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
 .vehicle-row strong {
   font-family: "JetBrains Mono", monospace;
   font-size: 12px;
@@ -4528,8 +4569,13 @@ html[data-theme="light"] .vehicle-row,
 html[data-theme="light"] .modification-request,
 html[data-theme="light"] .action-request,
 html[data-theme="light"] .tactical-event,
+html[data-theme="light"] .warning-event,
 html[data-theme="light"] .route-table th {
   background: rgba(255, 255, 255, 0.88);
+}
+
+html[data-theme="light"] .warning-event.is-critical {
+  background: #fee2e2;
 }
 
 html[data-theme="light"] .vehicle-row.is-selected {

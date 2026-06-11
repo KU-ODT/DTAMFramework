@@ -1,201 +1,148 @@
-# S2 — 실시간 PSU 속도 조정 재계획 (바람 외란 → 충돌 예측 → setSpeed)
+# S2 — 실traffic 운용 중 PSU 반자동 속도 조정 개입 (3,360편)
 
 ## 1. 개요
 
-- **목적**: 운영자가 Ops Console **기상 패널에서 바람 등급(serious)을 선택**하면 **1002 SimulationSetup 이 발행되고(기존 날씨 선택 기능)**, Vehicle 이 1002 의 `wind.weather` 파라미터 (uamodt 양식 — 콘솔이 grade 에서 자동 구성) 를 수신해 **바람장을 구성·적용**하여 두 비행체(UAM0001, UAM0002)의 궤적이 바람 영향(crossTrackDrift)으로 흔들린다. **PSU 는 4001 스트림(10 Hz)만으로 지속 궤적 예측(외삽)** 을 수행해 분리 손실(loss of separation)을 사전 감지하여 **3003 Tactical Separation (actions = `setSpeed`, 속도 조정) 을 직접 발행**, 속도 조정만으로 충돌을 예방하는 시나리오를 검증한다. **바람은 외란 환경 요소일 뿐**이며, Vehicle 의 wind.weather 수신·적용은 시나리오와 무관한 표준 처리다. Vehicle 은 3003 의 setSpeed 를 즉시 수행하고, Mission 은 3003 을 **수신만** 하여 plan 정합성을 추적한다. `scenarioId="S2"` 의 Vehicle 측 의미는 **특별 무장 없음 (정보성)** — 시나리오 전용 분기를 두지 않는다. 전략 재계획 경로(2001 확장 → 3001 v2 + 3002)는 SDK 인터페이스로 유지되지만 **S2 데모 흐름에서는 사용하지 않는다**.
+- **목적**: 하루 전체 실traffic 셋 — **3,360편 / 기체 136대 / vertiport 17개 / std 06:30~21:30** — 을 **prebuilt 3001 ScheduledFlight 로 일괄 투입**하고, 운영 중 운영자가 Ops Console 기상 패널에서 **바람 등급 serious 를 선택 (1002 `wind.weather`)** 하여 외란을 가한다. 외란 누적으로 근접/위험 상황이 발생하면 **운영자가 PSU 콘솔(4001 폴링 감시 화면)에서 근접/위험 기체를 식별**하고, **PSU UI 의 3003 draft → dispatch (반자동)** 로 해당 기체에 `setSpeed` 개입을 내린다. Vehicle 은 3003 의 setSpeed 를 즉시 수행하고, Mission 은 3003 을 수신해 plan 장부에 전술 이탈을 마킹한다 (수신 전용).
+- **반자동 (D-2, 2026-06-11 확정)**: PSU 의 충돌 **자동 예측·자동 발행은 추후 선택 과제 (P-3)** 로 격하. S2 데모의 개입 주체는 **운영자** — PSU UI 가 3003 draft 를 만들어 주고, 운영자가 dispatch 버튼을 눌러 발행한다 (허브 `POST /api/msg/3003` 호환 검증 완료).
+- **traffic 투입 (D-5, 2026-06-11 확정)**: 콘솔 S2 버튼 → `scenarioFileName="20260611_131306_98f166edc22f.json"` → Mission 이 prebuilt 3001 JSON 3,360개를 **직로딩**하여 일괄 발행 (계산 파이프라인 우회). 스폰은 기체별 dedupe 로 **136 entries** (검증 완료). 기존 2기체 데모 팩 (`demo_plans/S2_psu_replan`) 은 보존용으로 유지.
+- **바람은 외란 환경 요소**일 뿐 — Vehicle 의 1002 `wind.weather` 수신·적용은 시나리오 무관 표준 처리. 전략 재계획 경로 (2001 확장 → 3001 v2 + 3002) 는 SDK 인터페이스로 유지되지만 **S2 데모 흐름에서는 사용하지 않는다**. (3002 의 발행 주체는 D-3 에 따라 `psu|mission` 으로 확장 — catalog direction `psu|mission->server` 코드 반영 완료, 단 S2 데모에서 3002 발행 0건.)
 - **주요 참여 모듈 (역할)**
-  - **IntegrationHub (SERVER)**: 메시지 포워딩 (FORWARD_RULES 기반) — 1002 → **전 모듈** (VEHICLE/VISUAL/SIM_STATE/MISSION/MONITORING/PSU/SA — 전체 개방), 3003 → VEHICLE/MISSION
-  - **SimulationStateModule (SIM_STATE)**: CommonTime(0003) 발생, 1001/1002/1003 소비, playState 제어
-  - **VehicleModule (VEHICLE)** × 2: UAM0001, UAM0002 비행 상태 머신, 4001 송출 (10 Hz), 1002 `wind.weather` 파라미터 기반 바람장 구성·적용, 3003 setSpeed 즉시 수행
-  - **MissionModule (MISSION)**: 초기 2001(기본) 소비, 3001 v1 발행. 이후 3003 **수신 전용** (plan 정합성 추적) — S2 트리거 구간에서 발행 없음
-  - **PSU (Provider of Services for UAM)**: 4001 기반 궤적 예측, 충돌 예상 기체 쌍 식별, **3003(setSpeed) 발행 주체 — 속도 조정 재계획 주체**
-  - **OperationModule / OpsConsole (MONITORING)**: 0001/0002/4001/4101 시각화, **기상 패널 바람 등급 선택 → 1002 발행 (기존 기능)**
-  - **VisualizationModule (VISUAL)**: 3001 v1 항적, 4001 메쉬 갱신, 4101 카메라 프레임 (5 Hz)
-- **시나리오 길이**: 약 50 sim-minutes (T+00:00 ~ T+50:00)
-  - T+00:00 ~ T+20:00: S1 정상 운항 흐름 (부팅 → 이륙 → 순항 진입)
-  - T+20:00: 운영자 기상 패널 바람 등급 serious 선택 → 1002 발행 (wind.weather: preset=bad 자동 동봉), Vehicle 바람장 적용 시작
-  - T+20:00 ~ T+25:00: PSU 지속 궤적 외삽 → loss of separation 예측
-  - T+25:00: PSU 3003(setSpeed) 직접 발행, Vehicle 즉시 감속
-  - T+25:00 ~ T+50:00: 분리 회복 (T+30 부근 선택적 setSpeed 복원/rejoinPlan), 양 비행체 원 계획(planVersion=1)대로 정상 도착
+  - **IntegrationHub (SERVER)**: 메시지 포워딩 (FORWARD_RULES) + `POST /api/msg/{mid}` REST 수신 — 1002 → 전 모듈, 3001 → VEHICLE/VISUAL, 3003 → VEHICLE/MISSION
+  - **MissionModule (MISSION)**: 2001(기본, 1회) 소비 → **prebuilt 3001 직로딩 3,360편 일괄 발행**. 이후 3003 수신 전용 (장부 마킹)
+  - **VehicleModule (VEHICLE)**: 다수 기체 세션 (136 spawn entries, dedupe) — 4001 송출, 1002 `wind.weather` 바람장 적용, **3003 setSpeed 즉시 수행**
+  - **PSU (신규 반입 모듈)**: 4001/3001 **DB/REST 폴링** 수신 감시 (SDK 미사용 — REST, 동작 검증됨), **3002/3003 draft→dispatch UI (운영자 주도)**. 4002 수신 없음 (D-1), 4001 `battery_pct` 저전력 감시 (≤20% 카운트) 는 수행
+  - **OperationModule / OpsConsole (MONITORING)**: **S2 선택(잠금)/설정 저장/Play** + 기상 패널 바람 등급 선택 → 1002 발행
+  - **SimulationStateModule / VisualizationModule**: S1 동일 (0003 1 Hz / 4001 메쉬·4101 프레임)
+- **시나리오 길이**: 하루 전체 traffic (sim 06:30~21:30). 데모 시연은 playbackSpeed 가속 + 임의 구간 발췌 — **실traffic 이므로 근접/위험 발생 시점은 비결정적**이며, 절대시각 대신 단계 번호로 기술한다 (§2).
 - **트리거 메커니즘**:
-  - 외부 트리거: 1003 `scenarioFileName` = `S2_psu_replan.json` 로딩
-  - 시뮬레이션 시작: 1002 `playState=play`, `playbackSpeed=4`
-  - 바람 트리거: 기상 패널 바람 등급 serious → 1002 (T+20:00)
-  - 개입 트리거: PSU 내부 4001 궤적 외삽 → 3003 `reasonCode=LOSS_OF_SEPARATION_RISK` 자동 발행 (T+25:00 sim time)
+  - 시나리오 선택: 콘솔 S2 버튼 (잠금) → `scenarioFileName="20260611_131306_98f166edc22f.json"`
+  - traffic 투입: 2001 (1회) → Mission prebuilt 3001 ×3,360 → 2002 `scenarioId="S2"`
+  - 바람 트리거: 기상 패널 바람 등급 serious → 1002 (T+α)
+  - 개입 트리거: **운영자가 PSU UI 에서 대상 기체 선택 → 3003 setSpeed draft → dispatch** (T+β, 반자동)
 
-## 2. 시뮬레이션 timeline
+## 2. 시뮬레이션 timeline (데모 절차)
+
+> 실traffic 3,360편 운용이라 **근접/위험 발생 시점이 비결정적** — 절대시각(T+mm:ss) 대신 **단계 번호** 로 기술한다.
+> T+α (바람 인가), T+β (운영자 dispatch) 는 데모 진행자가 상황을 보고 결정한다.
 
 ```text
-# Phase 0: 부팅 + 모듈 등록 (T+00:00 ~ T+00:10) — S1 동일
-T+00:00  VEHICLE×2  → SERVER     [0001]  ModuleSettingInfo
-                                          payload preview: { moduleId: "VEH-UAM0001" | "VEH-UAM0002", role: "VEHICLE" }
-                                          note: 두 Air Mobility 모듈 부팅 후 자기 식별
+# 단계 0: 부팅 + 모듈 등록
+STEP 0   ALL MODULES → SERVER  [0001] ModuleSettingInfo  (VEHICLE/VISUAL/MISSION/SIM_STATE/MONITORING/PSU)
+                               [0002] ModuleStatus (1 Hz heartbeat)
+                               note: PSU 는 REST 폴링 기반 — 허브 DB/REST 로 4001/3001 수신 준비
 
-T+00:01  VISUAL     → SERVER     [0001]  ModuleSettingInfo { moduleId: "VIZ-Unreal", role: "VISUAL" }
-T+00:02  MISSION    → SERVER     [0001]  ModuleSettingInfo { moduleId: "MIS-Planner", role: "MISSION" }
-T+00:03  SIM_STATE  → SERVER     [0001]  ModuleSettingInfo { moduleId: "SIM-State", role: "SIM_STATE" }
-T+00:04  MONITORING → SERVER     [0001]  ModuleSettingInfo { moduleId: "OPS-Console", role: "MONITORING" }
-T+00:05  PSU        → SERVER     [0001]  ModuleSettingInfo { moduleId: "EXT-PSU", role: "PSU" }
-                                          note: FORWARD_RULES[0001]=[MONITORING] — 전부 Ops Console 로 forward
+# 단계 1: S2 선택 (잠금)
+STEP 1   User(OpsConsole)      콘솔 시나리오 패널에서 S2 선택 → 시나리오 잠금
+                               note: scenarioFileName="20260611_131306_98f166edc22f.json" 확정.
+                                     1001 SimModeSetup { operationMode: "traffic", traffic: { trafficScenario: "customed" } }
 
-T+00:08  ALL        → SERVER     [0002]  ModuleStatus (1 Hz heartbeat 시작)
-                                          payload preview: { moduleId, state: "READY" }
+# 단계 2: 설정 저장 (스폰 구성)
+STEP 2   User(OpsConsole) → SERVER  [1003] ScenarioSetup
+                               payload preview: { scenarioFileName: "20260611_131306_98f166edc22f.json",
+                                                  totalAircraftCount: 136, mainVehicleType: "KP2A" }
+                               note: ★ 스폰은 3,360편이 아니라 기체별 dedupe 136 entries (검증 완료) —
+                                     같은 기체가 하루 여러 leg 를 수행. vertiport 17개 로드
 
-# Phase 1: Sim Mode + Scenario setup (T+00:10 ~ T+00:20)
-T+00:10  User       → SERVER     [1001]  SimModeSetup
-                                          payload preview: { operationMode: "traffic", traffic: { trafficScenario: "customed" } }
-                                          note: 다중 비행체 traffic 모드로 부팅 → SIM_STATE 수신
+# 단계 3: Play — traffic 일괄 투입
+STEP 3a  User       → SERVER   [2001] FlightPlanRequest (기본형, 1회)
+                               payload preview: { scenarioFileName: "20260611_131306_98f166edc22f.json",
+                                                  flightPlanNumber: null, reasonCode: null }
+                               note: ★ 2001 은 한 번만 — Mission 이 FPL 폴더의 prebuilt 3001 을 감지·직로딩
 
-T+00:15  User       → SERVER     [1003]  ScenarioSetup
-                                          payload preview: { scenarioFileName: "S2_psu_replan.json", totalAircraftCount: 2, mainVehicleType: "KP2A" }
-                                          note: 두 대(UAM0001, UAM0002)와 회랑 라우트 네트워크 로드 → SIM_STATE, VISUAL 수신
+STEP 3b  MISSION    → SERVER   [3001] ScheduledFlight ×3,360 (prebuilt 직로딩, 일괄 발행)
+                               payload preview: { flightPlanNumber: 109001, planVersion: 1,
+                                                  planStatus: "active", aircraftId: "UAM0001", ... }
+                               note: PlugIn/FlightScheduler/FPL/20260611_131306_98f166edc22f/ScheduledFlight/
+                                     의 JSON 3,360개를 계산 파이프라인 우회로 그대로 발행 → VEHICLE/VISUAL (PSU 폴링)
 
-# Phase 2: Flight Plan Request + Scheduled Flight (T+00:20 ~ T+00:25)
-T+00:20  User       → SERVER     [2001]  FlightPlanRequest (기본형, 1회)
-                                          payload preview: { scenarioFileName: "S2_psu_replan.json", flightPlanNumber: null, reasonCode: null, triggeringEventId: null, arrivalVertiportHint: null }
-                                          note: ★ 2001 은 한 번만 발행 — MISSION 이 scenarioFileName 으로 데모 플랜 팩
-                                                (data/demo_plans/S2_psu_replan/) 을 감지하여 두 기체 plan 을 일괄 발행.
-                                                (2001 을 두 번 보내면 데모 분기가 두 번 발동해 3001 이 중복 발행되므로 금지)
+STEP 3c  User       → SERVER   [2002] DtamExecute
+                               payload preview: { scenarioFileName: "20260611_131306_98f166edc22f.json",
+                                                  scenarioId: "S2" }
+STEP 3d  User       → SERVER   [1002] SimulationSetup { playState: "play", wind: { grade: "normal" } }
+                               note: sim 06:30 출발 — 이후 0003 1 Hz, 4001 10 Hz, 4101 5 Hz 흐름 시작
 
-T+00:23  MISSION    → SERVER     [3001]  ScheduledFlight v1 (UAM0001)
-                                          payload preview: { flightPlanNumber: 1201, planVersion: 1, planStatus: "active", aircraftId: "UAM0001" }
-                                          note: 데모 플랜 팩 로드 (계산 파이프라인 우회) — enRoute 가 회랑 C-NORTH 통과 → VEHICLE, VISUAL 수신
+# 단계 4: 운항 (실traffic)
+STEP 4   VEHICLE    → SERVER   [4001] VehicleStatus — 활성 기체 다수 동시 송출
+                               note: std 06:30~21:30 에 걸쳐 이착륙 반복. PSU 콘솔이 4001 폴링으로 전 기체 감시
 
-T+00:23  MISSION    → SERVER     [3001]  ScheduledFlight v1 (UAM0002)
-                                          payload preview: { flightPlanNumber: 1202, planVersion: 1, planStatus: "active", aircraftId: "UAM0002" }
-                                          note: 동일 회랑 C-NORTH 진입 시간차 ~16초 (약 880 m, std 2분차 + 상승률 차이) — 정상 시 분리 충분,
-                                                바람 외란(1002 wind.grade=serious) 누적 시에만 위험으로 발전하는 기하
+# 단계 5 (T+α): 바람 외란 인가
+STEP 5   User(OpsConsole) → SERVER  [1002] SimulationSetup — 기상 패널 바람 등급 serious — TRIGGER 1
+                               payload preview: { playState: "play", wind: { grade: "serious",
+                                 weather: { preset: "bad", season: "summer", localHour: 9,
+                                            seed: 20260611, includeGust: true, t: 0.0 } } }
+                               note: 기존 콘솔 날씨 선택 기능. Vehicle 이 바람장 적용 → 궤적 drift 발생
 
-# Phase 3: 실행 시작 (T+00:25 ~ T+00:30)
-T+00:25  User       → SERVER     [1002]  SimulationSetup (play)
-                                          payload preview: { playState: "play", playbackSpeed: 4, simSecondsOfDay: 32400.0, wind: { grade: "normal", gust: null } }
-                                          note: SIM 시작 (KST 09:00 기준). 초기 바람은 normal
+# 단계 6 (T+β): 운영자 식별 → PSU 반자동 개입
+STEP 6a  Operator(PSU UI)      4001 폴링 화면에서 근접/위험 기체 식별 (수평 분리 수렴 추세)
+                               note: 비결정적 — 실traffic 밀도와 바람 seed 에 따라 대상/시점 상이
 
-T+00:28  User       → SERVER     [2002]  DtamExecute
-                                          payload preview: { simModeFileName: "S2.sim.json", scenarioFileName: "S2_psu_replan.json", flightPlanFolderName: "flights/S2/", scenarioId: "S2" }
-                                          note: 모든 모듈에 활성 계획 폴더 통지 (MISSION, MONITORING, VEHICLE, VISUAL, SA)
+STEP 6b  Operator(PSU UI) → SERVER  [3003] TacticalSeparation — draft → dispatch (반자동) — TRIGGER 2
+                               payload preview: { commandId: "TMP-PSU-UAM0034-20260611-0001",
+                                                  aircraftId: "UAM0034",
+                                                  reasonCode: "LOSS_OF_SEPARATION_RISK",
+                                                  actions: [ { type: "setSpeed", targetSpeed: 40.0 } ] }
+                               note: PSU UI 가 draft 생성, 운영자가 dispatch 버튼 클릭 → 허브 POST /api/msg/3003.
 
-T+00:30  SIM_STATE  → SERVER     [0003]  CommonTimeInfo (1 Hz)
-                                          payload preview: { simSecondsOfDay: 32400.0 }
-                                          note: 이후 1초마다 발행, VEHICLE/VISUAL 동기화
-
-T+00:30  VEHICLE    → SERVER     [4001]  VehicleStatus (UAM0001, UAM0002) — 10 Hz 연속
-                                          payload preview: { UAM0001: { position, gps, energy: { battery_pct: 100 } } }
-                                          note: 시나리오 전 구간 지속. PSU/MONITORING/VISUAL/SA 수신. PSU 시계열 추적 시작
-
-T+00:30  VISUAL     → SERVER     [4101]  CameraImageFrame (5 Hz)
-                                          payload preview: { vehicle_id: "UAM0001", camera_name: "front", encoding: "jpeg" }
-                                          note: MONITORING/SA forward
-
-# Phase 4: 정상 운항 (T+02:00 ~ T+20:00)
-T+02:00  VEHICLE    → SERVER     [4001]  (UAM0001 이륙 완료, climb out 진입)
-                                          note: phase=E (climb out), departure 절차 완료
-
-T+02:30  VEHICLE    → SERVER     [4001]  (UAM0002 이륙 완료, climb out 진입)
-                                          note: UAM0001 대비 ~30초 지연 (계획 상 의도된 간격)
-
-T+10:00  VEHICLE    → SERVER     [4001]  (양 비행체 순항 진입)
-                                          note: phase=F (cruise), enRoute seq=2 진입, targetSpeed 도달
-
-# Phase 5: 기상 패널 바람 등급 변경 → 바람 영향 (T+20:00 ~ T+25:00)
-T+20:00  User(OpsConsole) → SERVER  [1002]  SimulationSetup — 기상 패널 바람 등급 serious 선택 — TRIGGER 1
-                                          payload preview: { playState: "play", wind: { grade: "serious",
-                                            weather: { preset: "bad", season: "summer", localHour: 9, seed: 20260611, includeGust: true, t: 0.0 } } }
-                                          note: 운영자 바람 등급 변경 — 기존 날씨 선택 기능 (기상 dock: 강수/안개/바람등급/국지바람
-                                                → 변경 시 1002 자동 발행, wind.weather 자동 동봉 — uamodt standalone_weather 양식 1:1,
-                                                grade 매핑 serious→bad). FORWARD_RULES[1002]=전 모듈 (VEHICLE/VISUAL/SIM_STATE/MISSION/
-                                                MONITORING/PSU/SA — 전체 개방). VEHICLE 이 수신 파라미터로 바람장 적용 시작
-
-T+20:01  VEHICLE    (internal)            1002 wind.weather (preset="bad") 수신 — weather_core snapshot 에 투입
-                                          note: 수신 파라미터로 바람장 구성 → dynamics 적용 시작, 궤적이 횡방향으로 흔들리기 시작
-
-T+20:05  VEHICLE    → SERVER     [4001]  (양 비행체 궤적 drift 발생)
-                                          note: crossTrack 오차 누적 — UAM0001 +120 m, UAM0002 +90 m 수준으로 발산
-
-T+20:05  PSU        (internal)            지속 궤적 예측 시작 (4001 10 Hz 외삽)
-                                          note: 4001 시계열에 나타나는 drift 를 외삽 모델에 반영 (별도 바람 메시지 의존 없음)
-
-T+24:30  PSU        (internal)            충돌 예상 기체 쌍 식별 — TRIGGER 2 준비
-                                          note: 90 s lookahead 에서 UAM0001-UAM0002 수평 분리 < 임계치(300 m) 수렴 예측
-                                                (loss of separation 예측)
-
-# Phase 6: PSU 속도 조정 개입 (T+25:00 ~ T+25:10)
-T+25:00  PSU        → SERVER     [3003]  TacticalSeparation (PSU 직접 발행, setSpeed) — TRIGGER 2
-                                          payload preview: {
-                                            commandId: "TMP-PSU-UAM0002-20260610-0001",
-                                            aircraftId: "UAM0002",
-                                            reasonCode: "LOSS_OF_SEPARATION_RISK",
-                                            scenarioId: "S2",
-                                            actions: [ { type: "setSpeed", targetSpeed: 40.0 } ]
-                                          }
-                                          note: UAM0002 감속 (targetSpeed 낮춤) — 속도 조정만으로 분리 회복. directTo 없음.
-                                                FORWARD_RULES[3003]=[VEHICLE, MISSION] — Mission 도 수신 (수신만).
-                                                2001 확장 / 3001 v2 / 3002 는 발행되지 않음. full JSON 은 §3.2
-
-T+25:01  VEHICLE    → SERVER     [4001]  (UAM0002 즉시 감속)
-                                          note: setSpeed 40.0 적용 — 경로/헤딩 불변, 속도만 변경.
-                                                plan 은 그대로 planVersion=1 (전술 속도 이탈 상태)
-
-T+25:01  MISSION    (internal)            3003 수신 — on_tactical_separation
-                                          note: fpn=1202 에 "tactical deviation active (TMP-PSU-...)" 마킹.
-                                                plan 정합성 추적만 수행, 어떤 메시지도 발행하지 않음
-
-T+25:10  PSU        (internal)            재평가
-                                          note: 외삽 재계산 — 분리 거리 회복 추세 확인 (>= 300 m 수렴)
-
-# Phase 7: 분리 회복 → 정상 도착 (T+30:00 ~ T+50:00)
-T+30:00  PSU        → SERVER     [3003]  TacticalSeparation (속도 복원 — 선택 단계)
-                                          payload preview: {
-                                            commandId: "TMP-PSU-UAM0002-20260610-0002",
-                                            aircraftId: "UAM0002",
-                                            reasonCode: "LOSS_OF_SEPARATION_RISK",
-                                            scenarioId: "S2",
-                                            actions: [ { type: "setSpeed", targetSpeed: 55.0 } ]
-                                          }
-                                          note: 분리 회복 확인 후 순항 속도 복원. 대안: actions=[{ type: "rejoinPlan", atSeq: 2 }].
-                                                선택 단계 — 생략 가능 (감속 상태로 도착해도 acceptance 충족)
-
-T+30:01  VEHICLE    → SERVER     [4001]  (UAM0002 순항 속도 복원, 기존 회랑 정상 통과)
-                                          note: phase=F (cruise) 유지, planVersion=1 불변
-
-T+32:00  VEHICLE    → SERVER     [4001]  (UAM0001 기존 회랑 정상 통과)
-                                          note: UAM0001 은 어떤 전술 명령도 받지 않음 — 계획(1201) 불변
-
-T+45:00  VEHICLE    → SERVER     [4001]  (UAM0001 도착 접근, arrival transition)
-                                          note: phase=G (arrival transition); 도착 vertiport 는 v1 그대로 GIMPO_VP
-
-T+47:30  VEHICLE    → SERVER     [4001]  (UAM0002 도착 접근, arrival transition)
-                                          note: phase=G (arrival transition)
-
-T+49:30  VEHICLE    → SERVER     [4001]  (UAM0001 착륙 완료)
-                                          note: phase=K (gate-in taxi), battery_pct ≈ 35%
-
-T+50:00  VEHICLE    → SERVER     [4001]  (UAM0002 착륙 완료)
-                                          note: 시나리오 종료 — User 1002 playState="pause"
+# 단계 7: 감속 확인
+STEP 7   VEHICLE    → SERVER   [4001] (대상 기체 1초 이내 감속 — speed 변화, 경로/헤딩 불변)
+         MISSION    (internal) 3003 수신 — 해당 fpn 에 "tactical deviation active" 장부 마킹 (발행 없음)
+                               note: 필요 시 운영자가 두 번째 3003 (setSpeed 복원) dispatch — 선택.
+                                     이후 traffic 운항 지속, 데모 발췌 구간 종료 시 1002 playState="pause"
 ```
 
 ## 3. 메시지별 상세 payload
 
-### 3.1 5004 WindEffectData — 폐기
+### 3.1 prebuilt 3001 ScheduledFlight 샘플 — `109001_UAM0001` (여의도 → 성수)
 
-> 5004 WindEffectData 는 **폐기됨 (2026-06-11)** — 바람은 1002 `wind.weather` 파라미터 전달로 일원화.
+> FPL 폴더 `ScheduledFlight/` 의 3,360개 JSON 중 1번 편. **phase A..K 12 세그먼트** — Mission 이 그대로 발행한다 (직로딩).
 
-### 3.2 3003 TacticalSeparation — PSU 직접 발행 (T+25:00)
+```json
+{
+  "flightPlanNumber": 109001,
+  "planVersion": 1,
+  "planStatus": "active",
+  "aircraftId": "UAM0001",
+  "departure": {
+    "vertiport": "여의도",
+    "std": "06:30:00", "eobt": "06:30:00", "etot": "06:36:55",
+    "depGateNumber": "G1", "depFatoNumber": "F1"
+  },
+  "enRoute": [
+    { "seq": 1,  "phase": "A", "startLLA": { "lat": 37.526513, "lon": 126.922845, "alt": 0.0 },   "endLLA": { "lat": 37.526513, "lon": 126.922845, "alt": 0.0 },    "targetSpeed": 3.0 },
+    { "seq": 2,  "phase": "B", "startLLA": { "lat": 37.526513, "lon": 126.922845, "alt": 0.0 },   "endLLA": { "lat": 37.526513, "lon": 126.922845, "alt": 15.0 },   "targetSpeed": 10.0 },
+    { "seq": 3,  "phase": "C", "startLLA": { "lat": 37.526513, "lon": 126.922845, "alt": 15.0 },  "endLLA": { "lat": 37.519919, "lon": 126.933669, "alt": 100.0 },  "targetSpeed": 36.0 },
+    { "seq": 4,  "phase": "E", "startLLA": { "lat": 37.519919, "lon": 126.933669, "alt": 100.0 }, "endLLA": { "lat": 37.508684, "lon": 126.952110, "alt": 219.3 },  "targetSpeed": 51.4 },
+    { "seq": 5,  "phase": "E", "startLLA": { "lat": 37.508684, "lon": 126.952110, "alt": 219.3 }, "endLLA": { "lat": 37.503384, "lon": 126.967415, "alt": 305.0 },  "targetSpeed": 51.4 },
+    { "seq": 6,  "phase": "F", "startLLA": { "lat": 37.503384, "lon": 126.967415, "alt": 305.0 }, "endLLA": { "lat": 37.497738, "lon": 126.983721, "alt": 305.0 },  "targetSpeed": 51.4 },
+    { "seq": 7,  "phase": "F", "startLLA": { "lat": 37.497738, "lon": 126.983721, "alt": 305.0 }, "endLLA": { "lat": 37.507422, "lon": 127.010349, "alt": 305.0 },  "targetSpeed": 51.4 },
+    { "seq": 8,  "phase": "G", "startLLA": { "lat": 37.507422, "lon": 127.010349, "alt": 305.0 }, "endLLA": { "lat": 37.509486, "lon": 127.016026, "alt": 272.95 }, "targetSpeed": 36.0 },
+    { "seq": 9,  "phase": "G", "startLLA": { "lat": 37.509486, "lon": 127.016026, "alt": 272.95 },"endLLA": { "lat": 37.531492, "lon": 127.035175, "alt": 100.0 },  "targetSpeed": 36.0 },
+    { "seq": 10, "phase": "I", "startLLA": { "lat": 37.531492, "lon": 127.035175, "alt": 100.0 }, "endLLA": { "lat": 37.538917, "lon": 127.041635, "alt": 15.0 },   "targetSpeed": 30.0 },
+    { "seq": 11, "phase": "J", "startLLA": { "lat": 37.538917, "lon": 127.041635, "alt": 15.0 },  "endLLA": { "lat": 37.538917, "lon": 127.041635, "alt": 0.0 },    "targetSpeed": 10.0 },
+    { "seq": 12, "phase": "K", "startLLA": { "lat": 37.538917, "lon": 127.041635, "alt": 0.0 },   "endLLA": { "lat": 37.538917, "lon": 127.041635, "alt": 0.0 },    "targetSpeed": 3.0 }
+  ],
+  "arrival": {
+    "vertiport": "성수",
+    "sta": "06:49:00", "eibt": "06:49:00", "eldt": "06:42:10",
+    "arrGateNumber": "G4", "arrFatoNumber": "F3"
+  }
+}
+```
 
-> **발행 주체가 MISSION 이 아니라 PSU** 인 것이 S2 의 핵심 (SDK 3003 direction: `mission|psu->server`).
-> `commandId` 는 `TMP-PSU-{aircraftId}-{YYYYMMDD}-{SEQ}` 포맷.
-> 액션: **`setSpeed` 단일 액션** — targetSpeed 를 낮춰 감속, 속도 조정만으로 분리 회복 (directTo 미사용, 경로 불변).
-> FORWARD_RULES[3003]=[VEHICLE, MISSION] — **MISSION 은 수신만** 하여 plan 정합성을 추적하고, 어떤 재계획 메시지도 발행하지 않는다.
+### 3.2 3003 TacticalSeparation — PSU UI dispatch (T+β, 반자동)
+
+> **발행 주체는 PSU** (SDK 3003 direction: `mission|psu->server`), 단 **운영자가 draft→dispatch 버튼을 눌러 발행** 하는 반자동.
+> 허브 `POST /api/msg/3003` 호환 검증 완료. `commandId` 는 `TMP-PSU-{aircraftId}-{YYYYMMDD}-{SEQ}` 포맷.
+> 액션: **`setSpeed` 단일 액션** — directTo 미사용, 경로 불변. FORWARD_RULES[3003]=[VEHICLE, MISSION].
 
 ```json
 {
   "messageId": "3003",
   "messageName": "tactical_separation",
-  "timestamp": "2026-06-10T09:25:00.250+09:00",
-  "commandId": "TMP-PSU-UAM0002-20260610-0001",
-  "aircraftId": "UAM0002",
+  "timestamp": "2026-06-11T09:25:00.250+09:00",
+  "commandId": "TMP-PSU-UAM0034-20260611-0001",
+  "aircraftId": "UAM0034",
   "reasonCode": "LOSS_OF_SEPARATION_RISK",
-  "scenarioId": "S2",
   "actions": [
     {
       "type": "setSpeed",
@@ -205,271 +152,121 @@ T+50:00  VEHICLE    → SERVER     [4001]  (UAM0002 착륙 완료)
 }
 ```
 
-**복원용 두 번째 3003 (T+30:00, 선택 단계)** — 분리 회복 확인 후 순항 속도 복원:
 
-```json
-{
-  "messageId": "3003",
-  "messageName": "tactical_separation",
-  "timestamp": "2026-06-10T09:30:00.000+09:00",
-  "commandId": "TMP-PSU-UAM0002-20260610-0002",
-  "aircraftId": "UAM0002",
-  "reasonCode": "LOSS_OF_SEPARATION_RISK",
-  "scenarioId": "S2",
-  "actions": [ { "type": "setSpeed", "targetSpeed": 55.0 } ]
-}
-```
-
-> 대안: `actions=[{ "type": "rejoinPlan", "atSeq": 2 }]` 로 원 계획 세그먼트 재합류를 지시할 수도 있다 (선택).
+> (선택) 분리 회복 후 운영자가 두 번째 3003 — `actions=[{ "type": "setSpeed", "targetSpeed": 55.0 }]` (속도 복원) 또는 `[{ "type": "rejoinPlan", "atSeq": n }]` — 을 dispatch 할 수 있다. 생략 가능.
 
 ## 4. 모듈별 동작 → 발행 메시지
 
 > 각 모듈의 표는 시간순이며, **모듈 개발자가 자기 모듈 표만 보고 구현 가능**하도록 구성한다.
-> 모든 행은 "트리거 → 동작 → 발행" 3단 인과. 전체 흐름(시간순)은 §2 timeline 참조.
+> 모든 행은 "트리거 → 동작 → 발행" 3단 인과. 전체 흐름은 §2 timeline 참조.
 
 ### 4.1 OperationModule (OpsConsole, MONITORING)
 
 | # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
 |---|---|---|---|
-| 1 | 0001/0002 수신 | 모듈 등록·heartbeat 상태 시각화 | (없음 — 수신만) |
-| 2 | 4001/4101 수신 | 비행 상태·카메라 프레임 실시간 표시 | (없음 — 수신만) |
-| 3 | 운영자 기상 패널 바람 등급 serious 클릭 (T+20:00) | 기존 날씨 선택 기능 (기상 dock: 강수/안개/바람등급/국지바람 → 변경 시 1002 자동 발행) | **1002** SimulationSetup `wind.grade=serious` 발행 (기존 기능) |
-| 4 | 3003 발생 인지 (DB/로그 경유 — 3003 직접 forward 대상은 VEHICLE/MISSION 만) | PSU 개입 알림 배너 표시 (commandId, reasonCode) | (없음) |
+| 1 | 운영자 S2 버튼 클릭 (STEP 1) | 시나리오 S2 선택·잠금 — `scenarioFileName="20260611_131306_98f166edc22f.json"` 확정 | **1001** SimModeSetup (traffic/customed) |
+| 2 | 운영자 설정 저장 (STEP 2) | 스폰 구성 — 기체별 dedupe **136 entries**, vertiport 17 | **1003** ScenarioSetup |
+| 3 | 운영자 Play (STEP 3) | 2001 1회 → 2002 → play 순 발행 | **2001**, **2002** (`scenarioId="S2"`), **1002** (play) |
+| 4 | 0001/0002/4001/4101 수신 | 모듈 상태·비행 상태·카메라 시각화 | (없음 — 수신만) |
+| 5 | 운영자 기상 패널 바람 등급 serious (STEP 5, T+α) | 기존 날씨 선택 기능 — wind.weather 자동 동봉 (grade→preset 매핑 serious→bad) | **1002** `wind.grade=serious` |
 
-> 바람 트리거는 별도 데모 버튼이 아니라 **기존 기상 패널의 바람 등급 선택**으로 수행한다 — 신규 UI 작업 없음.
-
-### 4.2 PSU (ExtensionModule)
-
-| # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
-|---|---|---|---|
-| 1 | 4001 수신 (10 Hz, 지속) | 두 기체(UAM0001/UAM0002) 시계열 궤적 추적 — 외삽 모델 지속 갱신 (바람 drift 는 4001 시계열에 그대로 나타나므로 별도 바람 입력 불필요) | (없음 — 내부 처리) |
-| 2 | 충돌 예측 (내부, T+24:30~25:00) | 90 s lookahead 에서 수평 분리 < 300 m 수렴 → loss of separation 예측, 충돌 예상 쌍(UAM0001-UAM0002) 식별 | **3003** setSpeed `targetSpeed=40.0` (UAM0002 감속, `reasonCode=LOSS_OF_SEPARATION_RISK`, `commandId=TMP-PSU-{aircraftId}-{YYYYMMDD}-{SEQ}`, `scenarioId="S2"` 동봉) |
-| 3 | 분리 회복 확인 (내부 재평가, T+25:10 이후) | 외삽 재계산 — 분리 거리 ≥ 300 m 회복 추세 확인 | **3003** setSpeed `targetSpeed=55.0` 복원 또는 rejoinPlan `atSeq=2` (선택 — 생략 가능) |
-
-> **속도 조정 재계획 주체** (S2 의 의사결정 모듈). actions 는 **setSpeed 단일 액션** — directTo 미사용.
-> **2001 확장(전략 재계획 요청)은 발행하지 않음** — S2 는 속도 조정 전술 개입만 사용.
-> PSU 는 **1002 도 수신 가능** (전체 개방) — 궤적 예측 시 바람 파라미터 참고 가능 (선택, 외삽은 4001 만으로도 충분).
-
-### 4.3 VehicleModule (UAM0001, UAM0002 — UAO 겸업)
+### 4.2 PSU (신규 반입 모듈 — 반자동)
 
 | # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
 |---|---|---|---|
-| 1 | 3001 v1 수신 | plan(1201/1202) 로드 — 회랑 C-NORTH 경로 설정 | (없음 — 수신만) |
-| 2 | 2002 수신 (`scenarioId="S2"`) | **특별 무장 없음 (정보성)** — 시나리오 전용 분기 없음 (S3 만 배터리 열화 + UAO 겸업 무장) | (없음 — 수신만) |
-| 3 | 비행 중 (내부, 10 Hz tick) | position/gps/energy/navigation 상태 산출 | **4001** VehicleStatus (10 Hz) |
-| 4 | 1002 수신 (`wind.weather.preset="bad"`) | **표준 메시지 처리** — wind.weather 파라미터를 weather_core snapshot 에 투입 → 바람장 구성·dynamics 적용 → 궤적 drift 발생 | (없음 — drift 가 **4001** 스트림에 반영) |
-| 5 | 3003 수신 | setSpeed 즉시 수행 — targetSpeed 변경만, 경로/헤딩 불변 | (없음 — 1초 이내 **4001** speed 변화로 반영) |
+| 1 | 3001 수신 (DB/REST 폴링) | 3,360편 계획 적재 — 감시 대상 목록 구성 | (없음 — 내부 처리) |
+| 2 | 4001 수신 (DB/REST 폴링, 지속) | 전 기체 위치·속도 감시 화면 갱신 + `battery_pct` 저전력 감시 (≤20% 카운트 — D-1) | (없음 — 내부 처리) |
+| 3 | 운영자가 근접/위험 기체 식별 (STEP 6a, T+β) | UI 에서 대상 기체 선택 → 3003 setSpeed **draft** 자동 구성 | (없음 — draft 단계) |
+| 5 | (선택) 분리 회복 확인 | 두 번째 draft→dispatch — 속도 복원 | **3003** setSpeed 복원 (선택) |
 
-> 3001 v1 경로 자체는 시나리오 전 구간 불변(`planVersion=1`) — 전술 속도 이탈만 발생.
-> Vehicle 의 1002 wind.weather 처리(수신·적용)는 시나리오와 무관한 표준 처리. **UAO 역할은 VehicleModule 겸업** 명시.
+> **반자동 (D-2)**: 자동 충돌 예측·자동 발행은 **P-3 선택 과제** — S2 데모는 운영자 판단 + dispatch.
+> SDK 미사용 (REST 폴링) — 동작 검증됨, SDK 전환은 선택. 4002 수신 없음 (4002 폴링 추가는 후속 요청).
+> 3002 draft→dispatch UI 도 보유 (D-3: 3002 sender `psu|mission`) — 단 **S2 데모에서 3002 발행 0건**.
+
+### 4.3 VehicleModule (다수 기체 세션 — 136 spawn entries)
+
+| # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
+|---|---|---|---|
+| 1 | 3001 수신 (×3,360) | 자기 기체(aircraftId) 해당 plan 적재 — 같은 기체가 하루 여러 leg 순차 수행 | (없음 — 수신만) |
+| 2 | 2002 수신 (`scenarioId="S2"`) | **특별 무장 없음 (정보성)** — 시나리오 전용 분기 없음 | (없음 — 수신만) |
+| 3 | 비행 중 (내부, 10 Hz tick) | position/gps/energy/navigation 산출 — 활성 기체 다수 동시 | **4001** VehicleStatus (10 Hz) |
+| 4 | 1002 수신 (`wind.weather.preset="bad"`) | 표준 처리 — weather_core snapshot 투입 → 바람장 적용 → 궤적 drift | (없음 — drift 가 **4001** 에 반영) |
+| 5 | 3003 수신 | **setSpeed 즉시 수행** — targetSpeed 변경만, 경로/헤딩 불변 | (없음 — 1초 이내 **4001** speed 변화로 반영) |
 
 ### 4.4 MissionModule
 
 | # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
 |---|---|---|---|
-| 1 | 2001 수신 (`scenarioFileName=S2_psu_replan.json`) | 데모 플랜 팩 (`data/demo_plans/S2_psu_replan/`) 로드 — 계산 파이프라인 우회 | **3001** ×2 (fpn=1201 UAM0001, fpn=1202 UAM0002, 사전 작성) |
-| 2 | 3003 수신 (`on_tactical_separation`) | **수신 전용** — fpn=1202 에 전술 이탈 활성(commandId, reasonCode) 마킹, 자기 plan 과의 정합성 추적 | (없음 — 수신만) |
+| 1 | 2001 수신 (`scenarioFileName="20260611_131306_98f166edc22f.json"`) | FPL 폴더 prebuilt 감지 → `ScheduledFlight/` JSON 3,360개 **직로딩** (계산 파이프라인 우회) | **3001** ×3,360 일괄 발행 |
+| 2 | 3003 수신 (`on_tactical_separation`) | **수신 전용** — 해당 fpn 에 전술 이탈 (commandId, reasonCode) 장부 마킹 | (없음 — 수신만) |
 
-> **S2 에서 3001 v2 / 3002 / 추가 3003 을 발행하지 않음** — 전략 재계획 경로(2001 확장)는 SDK 인터페이스로 유지되나 본 시나리오에서 미사용.
+> **S2 에서 3001 v2 / 3002 / 2001 확장을 발행하지 않음** — 전략 재계획 경로는 SDK 인터페이스로만 유지.
 
 ### 4.5 IntegrationHub (SERVER)
 
 | # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
 |---|---|---|---|
 | 1 | 0001/0002 수신 | FORWARD_RULES 조회 + DB 저장 | **0001**/**0002** → MONITORING forward |
-| 2 | 1002 수신 | FORWARD_RULES[1002] 조회 + DB 저장 | **1002** → **전 모듈** fan-out (VEHICLE/VISUAL/SIM_STATE/MISSION/MONITORING/PSU/SA — 전체 개방) |
-| 3 | 3001 수신 | FORWARD_RULES 조회 + DB 저장 | **3001** → VEHICLE/VISUAL forward |
-| 4 | 4001 수신 (10 Hz) | FORWARD_RULES 조회 + DB 저장 | **4001** → PSU/MONITORING/VISUAL/SA forward |
-| 5 | 4101 수신 (5 Hz) | FORWARD_RULES 조회 + DB 저장 | **4101** → MONITORING/SA forward |
-| 6 | 3003 수신 | FORWARD_RULES[3003] 조회 + DB 저장 | **3003** → VEHICLE/MISSION forward |
-
-### 4.6 VisualizationModule
-
-| # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
-|---|---|---|---|
-| 1 | 1003 수신 | vertiport/회랑 라우트 네트워크 로드 | (없음 — 수신만) |
-| 2 | 3001 v1 수신 | 항적선 렌더링 | (없음 — 수신만) |
-| 3 | 4001 수신 (10 Hz) | 비행체 메쉬 갱신 | (없음 — 수신만) |
-| 4 | 렌더링 루프 (내부, 5 Hz) | 카메라 프레임 캡처·인코딩 | **4101** CameraImageFrame (5 Hz) |
-
-### 4.7 SimulationStateModule (SIM_STATE — 보조)
-
-| # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
-|---|---|---|---|
-| 1 | 1001/1002/1003 수신 | sim mode / playState / 시나리오 소비 | (없음 — 수신만) |
-| 2 | 내부 1 Hz tick (play 중) | sim time 진행 | **0003** CommonTimeInfo (1 Hz) |
-
-> **(UAO 역할은 VehicleModule 이 겸업, 별도 모듈 비활성 / VPO 비활성)** — S2 는 PSU 단독 전술 개입.
+| 2 | 1002 수신 | FORWARD_RULES[1002] + DB 저장 | **1002** → 전 모듈 fan-out (VEHICLE/VISUAL/SIM_STATE/MISSION/MONITORING/PSU/SA) |
+| 3 | 3001 수신 (×3,360 burst) | FORWARD_RULES + DB 저장 — 일괄 투입 burst 처리 | **3001** → VEHICLE/VISUAL forward (PSU 는 DB/REST 폴링으로 취득) |
+| 4 | 4001 수신 (10 Hz × 다수 기체) | FORWARD_RULES + DB 저장 | **4001** → MONITORING/VISUAL/SA forward (PSU 는 폴링) |
+| 5 | `POST /api/msg/3003` 수신 (PSU UI dispatch) | REST 수신 → FORWARD_RULES[3003] + DB 저장 | **3003** → VEHICLE/MISSION forward |
 
 ## 5. 검증 가능한 결과 (acceptance criteria)
 
-- `S2_psu_replan.json` 로드 시 `totalAircraftCount=2`로 인식되며 UAM0001/UAM0002 두 대가 spawn된다.
-- T+02:30 이전에 두 비행체 모두 이륙 (4001 `phase` 변화로 확인).
-- T+20:00 에 **1002 `wind.grade=serious` 가 1회 이상 발행**된다 (기상 패널 바람 등급 선택 — 기존 기능, IntegrationHub 로그 확인).
-- 1002 wind.weather 수신·적용으로 양 비행체의 4001 궤적에 횡방향 drift 가 관측된다 (UAM0001 ≈ 120 m, UAM0002 ≈ 90 m 스케일).
-- T+20:05 ~ T+25:00 사이에 PSU 내부 외삽이 loss of separation 을 예측한다 (PSU 로그에 conflict pair `UAM0001-UAM0002` 기록).
-- **PSU 가 3003(setSpeed) 을 1회 이상 발행**하며 다음을 만족:
+- 콘솔 S2 선택·저장 시 `scenarioFileName="20260611_131306_98f166edc22f.json"` 으로 잠기고, 스폰이 기체별 dedupe **136 entries** 로 구성된다.
+- Play 후 **3001 이 정확히 3,360건 발행**된다 (Mission prebuilt 직로딩 — IntegrationHub 로그/DB 카운트로 확인).
+- **1002 `wind.grade=serious` 가 1회 이상 발행**된다 (기상 패널 — 기존 기능).
+- **PSU UI dispatch 로 3003(setSpeed) 이 1회 이상 발행**된다 — **운영자 주도 (반자동)** 이며 다음을 만족:
   - `commandId` 가 `TMP-PSU-` prefix
   - `reasonCode == "LOSS_OF_SEPARATION_RISK"`
-  - `actions` 에 `setSpeed` 액션 포함 (targetSpeed 를 순항 대비 낮춘 값), **`directTo` 액션 0건**
-  - FORWARD_RULES 에 따라 **VEHICLE 과 MISSION 양쪽** 으로 전달
-- VEHICLE 은 3003 수신 후 1초 이내에 setSpeed 를 반영 (4001 의 speed 변화로 확인, heading/경로 불변).
-- MISSION 은 3003 을 수신해 fpn=1202 에 전술 이탈을 마킹하되 **어떤 메시지도 발행하지 않는다**.
-- **3001 v2 발행 0건, 3002 발행 0건, 2001(확장) 발행 0건** — 1201/1202 모두 시나리오 전 구간 `planVersion == 1` 유지.
-- T+25:10 이후 **두 기체의 수평 분리 거리가 회복되어 최소 분리 임계값(300 m) 이상으로 유지**된다.
-- (선택) T+30:00 부근 두 번째 3003(setSpeed 복원 또는 rejoinPlan)이 발행될 수 있다 — 미발행 시에도 분리 회복이 유지되면 pass.
-- 양 비행체가 T+50:00 이전에 각자의 도착 vertiport 에 land 완료 (4001 `phase=K` gate-in taxi).
+  - `actions` 에 `setSpeed` 액션 포함, **`directTo` 액션 0건**
+  - FORWARD_RULES 에 따라 **VEHICLE 과 MISSION 양쪽**으로 전달
+- **대상 기체가 3003 수신 후 1초 이내 감속**한다 (4001 speed 변화로 확인, heading/경로 불변).
+- MISSION 은 3003 을 수신해 해당 fpn 에 전술 이탈을 마킹하되 **어떤 메시지도 발행하지 않는다**.
+- **3001 v2 발행 0건, 3002 발행 0건 (데모 흐름), 2001 확장 발행 0건** — 전 plan `planVersion == 1` 유지.
+- (선택) 두 번째 3003 (setSpeed 복원) 이 발행될 수 있다 — 미발행 시에도 pass.
 
-## 6. ICD payload 예시
+## 6. 데이터 출처 (FPL prebuilt 셋)
 
-### 6.1 `1003` ScenarioSetup payload 예시
+### 6.1 폴더 구조
 
-`scenarioFileName: "S2_psu_replan.json"` 의 내용 예시. `Msg1003_ScenarioSetup` 스키마 기준.
+```text
+PlugIn/FlightScheduler/FPL/20260611_131306_98f166edc22f/
+├── manifest.json                  # 셋 메타데이터 (아래 6.2)
+├── FPL_all.csv                    # 전체 FPL CSV (3,360 rows)
+├── FPL_<vertiport>.csv ×17       # vertiport 별 FPL (가산/강남/광화문/마곡/망우/목동/미아/봉천/
+│                                  #   사당/상암/성수/수서/여의도/연신내/용산/잠실/천호)
+├── ScheduledFlight/               # ★ prebuilt 3001 JSON ×3,360 — Mission 이 직로딩·발행
+│   ├── 109001_UAM0001.json        #   파일명 = {flightPlanNumber}_{aircraftId}.json
+│   ├── 116001_UAM0002.json
+│   └── … (3,360개)
+└── _metrics/                      # 생성기 메트릭 (hourly/type/bottlenecks/resourceEvents — 데모 미사용)
+```
+
+### 6.2 manifest.json (요약)
 
 ```json
 {
-  "messageId": "1003",
-  "messageName": "scenario_setup",
-  "timestamp": "2026-06-10T08:59:00.000+09:00",
-  "scenarioFileName": "S2_psu_replan.json",
-  "totalAircraftCount": 2,
-  "mainVehicleType": "KP2A",
-  "operationTime": {
-    "startTime": "2026-06-10T09:00:00+09:00",
-    "endTime":   "2026-06-10T09:50:00+09:00"
-  },
-  "vertiports": [
-    {
-      "name": "JAMSIL_VP",
-      "vertiportClass": "hub",
-      "lat": 37.5145,
-      "lon": 127.1020,
-      "angleDegrees": 0.0
-    },
-    {
-      "name": "GIMPO_VP",
-      "vertiportClass": "port",
-      "lat": 37.5630,
-      "lon": 126.8010,
-      "angleDegrees": 90.0
-    },
-    {
-      "name": "YONGSAN_VP",
-      "vertiportClass": "port",
-      "lat": 37.5300,
-      "lon": 126.9650,
-      "angleDegrees": 45.0
-    }
-  ],
-  "routeNetwork": {
-    "waypoints": [
-      {
-        "waypointId": "WP-JAM-EXIT",
-        "waypointName": "Jamsil Exit",
-        "lat": 37.5200,
-        "lon": 127.0800,
-        "altFt": 1200,
-        "links": ["WP-C-NORTH-IN"]
-      },
-      {
-        "waypointId": "WP-C-NORTH-IN",
-        "waypointName": "Corridor North Entry",
-        "lat": 37.5400,
-        "lon": 127.0200,
-        "altFt": 1200,
-        "links": ["WP-C-NORTH-OUT"]
-      },
-      {
-        "waypointId": "WP-C-NORTH-OUT",
-        "waypointName": "Corridor North Exit",
-        "lat": 37.5550,
-        "lon": 126.9300,
-        "altFt": 1200,
-        "links": ["WP-GMP-IN"]
-      },
-      {
-        "waypointId": "WP-C-SOUTH-IN",
-        "waypointName": "Corridor South Entry (alt)",
-        "lat": 37.5350,
-        "lon": 127.0200,
-        "altFt": 1200,
-        "links": ["WP-C-SOUTH-OUT"]
-      },
-      {
-        "waypointId": "WP-C-SOUTH-OUT",
-        "waypointName": "Corridor South Exit (alt)",
-        "lat": 37.5520,
-        "lon": 126.9750,
-        "altFt": 1200,
-        "links": ["WP-GMP-IN"]
-      },
-      {
-        "waypointId": "WP-GMP-IN",
-        "waypointName": "Gimpo Approach",
-        "lat": 37.5620,
-        "lon": 126.8400,
-        "altFt": 1200,
-        "links": ["WP-GMP-FINAL"]
-      },
-      {
-        "waypointId": "WP-GMP-FINAL",
-        "waypointName": "Gimpo Final",
-        "lat": 37.5630,
-        "lon": 126.8010,
-        "altFt": 200,
-        "links": []
-      }
-    ]
-  }
+  "scenarioId": "98f166edc22f",
+  "scenarioDate": "2026-07-11",
+  "createdAt": "2026-06-11T13:13:10",
+  "primaryFplFile": ".../FPL_all.csv",
+  "scheduledFlightDirectory": ".../ScheduledFlight",
+  "primaryScheduledFlightFile": ".../ScheduledFlight/109001_UAM0001.json",
+  "counts": { "flights": 3360, "scheduledFlightJson": 3360, "vertiportFiles": 17 }
 }
 ```
 
-비고:
-- 회랑 C-NORTH (`WP-C-NORTH-IN → WP-C-NORTH-OUT`)를 두 비행체가 시간차를 두고 통과 — 바람 drift 가 이 간격을 무너뜨리는 것이 충돌 시드.
-- C-SOUTH 회랑은 routeNetwork 에 남아 있으나 **S2 에서는 사용되지 않음** (전략 재계획 미발생, 속도 조정만 사용하므로 경로 이탈도 없음).
+- **flights = scheduledFlightJson = 3,360** — FPL CSV 와 prebuilt 3001 JSON 이 1:1.
+- 기체 136대 (UAM0001~ — 같은 기체가 하루 여러 leg), vertiport 17개, std 06:30~21:30.
+- `scenarioDate` 는 traffic 셋 자체의 가정 날짜 (2026-07-11) — 데모 실행 날짜와 무관.
 
-### 6.2 `1001` SimModeSetup — traffic 모드
+### 6.3 구 2기체 데모 팩 — 보존
 
-S2 는 다중 비행체 traffic 모드. `trafficScenario="customed"` 인 경우 기체 목록(UAM0001,
-UAM0002)과 출발/도착 정보는 `scenarioFileName` 이 가리키는 시뮬레이터 입력 파일(§6.3)에서
-로드된다. `Msg1001` 의 `singleFlight` 는 사용하지 않는다.
-
-```json
-{
-  "timestamp": "2026-06-10T08:59:30.000+09:00",
-  "operationMode": "traffic",
-  "traffic": {
-    "trafficScenario": "customed"
-  }
-}
-```
-
-### 6.3 시뮬레이터-side 보조 데이터 (SDK ICD 외)
-
-`scenarioFileName` 이 가리키는 시뮬레이터 입력 파일에는 ICD payload 외 보조 데이터가
-들어간다. 이는 모듈 내부 구현 영역이고 wire 송수신되지 않는다. 바람 관련 보조 데이터는
-없다 — 바람의 유일한 소스는 콘솔 1002 `wind.weather` 다 (구 `windDemoProfiles` 는 폐기, §변경 이력).
-
-```json
-{
-  "traffic": {
-    "trafficScenario": "customed",
-    "aircraft": ["UAM0001", "UAM0002"]
-  },
-  "initialBatteryPct": 100.0,
-  "separation": {
-    "minHorizontalM": 300.0,
-    "lookaheadSec": 90
-  }
-}
-```
-
-> `separation.minHorizontalM` / `lookaheadSec` 은 PSU 의 충돌 예측 파라미터로, §5 의
-> 분리 임계값(300 m)과 1:1 대응.
-
-> **데모 플랜 팩**: S2 의 3001 은 Mission 계산 파이프라인이 아니라 사전 작성된 데모 플랜 팩
-> (`MissionModule/data/demo_plans/S2_psu_replan/`)에서 로드되어 발행된다. S1 은 데모 팩 없이
-> 기존 계산 경로를 사용한다.
+> 기존 S2 의 2기체 데모 플랜 팩 (`MissionModule/data/demo_plans/S2_psu_replan/`, UAM0001/UAM0002,
+> fpn 1201/1202) 은 **보존용으로 유지** — 3,360편 셋 없이 최소 구성으로 흐름을 점검할 때 사용 가능.
+> S2 정식 데모는 본 절의 FPL prebuilt 셋을 사용한다.
 
 ## 변경 이력
 
@@ -479,3 +276,4 @@ UAM0002)과 출발/도착 정보는 `scenarioFileName` 이 가리키는 시뮬�
 - **바람 트리거 변경 (2026-06-11)**: "데모 날씨" 버튼 및 5004 발행 제거 — 바람 트리거는 기존 기상 패널 바람 등급(serious) 선택 → 1002 발행(기존 기능)으로 대체. Vehicle 이 1002 `wind.weather` 파라미터 기반 바람장 적용, PSU 충돌 예측은 4001 스트림만 사용. 5004 는 같은 날 폐기 확정 (아래 항목), `windDemoProfiles` 도 폐기.
 - **바람 구조 확정 (2026-06-11)**: "Vehicle 자체 바람 생성" 개념 폐기 — 바람은 콘솔이 1002 `wind.weather` (uamodt standalone_weather 양식: preset/season/localHour/seed/includeGust/t) 로 지정·전달하고, Vehicle 은 수신한 파라미터를 weather_core 에 투입해 바람장을 구성·적용한다. 콘솔이 유일한 바람 소스.
 - **5004 폐기 (2026-06-11)**: 발행처·소비자 없음 + 1002 `wind.weather` 가 역할을 완전 대체하여 ICD 폐기 (SDK/Hub/docs 에서 제거). ICD 총 19개.
+- **3003 scenarioId 폐기 (2026-06-11)**: 시나리오 타입은 2002 `scenarioId` 로만 Vehicle 에 전달 (사용자 정정) — 3003 은 순수 전술 명령, SDK 필드 제거.

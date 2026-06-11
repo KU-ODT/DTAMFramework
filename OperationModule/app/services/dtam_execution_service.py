@@ -76,8 +76,12 @@ MISSION_INCOMPLETE_MESSAGE = "Complete mission planning first."
 # plan packs (Msg3001 wire dicts) instead.
 DEMO_PLAN_PACKS = {
     "S1": "S1_nominal",
-    "S2": "S2_psu_replan",
     "S3": "S3_uao_battery_alt_vertiport",
+}
+# S2 데모는 FlightScheduler 의 3,360편 prebuilt 셋을 사용 (사용자 결정 2026-06-11).
+# 스폰 합성은 FPL 폴더에서 기체별 dedupe 로 수행 (아래 _demo_missions_from_pack).
+DEMO_FPL_PACKS = {
+    "S2": "20260611_131306_98f166edc22f",
 }
 DEMO_PLANS_DIR = FRAMEWORK_ROOT / "MissionModule" / "data" / "demo_plans"
 # FlightScheduler plugin output: FPL/<run folder>/FPL_all.csv (utf-8-sig, no route).
@@ -521,7 +525,22 @@ def _demo_scenario_from_request(request_payload: dict[str, Any]) -> str:
 
 def _demo_missions_from_pack(scenario_id: str) -> list[dict[str, Any]] | None:
     """Synthesize console-shaped mission entries from a demo plan pack of Msg3001 files."""
-    pack = DEMO_PLAN_PACKS.get(str(scenario_id or "").strip())
+    sid = str(scenario_id or "").strip()
+    # S2: FlightScheduler prebuilt 셋 — 기체별 dedupe (최초 편) 로 스폰 entries 합성.
+    # 3,360편 전부를 스폰에 올리면 AirSim settings 가 비대해지므로 기체 단위로만.
+    fpl_pack = DEMO_FPL_PACKS.get(sid)
+    if fpl_pack:
+        entries = _traffic_missions_from_fpl(fpl_pack)
+        if not entries:
+            return None
+        dedup: dict[str, dict[str, Any]] = {}
+        for entry in entries:
+            name = str(entry.get("aircraftName") or "")
+            prev = dedup.get(name)
+            if prev is None or str(entry.get("std") or "") < str(prev.get("std") or ""):
+                dedup[name] = entry
+        return list(dedup.values()) or None
+    pack = DEMO_PLAN_PACKS.get(sid)
     if not pack:
         return None
     pack_dir = DEMO_PLANS_DIR / pack

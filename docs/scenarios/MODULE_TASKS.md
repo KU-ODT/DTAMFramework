@@ -8,8 +8,8 @@
 | 시나리오 | 지금 되는 것 | 막혀 있는 것 (담당 작업) |
 |---|---|---|
 | S1 정상 운항 | ✅ **전 구간 검증** — 데모 선택→설정 저장→Play→1001→2001→3001(팩)→2002→이륙→순항 (4001 10Hz, 지도 표출) | 없음 |
-| S2 PSU 속도 조정 | 2기체 plan 로드·비행 ✓, 기상 패널 날씨 선택 → 1002 `wind.weather` 발행 ✓ (콘솔이 자동 동봉) | Vehicle 의 1002 wind.weather 적용 (**V-2**) / 충돌 예측·3003 발행 (**P-0/P-1/P-3**) / setSpeed 수행 (**V-1**) |
-| S3 배터리 비상 | plan 로드·비행 ✓, scenarioId=S3 전달 ✓ | 배터리 열화+4002 발행 (**V-3, V-4**) / PSU 판단·3003 land (**P-4**) / land 수행 (**V-1**) |
+| S2 PSU 속도 조정 | 3,360편 prebuilt 일괄 발행 ✓ (Mission 직로딩) / 반자동 PSU 개입 (UI dispatch) 시연 가능 | setSpeed 수행 (**V-1**) / Vehicle 의 1002 wind.weather 적용 (**V-2**) |
+| S3 배터리 비상 | plan 로드·비행 ✓, scenarioId=S3 전달 ✓, PSU 4001 배터리 감시로 반자동 시연 가능 (운영자 dispatch) | 배터리 열화+4002 발행 (**V-3, V-4**) / land 수행 (**V-1**). 4002 정식 트리거는 PSU 4002 폴링 추가 (**P-4**) 후 |
 
 **공통 전제**: `git pull origin JW`. ICD 스키마·라우팅·role base stub 은 SDK 에 전부 준비됨 — **base 메서드 override + 도메인 로직만** 구현하면 됨.
 
@@ -24,7 +24,7 @@
 
 | # | 작업 | 정확한 구현 위치 | 내용 |
 |---|---|---|---|
-| **V-1** | **3003 수신 → 액션 실제 수행** ★최우선 (발행 아님 — 3003 발행은 PSU/Mission 전용) | `integrated_service.py` — `on_tactical_separation` (L3695) → `_on_tactical_separation` (L3871). **override 는 이미 있음, 본문이 log-only** (수신 카운트만 올림) — 본문만 채우면 됨 | **setSpeed**: 대상 세션 targetSpeed 즉시 변경 (S2). **land**: 정상 plan 중단 → `action.vertiport` (또는 `targetLLA`) 로 강하·착륙 (S3). hold/directTo/rejoinPlan 은 데모 비필수. **`msg.scenarioId`** ("S1"\|"S2"\|"S3", optional) 가 PSU 발 3003 에 동봉됨 — 시나리오별 세부 세팅 분기 (예: S3 비상 강하율) 에 사용 가능 |
+| **V-1** | **3003 수신 → 액션 실제 수행** ★최우선 (발행 아님 — 3003 발행은 PSU/Mission 전용) | `integrated_service.py` — `on_tactical_separation` (L3695) → `_on_tactical_separation` (L3871). **override 는 이미 있음, 본문이 log-only** (수신 카운트만 올림) — 본문만 채우면 됨 | **setSpeed**: 대상 세션 targetSpeed 즉시 변경 (S2). **land**: 정상 plan 중단 → `action.vertiport` (또는 `targetLLA`) 로 강하·착륙 (S3). hold/directTo/rejoinPlan 은 데모 비필수. 시나리오별 세부 세팅 분기는 **2002 의 scenarioId** (V-3 에서 저장) 를 참조 — 3003 자체는 시나리오 정보를 싣지 않음 |
 | **V-2** | **1002 wind.weather 수신 → 바람장 적용** (콘솔이 지정한 파라미터가 유일한 바람 소스) | `on_simulation_setup(msg)` — `msg.wind.weather` 읽기 | 콘솔이 날씨 선택 시 1002 의 `wind.weather` 에 **uamodt standalone_weather 양식 그대로** (`preset/season/localHour/seed/includeGust/t`) 동봉함 — 기존 weather_core snapshot 에 무변환 투입 → 그 파라미터로 바람장 구성·dynamics 적용 (grade 매핑: normal→good, warning→fair, serious→bad). 기체별 격자 계산은 weather_core 가 수행. |
 | **V-3** | **2002 scenarioId 분기** | `integrated_service.py` — `on_dtam_execute` (L3689) 안에 `msg.scenarioId` 분기 추가 | `"S3"`: 배터리 열화 프로필 활성화 (faultStartSec=600, criticalAtSec=1500 → T+25 부근 9.4%) + UAO 겸업 판단 로직 무장. `"S1"`/`"S2"`/`None`: 분기 없음 |
 | **V-4** | **4002 발행 로직 (UAO 겸업)** | 신규 — 자가진단 루프 (30Hz tick 또는 1Hz 별도) + `self.send(parse_payload("4002", {...}))` | battery_pct 감시: <20% → 4002 warning (`recommendedAction="return_to_base"`), <10% → 4002 critical (`eventType="BATTERY_VOLTAGE_LOW"`, `recommendedAction="emergency_landing"`, `availableDistance` 계산). 착륙 후 **같은 eventId 로 `status="cleared"`**. eventId: `WARN-{vehicleId}-{YYYYMMDD}-{seq}` |
@@ -37,15 +37,15 @@
 
 > **2026-06-11 개선판 PSU 반입됨** (`psu_icd_gateway.py` 신설). 코드 검토 결과:
 > 3002/3003 draft→dispatch (운영자 UI 주도) 가 **허브 `POST /api/msg/{mid}` 와 정확히 호환** (SDK round-trip 검증 통과),
+> **3002 발행 주체는 psu|mission 으로 확정** (D-3 — PSU 가 1차 발행자, sender 표기 psu 먼저).
 > 4001/3001 수신 (DB/REST 폴링) 정상. **REST 경로가 검증되어 SDK 전환 (구 P-0) 은 필수→선택으로 격하.**
 
 | # | 작업 | 상태 | 내용 |
 |---|---|---|---|
 | ~~P-0~~ | ~~SDK 전환~~ | **해소** | REST dispatch (`/api/msg/3003`) 가 허브와 호환 검증됨 — SDK 전환은 선택 (장기 권장) |
 | P-1 | 4001 시계열 추적 | 부분 구현 | 4001 폴링은 있음 — S2 외삽용 시계열 누적/예측 입력화는 추가 필요 |
-| **P-3** | **S2: 자동 충돌 예측 → 3003 setSpeed 자동 발행** | **미구현** | 현재는 운영자 draft→dispatch **반자동**. 자동 예측 엔진 (90s lookahead, 분리<300m) 추가 필요. 자동화 전까지 S2 는 운영자가 PSU UI 에서 setSpeed dispatch 로 시연 가능 |
-| **P-4** | **S3: 4002 critical → 3003 land** | **차단** | ★ 신모듈에 **4002 수신 경로가 전무** (폴링/폴더 읽기 모두 없음) — 허브는 4002→PSU forward 준비 완료 상태. PSU 개발자에게 `/api/db/messages/4002/latest` 폴링 추가 요청 필요 |
-| P-5 (신규) | 3003 에 scenarioId 동봉 | 미구현 | `build_3003_draft` 가 scenarioId 를 drop — optional 필드라 무해하나 Vehicle 시나리오 분기용으로 한 줄 추가 권장 |
+| P-3 | S2: 자동 충돌 예측 → 3003 setSpeed 자동 발행 | **선택 (자동화 — 반자동 시연으로 충족, D-2)** | 현재는 운영자 draft→dispatch **반자동** — S2 는 이대로 시연 (D-2 확정). 자동 예측 엔진 (90s lookahead, 분리<300m) 은 추후 선택 과제 |
+| **P-4** | **S3: 4002 critical → 3003 land** | **차단** | ★ 신모듈에 **4002 수신 경로가 전무** (폴링/폴더 읽기 모두 없음) — 허브는 4002→PSU forward 준비 완료 상태. PSU 개발자에게 `/api/db/messages/4002/latest` 폴링 추가 요청 필요. **4001 battery_pct 감시는 있음 (≤20% 카운트) — 반자동 S3 가능 (운영자가 저전력 표시 보고 3003 land dispatch), 4002 폴링은 정식 트리거용 후속** |
 
 **acceptance**: S2 — 3003 setSpeed ≥1건 (directTo 0건), S3 — 3003 land 정확히 1건, S1 — 발행 0건.
 
@@ -91,11 +91,12 @@ V-2/V-3 독립 — 병렬 가능 / M-1 독립 — 언제든
 임무계획 패널 → 데모 시나리오 [S1|S2|S3] 선택 (수동 기체 편집 자동 잠김)
 → 설정 저장 → ▶ Play
 → 자동: 1001 → 2001(팩 파일명) → Mission 팩 3001 일괄 발행 → 2002(scenarioId) → 비행
-S2 는 비행 중 기상 패널에서 바람 등급 serious 선택 → 1002 (wind.weather 자동 동봉)
+S2 는 S2 선택 → 3,360편 prebuilt 일괄 발행 (Mission 직로딩) → 비행 중 기상 패널 바람 등급 serious 선택 → 1002 (wind.weather 자동 동봉) → PSU UI 에서 운영자 draft→dispatch (반자동)
 [없음] 선택 시 기존 수동 흐름 (기체 하나씩 + 임무 입력) 그대로 — 데모 변경 무영향
 ```
 
 **데모 플랜 팩**: `MissionModule/data/demo_plans/{S1_nominal, S2_psu_replan, S3_uao_battery_alt_vertiport}/3001_*.json`
+- **S2 는 FPL prebuilt 셋 사용 (D-5)**: `PlugIn/FlightScheduler/FPL/20260611_131306_98f166edc22f` (prebuilt 3001 JSON 3,360개, 기체 136, vertiport 17, std 06:30~21:30). 콘솔 S2 버튼 → scenarioFileName `"20260611_131306_98f166edc22f.json"` → Mission prebuilt 직로딩 3,360편 발행, 스폰은 기체별 dedupe 136 entries (검증 완료). 기존 2기체 팩 (`demo_plans/S2_psu_replan`) 은 보존용으로 유지
 - 기체 추가 = JSON 파일 추가 (코드 수정 0) — fpn 은 데모 대역 (1001, 1201~) 사용
 - 출발시각은 sim 기본 시작 (06:30) 직후로 조정됨: S1 06:34 / S2 06:32+06:34 (2분 간격 = 회랑 진입 ~16초/880m 기하) / S3 06:32
 - **2001 은 런당 1회만 발행 (중복 발행 금지)**. Mission 은 2001 수신 때마다 팩을 디스크에서 새로 읽음 — 팩 수정 후 다음 런의 2001 로 반영

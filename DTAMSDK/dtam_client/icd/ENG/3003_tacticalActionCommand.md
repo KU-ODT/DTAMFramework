@@ -39,7 +39,6 @@ Receivers are Vehicle (executes the actions) and Mission (receives PSU-issued co
 | `aircraftId` | str | `^[A-Z]{2,8}\d{4}$` | Target aircraft ID |
 | `reasonCode` | str | See enum below | Reason code for the command |
 | `actions` | array | >= 1 element | List of actions to perform (array order = execution order) |
-| `scenarioId` | str | optional, `S1`\|`S2`\|`S3` | Demo scenario context — attached by PSU during demo interventions so the Vehicle can branch fine-grained settings per scenario. Omitted for normal commands |
 
 ### 3.1 reasonCode enum
 

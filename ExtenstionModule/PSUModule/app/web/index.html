@@ -140,6 +140,7 @@
               <button class="chip" type="button" data-toggle-tactical-panel="aircraft" aria-expanded="false">Aircraft <span data-tactical-count="aircraft">0</span></button>
             </div>
             <div class="tactical-panel-switch tactical-panel-switch--right" aria-label="Right operations monitoring panels">
+              <button class="chip" type="button" data-toggle-tactical-panel="warnings" aria-expanded="false">Warnings 4002 <span data-tactical-count="warnings">0</span></button>
               <button class="chip" type="button" data-toggle-tactical-panel="events" aria-expanded="false">Events <span data-tactical-count="events">0</span></button>
               <button class="chip" type="button" data-toggle-tactical-panel="actions" aria-expanded="false">Action Log <span data-tactical-count="actions">0</span></button>
             </div>
@@ -172,6 +173,18 @@
             </aside>
 
             <aside class="tactical-drawer tactical-drawer--right is-empty" data-tactical-drawer="right" aria-hidden="true">
+              <section class="console-section tactical-fold is-collapsed" data-tactical-fold="warnings">
+                <button class="section-heading tactical-fold__toggle" type="button" data-toggle-tactical-panel="warnings">
+                  <h4>경고 이벤트 (4002)</h4>
+                  <span data-tactical-count="warnings">0</span>
+                </button>
+                <div class="tactical-fold__body">
+                  <div class="warning-event-list" data-warning-event-list>
+                    <p>No vehicle warning events received.</p>
+                  </div>
+                </div>
+              </section>
+
               <section class="console-section tactical-fold is-collapsed" data-tactical-fold="events">
                 <button class="section-heading tactical-fold__toggle" type="button" data-toggle-tactical-panel="events">
                   <h4>Events</h4>

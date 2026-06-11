@@ -15,6 +15,7 @@ const state = {
   planModificationCommandId: "",
   planModificationTimestamp: "",
   tactical: null,
+  warnings: null,
   selectedAircraftId: null,
   aircraftPanelOpen: false,
   aircraftPanelMode: "status",
@@ -1912,6 +1913,85 @@ function renderTacticalEvents() {
     .join("");
 }
 
+function warningSeverityBadge(severity) {
+  const value = String(severity || "").toLowerCase();
+  if (value === "critical" || value === "fatal") return "WARNING";
+  if (value === "warning") return "CAUTION";
+  return "NORMAL";
+}
+
+function renderWarningEvents() {
+  const container = $("[data-warning-event-list]");
+  const events = state.warnings?.events || [];
+  for (const countEl of $$('[data-tactical-count="warnings"]')) {
+    countEl.textContent = String(events.length);
+  }
+  if (!container) return;
+  if (!events.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <strong>No vehicle warning events received.</strong>
+        <small>MSG 4002 warnings stored by the StateServer will appear here.</small>
+      </div>
+    `;
+    return;
+  }
+  container.innerHTML = events
+    .map((event) => {
+      const battery = asNumber(event.battery_pct);
+      return `
+      <div class="warning-event ${event.isCritical ? "is-critical" : ""}">
+        <span>
+          <strong>${escapeHtml(event.vehicleId)}</strong>
+          <small>${escapeHtml(event.eventType || "--")} / ${escapeHtml(formatTime(event.timestamp))}</small>
+        </span>
+        <span>
+          <span class="status-badge status-badge--${warningSeverityBadge(event.severity)}">${escapeHtml(String(event.severity || "").toUpperCase())}</span>
+          <small>${battery !== null ? `${escapeHtml(battery.toFixed(1))}% battery` : "battery --"}</small>
+        </span>
+        <button class="chip command-button command-button--danger" type="button" data-warning-draft-event="${escapeHtml(event.eventId)}">비상 착륙 draft</button>
+      </div>
+    `;
+    })
+    .join("");
+}
+
+async function refreshWarnings() {
+  try {
+    state.warnings = await fetchJson("/api/psu/warning-events");
+    renderWarningEvents();
+  } catch (error) {
+    const container = $("[data-warning-event-list]");
+    if (container) {
+      container.innerHTML = `<div class="empty-state"><strong>Failed to load warning events</strong><small>${escapeHtml(error.message || error)}</small></div>`;
+    }
+  }
+}
+
+async function prefillLandDraftFromWarning(eventId, button = null) {
+  if (button) button.disabled = true;
+  try {
+    const draft = await postJson("/api/psu/warning-events/draft-3003", { eventId });
+    const payload = draft?.payload || {};
+    const aircraftId = String(payload.aircraftId || "");
+    if (!aircraftId) return;
+    const vehicle = (state.tactical?.vehicles || []).find((item) => vehicleId(item) === aircraftId) || { aircraft_id: aircraftId };
+    state.modalActions = [];
+    state.actionDraftForm = {
+      reasonCode: payload.reasonCode || "LOW_BATTERY",
+      actionType: "land",
+      landingMode: "alternateVertiport",
+    };
+    state.actionCommandId = String(payload.commandId || "") || nextTacticalCommandId();
+    state.actionCommandTimestamp = String(payload.timestamp || "") || new Date().toISOString();
+    openActionCommandForm(vehicle, { preserveDraft: true });
+  } catch (error) {
+    console.error("Failed to prefill 3003 land draft from 4002 warning", error);
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
 async function saveActionCommand(event) {
   event.preventDefault();
   await saveActionCommandForm(event.currentTarget);
@@ -2358,6 +2438,11 @@ function bindEvents() {
       openActionCommandForm();
       return;
     }
+    const warningDraftButton = event.target.closest("[data-warning-draft-event]");
+    if (warningDraftButton) {
+      prefillLandDraftFromWarning(warningDraftButton.getAttribute("data-warning-draft-event") || "", warningDraftButton);
+      return;
+    }
     const vehicleRow = event.target.closest(".vehicle-row[data-aircraft-id], .tactical-event[data-aircraft-id]");
     if (vehicleRow) {
       state.selectedAircraftId = vehicleRow.dataset.aircraftId;
@@ -2602,8 +2687,10 @@ setActiveTab(tabIdFromHash(), false);
 refreshStatus();
 refreshStrategic();
 refreshTactical();
+refreshWarnings();
 refreshReplay();
 
 window.setInterval(refreshStatus, 10_000);
 window.setInterval(refreshStrategic, 10_000);
 window.setInterval(refreshTactical, 3_000);
+window.setInterval(refreshWarnings, 3_000);

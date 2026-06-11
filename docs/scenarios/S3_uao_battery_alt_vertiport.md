@@ -91,7 +91,6 @@ T+25:02  PSU        → SERVER     [3003]  TacticalSeparation (IMMEDIATE land) �
                                           payload preview: { commandId: "TMP-PSU-1201-LAND-001",
                                                              aircraftId: "UAM0001",
                                                              reasonCode: "LOW_BATTERY",
-                                                             scenarioId: "S3",
                                                              actions: [{ type: "land", vertiport: "VP_KU", fatoNumber: "FATO_A" }] }
                                           note: Hub → VEHICLE + MISSION 양쪽 전달. 전략 재계획(2001 확장) 우회 — 즉시 착륙 명령.
 
@@ -184,7 +183,6 @@ T+32:00  User       → SERVER     [1002]  SimulationSetup (pause)
   "commandId": "TMP-PSU-1201-LAND-001",
   "aircraftId": "UAM0001",
   "reasonCode": "LOW_BATTERY",
-  "scenarioId": "S3",
   "actions": [
     {
       "type": "land",
@@ -229,7 +227,7 @@ UAO 는 별도 모듈이 아니라 VehicleModule 이 겸업한다(사용자 결�
 | # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
 |---|---|---|---|
 | 1 | **4002** (warning) 수신 (battery 18.0%) | 아직 critical 아님 — 이벤트 리스트 등재 후 관찰만 | (없음 — 수신만) |
-| 2 | **4002** (critical) 수신 (battery 9.4%, BATTERY_VOLTAGE_LOW) | 현재 position 기준 가용 vertiport 분석(거리/availability/class) — 후보 [VP_KU, VP_JAMSIL, VP_YEOUIDO] 중 가장 가까운 VP_KU 선정 (내부 판단, T+25:01) | **3003** TacticalSeparation (IMMEDIATE land) — reasonCode=LOW_BATTERY, **scenarioId="S3" 동봉**, actions=[{type:"land", vertiport:"VP_KU", fatoNumber:"FATO_A", targetLLA}] |
+| 2 | **4002** (critical) 수신 (battery 9.4%, BATTERY_VOLTAGE_LOW) | 현재 position 기준 가용 vertiport 분석(거리/availability/class) — 후보 [VP_KU, VP_JAMSIL, VP_YEOUIDO] 중 가장 가까운 VP_KU 선정 (내부 판단, T+25:01) | **3003** TacticalSeparation (IMMEDIATE land) — reasonCode=LOW_BATTERY, actions=[{type:"land", vertiport:"VP_KU", fatoNumber:"FATO_A", targetLLA}] |
 | 3 | **4002** (cleared) 수신 | 동일 eventId 이벤트 종결 처리 | (없음 — 수신만) |
 
 4002 critical 중 energy 계열(LOW_BATTERY / BATTERY_VOLTAGE_LOW / BATTERY_OVERHEAT 등)은 우선 이벤트
@@ -474,3 +472,5 @@ ICD 로 송수신되지 않는다.
   - SDK 변경 반영: 3003 direction = `mission|psu->server` (PSU 발행 가능), FORWARD_RULES["3003"] = [vehicle, mission], MissionModule `on_tactical_separation(3003)` stub 신설.
   - 전략 재계획(2001 확장) 경로는 SDK 인터페이스로 유지되나 본 데모에서는 미사용. 3001 v2 sample 삭제.
   - 제목 변경: "S3 — UAO 배터리 고장 대체 vertiport (긴급 착륙)" → "S3 — 배터리 부족 PSU 전술 즉시 개입 (4002 → 3003 land)".
+
+- **3003 scenarioId 폐기 (2026-06-11)**: 시나리오 타입은 2002 `scenarioId` 로만 전달 — 3003 은 순수 전술 명령 (SDK 필드 제거).
