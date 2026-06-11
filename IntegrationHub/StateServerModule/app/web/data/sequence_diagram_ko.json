@@ -795,7 +795,7 @@
       "id": "1002",
       "name": "시뮬레이션 설정",
       "proto": "ws",
-      "note": "Vehicle 자체 바람 생성"
+      "note": "1002 weather 파라미터로 바람장 적용"
     },
     {
       "from": "sim_state",

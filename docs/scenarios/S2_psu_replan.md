@@ -2,18 +2,18 @@
 
 ## 1. 개요
 
-- **목적**: 운영자가 Ops Console **기상 패널에서 바람 등급(serious)을 선택**하면 **1002 SimulationSetup 이 발행되고(기존 날씨 선택 기능)**, Vehicle 이 1002 `wind.grade` 를 보고 **자체 바람을 생성·적용**하여 두 비행체(UAM0001, UAM0002)의 궤적이 바람 영향(crossTrackDrift)으로 흔들린다. **PSU 는 4001 스트림(10 Hz)만으로 지속 궤적 예측(외삽)** 을 수행해 분리 손실(loss of separation)을 사전 감지하여 **3003 Tactical Separation (actions = `setSpeed`, 속도 조정) 을 직접 발행**, 속도 조정만으로 충돌을 예방하는 시나리오를 검증한다. **바람은 외란 환경 요소일 뿐**이며, Vehicle 의 바람 생성·적용은 시나리오와 무관한 표준 처리다 (5004 는 본 시나리오 미사용 — §3.1). Vehicle 은 3003 의 setSpeed 를 즉시 수행하고, Mission 은 3003 을 **수신만** 하여 plan 정합성을 추적한다. `scenarioId="S2"` 의 Vehicle 측 의미는 **특별 무장 없음 (정보성)** — 시나리오 전용 분기를 두지 않는다. 전략 재계획 경로(2001 확장 → 3001 v2 + 3002)는 SDK 인터페이스로 유지되지만 **S2 데모 흐름에서는 사용하지 않는다**.
+- **목적**: 운영자가 Ops Console **기상 패널에서 바람 등급(serious)을 선택**하면 **1002 SimulationSetup 이 발행되고(기존 날씨 선택 기능)**, Vehicle 이 1002 의 `wind.weather` 파라미터 (uamodt 양식 — 콘솔이 grade 에서 자동 구성) 를 수신해 **바람장을 구성·적용**하여 두 비행체(UAM0001, UAM0002)의 궤적이 바람 영향(crossTrackDrift)으로 흔들린다. **PSU 는 4001 스트림(10 Hz)만으로 지속 궤적 예측(외삽)** 을 수행해 분리 손실(loss of separation)을 사전 감지하여 **3003 Tactical Separation (actions = `setSpeed`, 속도 조정) 을 직접 발행**, 속도 조정만으로 충돌을 예방하는 시나리오를 검증한다. **바람은 외란 환경 요소일 뿐**이며, Vehicle 의 wind.weather 수신·적용은 시나리오와 무관한 표준 처리다 (5004 는 본 시나리오 미사용 — §3.1). Vehicle 은 3003 의 setSpeed 를 즉시 수행하고, Mission 은 3003 을 **수신만** 하여 plan 정합성을 추적한다. `scenarioId="S2"` 의 Vehicle 측 의미는 **특별 무장 없음 (정보성)** — 시나리오 전용 분기를 두지 않는다. 전략 재계획 경로(2001 확장 → 3001 v2 + 3002)는 SDK 인터페이스로 유지되지만 **S2 데모 흐름에서는 사용하지 않는다**.
 - **주요 참여 모듈 (역할)**
   - **IntegrationHub (SERVER)**: 메시지 포워딩 (FORWARD_RULES 기반) — 1002 → SIM_STATE/VEHICLE 등, 3003 → VEHICLE/MISSION
   - **SimulationStateModule (SIM_STATE)**: CommonTime(0003) 발생, 1001/1002/1003 소비, playState 제어
-  - **VehicleModule (VEHICLE)** × 2: UAM0001, UAM0002 비행 상태 머신, 4001 송출 (10 Hz), 1002 `wind.grade` 기반 바람 자체 생성·적용, 3003 setSpeed 즉시 수행
+  - **VehicleModule (VEHICLE)** × 2: UAM0001, UAM0002 비행 상태 머신, 4001 송출 (10 Hz), 1002 `wind.weather` 파라미터 기반 바람장 구성·적용, 3003 setSpeed 즉시 수행
   - **MissionModule (MISSION)**: 초기 2001(기본) 소비, 3001 v1 발행. 이후 3003 **수신 전용** (plan 정합성 추적) — S2 트리거 구간에서 발행 없음
   - **PSU (Provider of Services for UAM)**: 4001 기반 궤적 예측, 충돌 예상 기체 쌍 식별, **3003(setSpeed) 발행 주체 — 속도 조정 재계획 주체**
   - **OperationModule / OpsConsole (MONITORING)**: 0001/0002/4001/4101 시각화, **기상 패널 바람 등급 선택 → 1002 발행 (기존 기능)**
   - **VisualizationModule (VISUAL)**: 3001 v1 항적, 4001 메쉬 갱신, 4101 카메라 프레임 (5 Hz)
 - **시나리오 길이**: 약 50 sim-minutes (T+00:00 ~ T+50:00)
   - T+00:00 ~ T+20:00: S1 정상 운항 흐름 (부팅 → 이륙 → 순항 진입)
-  - T+20:00: 운영자 기상 패널 바람 등급 serious 선택 → 1002 발행, Vehicle 자체 바람 생성·적용 시작
+  - T+20:00: 운영자 기상 패널 바람 등급 serious 선택 → 1002 발행 (wind.weather: preset=bad 자동 동봉), Vehicle 바람장 적용 시작
   - T+20:00 ~ T+25:00: PSU 지속 궤적 외삽 → loss of separation 예측
   - T+25:00: PSU 3003(setSpeed) 직접 발행, Vehicle 즉시 감속
   - T+25:00 ~ T+50:00: 분리 회복 (T+30 부근 선택적 setSpeed 복원/rejoinPlan), 양 비행체 원 계획(planVersion=1)대로 정상 도착
@@ -101,7 +101,7 @@ T+10:00  VEHICLE    → SERVER     [4001]  (양 비행체 순항 진입)
 T+20:00  User(OpsConsole) → SERVER  [1002]  SimulationSetup — 기상 패널 바람 등급 serious 선택 — TRIGGER 1
                                           payload preview: { playState: "play", wind: { grade: "serious" } }
                                           note: 운영자 바람 등급 변경 — 기존 날씨 선택 기능 (기상 dock: 강수/안개/바람등급/국지바람
-                                                → 변경 시 1002 자동 발행). Vehicle 자체 바람 생성 시작
+                                                → 변경 시 1002 자동 발행, wind.weather 동봉). Vehicle 이 수신 파라미터로 바람장 적용 시작
 
 T+20:01  VEHICLE    (internal)            1002 wind.grade="serious" 수신 — 자체 WindModel 활성화
                                           note: 등급 기반 바람 생성·적용 → dynamics 바람 보정 시작, 궤적이 횡방향으로 흔들리기 시작
@@ -173,7 +173,7 @@ T+50:00  VEHICLE    → SERVER     [4001]  (UAM0002 착륙 완료)
 
 ### 3.1 (보류) 5004 WindEffectData — 본 시나리오 미사용
 
-> **(보류)** 5004 는 본 시나리오에서 사용하지 않는다 — **발행처 없음**, 바람은 1002 `wind.grade` 를 받은 Vehicle 의 자체 바람 생성·적용으로 대체. 5004 ICD 는 SDK 계약으로 유지된다 (상태: 발행처 없음 — 보류).
+> **(보류)** 5004 는 본 시나리오에서 사용하지 않는다 — **발행처 없음**, 바람은 1002 `wind.weather` 파라미터 전달 → Vehicle 적용으로 대체. 5004 ICD 는 SDK 계약으로 유지된다 (상태: 발행처 없음 — 보류).
 
 ### 3.2 3003 TacticalSeparation — PSU 직접 발행 (T+25:00)
 
@@ -251,11 +251,11 @@ T+50:00  VEHICLE    → SERVER     [4001]  (UAM0002 착륙 완료)
 | 1 | 3001 v1 수신 | plan(1201/1202) 로드 — 회랑 C-NORTH 경로 설정 | (없음 — 수신만) |
 | 2 | 2002 수신 (`scenarioId="S2"`) | **특별 무장 없음 (정보성)** — 시나리오 전용 분기 없음 (S3 만 배터리 열화 + UAO 겸업 무장) | (없음 — 수신만) |
 | 3 | 비행 중 (내부, 10 Hz tick) | position/gps/energy/navigation 상태 산출 | **4001** VehicleStatus (10 Hz) |
-| 4 | 1002 수신 (`wind.grade="serious"`) | **표준 메시지 처리** — wind.grade 기반 자체 바람 생성·적용 (WindModel) → dynamics 바람 보정으로 궤적 drift 발생 | (없음 — drift 가 **4001** 스트림에 반영) |
+| 4 | 1002 수신 (`wind.weather.preset="bad"`) | **표준 메시지 처리** — wind.weather 파라미터를 weather_core snapshot 에 투입 → 바람장 구성·dynamics 적용 → 궤적 drift 발생 | (없음 — drift 가 **4001** 스트림에 반영) |
 | 5 | 3003 수신 | setSpeed 즉시 수행 — targetSpeed 변경만, 경로/헤딩 불변 | (없음 — 1초 이내 **4001** speed 변화로 반영) |
 
 > 3001 v1 경로 자체는 시나리오 전 구간 불변(`planVersion=1`) — 전술 속도 이탈만 발생.
-> Vehicle 의 1002 바람 처리(자체 생성·적용)는 시나리오와 무관한 표준 처리. **UAO 역할은 VehicleModule 겸업** 명시.
+> Vehicle 의 1002 wind.weather 처리(수신·적용)는 시나리오와 무관한 표준 처리. **UAO 역할은 VehicleModule 겸업** 명시.
 
 ### 4.4 MissionModule
 
@@ -299,7 +299,7 @@ T+50:00  VEHICLE    → SERVER     [4001]  (UAM0002 착륙 완료)
 - `S2_psu_replan.json` 로드 시 `totalAircraftCount=2`로 인식되며 UAM0001/UAM0002 두 대가 spawn된다.
 - T+02:30 이전에 두 비행체 모두 이륙 (4001 `phase` 변화로 확인).
 - T+20:00 에 **1002 `wind.grade=serious` 가 1회 이상 발행**된다 (기상 패널 바람 등급 선택 — 기존 기능, IntegrationHub 로그 확인).
-- 1002 수신 후 Vehicle 자체 바람 생성·적용으로 양 비행체의 4001 궤적에 횡방향 drift 가 관측된다 (UAM0001 ≈ 120 m, UAM0002 ≈ 90 m 스케일).
+- 1002 wind.weather 수신·적용으로 양 비행체의 4001 궤적에 횡방향 drift 가 관측된다 (UAM0001 ≈ 120 m, UAM0002 ≈ 90 m 스케일).
 - T+20:05 ~ T+25:00 사이에 PSU 내부 외삽이 loss of separation 을 예측한다 (PSU 로그에 conflict pair `UAM0001-UAM0002` 기록).
 - **PSU 가 3003(setSpeed) 을 1회 이상 발행**하며 다음을 만족:
   - `commandId` 가 `TMP-PSU-` prefix
@@ -442,7 +442,7 @@ UAM0002)과 출발/도착 정보는 `scenarioFileName` 이 가리키는 시뮬�
 `scenarioFileName` 이 가리키는 시뮬레이터 입력 파일에는 ICD payload 외 보조 데이터가
 들어간다. 이는 모듈 내부 구현 영역이고 wire 송수신되지 않는다. `windDemoProfiles` 는
 **(보류)** — 5004 발행처가 없으므로 현재 미사용 (바람은 1002 wind.grade 기반 Vehicle
-자체 생성으로 대체). ICD/보조 데이터 형식은 향후 재사용 대비 기록만 유지한다.
+1002 wind.weather 전달로 대체). ICD/보조 데이터 형식은 향후 재사용 대비 기록만 유지한다.
 
 ```json
 {
@@ -498,4 +498,5 @@ UAM0002)과 출발/도착 정보는 `scenarioFileName` 이 가리키는 시뮬�
 - **구 흐름 (전략 재계획)**: PSU 가 충돌을 감지하면 2001 확장(TRAFFIC_CONFLICT)을 발행하고 Mission 이 3001 v2 + 3002 + 3003 을 발행하는 전략 재계획 경로였다.
 - **신 흐름 (PSU 전술 직접 개입)**: 데모에서 보여주려는 핵심이 "PSU 의 실시간 감시·즉시 개입" 이므로, Mission 을 경유하는 다단계 재계획 대신 PSU 가 3003 을 직접 발행해 반응 시간을 줄이고 책임 경계(PSU=전술, Mission=전략)를 명확히 드러내도록 변경했다. 전략 재계획 경로(2001 확장)는 SDK 인터페이스로 유지된다.
 - **S2 재정의 (속도 조정 재계획, 2026-06-10)**: PSU 개입을 3003 `setSpeed` (속도 조정) 중심으로 재정의 — directTo 는 기본 흐름에서 제거. 바람(5004)은 외란 환경 요소이며 Vehicle 의 5004 처리는 시나리오 무관 표준 처리(`on_wind_effect_data`). `scenarioId="S2"` 는 Vehicle 측 특별 무장 없음(정보성). 분리 회복 후 두 번째 3003(setSpeed 복원 또는 rejoinPlan)은 선택 단계. `reasonCode=LOSS_OF_SEPARATION_RISK` 유지.
-- **바람 트리거 변경 (2026-06-11)**: "데모 날씨" 버튼 및 5004 발행 제거 — 바람 트리거는 기존 기상 패널 바람 등급(serious) 선택 → 1002 발행(기존 기능)으로 대체. Vehicle 이 1002 `wind.grade` 기반 자체 바람 생성·적용, PSU 충돌 예측은 4001 스트림만 사용. 5004 ICD 는 SDK 계약으로 유지하되 "발행처 없음 — 보류" 상태 (§3.1), `windDemoProfiles` 도 보류.
+- **바람 트리거 변경 (2026-06-11)**: "데모 날씨" 버튼 및 5004 발행 제거 — 바람 트리거는 기존 기상 패널 바람 등급(serious) 선택 → 1002 발행(기존 기능)으로 대체. Vehicle 이 1002 `wind.weather` 파라미터 기반 바람장 적용, PSU 충돌 예측은 4001 스트림만 사용. 5004 ICD 는 SDK 계약으로 유지하되 "발행처 없음 — 보류" 상태 (§3.1), `windDemoProfiles` 도 보류.
+- **바람 구조 확정 (2026-06-11)**: "Vehicle 자체 바람 생성" 개념 폐기 — 바람은 콘솔이 1002 `wind.weather` (uamodt standalone_weather 양식: preset/season/localHour/seed/includeGust/t) 로 지정·전달하고, Vehicle 은 수신한 파라미터를 weather_core 에 투입해 바람장을 구성·적용한다. 콘솔이 유일한 바람 소스.

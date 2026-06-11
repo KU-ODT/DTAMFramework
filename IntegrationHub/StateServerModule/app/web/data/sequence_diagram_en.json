@@ -795,7 +795,7 @@
       "id": "1002",
       "name": "Simulation Setup",
       "proto": "ws",
-      "note": "vehicle generates its own wind"
+      "note": "vehicle applies wind from 1002 weather params"
     },
     {
       "from": "sim_state",

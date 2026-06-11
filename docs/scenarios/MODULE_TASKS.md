@@ -8,7 +8,7 @@
 | 시나리오 | 지금 되는 것 | 막혀 있는 것 (담당 작업) |
 |---|---|---|
 | S1 정상 운항 | ✅ **전 구간 검증** — 데모 선택→설정 저장→Play→1001→2001→3001(팩)→2002→이륙→순항 (4001 10Hz, 지도 표출) | 없음 |
-| S2 PSU 속도 조정 | 2기체 plan 로드·비행 ✓, 기상 패널 바람 등급 → 1002 발행 ✓ (기존 기능) | Vehicle 자체 바람 생성 (**V-2**) / 충돌 예측·3003 발행 (**P-0/P-1/P-3**) / setSpeed 수행 (**V-1**) |
+| S2 PSU 속도 조정 | 2기체 plan 로드·비행 ✓, 기상 패널 날씨 선택 → 1002 `wind.weather` 발행 ✓ | Vehicle 의 1002 wind.weather 적용 (**V-2**) / 충돌 예측·3003 발행 (**P-0/P-1/P-3**) / setSpeed 수행 (**V-1**) |
 | S3 배터리 비상 | plan 로드·비행 ✓, scenarioId=S3 전달 ✓ | 배터리 열화+4002 발행 (**V-3, V-4**) / PSU 판단·3003 land (**P-4**) / land 수행 (**V-1**) |
 
 **공통 전제**: `git pull origin JW`. ICD 스키마·라우팅·role base stub 은 SDK 에 전부 준비됨 — **base 메서드 override + 도메인 로직만** 구현하면 됨.
@@ -25,7 +25,7 @@
 | # | 작업 | 정확한 구현 위치 | 내용 |
 |---|---|---|---|
 | **V-1** | **3003 수신 → 액션 실제 수행** ★최우선 (발행 아님 — 3003 발행은 PSU/Mission 전용) | `integrated_service.py` — `on_tactical_separation` (L3695) → `_on_tactical_separation` (L3871). **override 는 이미 있음, 본문이 log-only** (수신 카운트만 올림) — 본문만 채우면 됨 | **setSpeed**: 대상 세션 targetSpeed 즉시 변경 (S2). **land**: 정상 plan 중단 → `action.vertiport` (또는 `targetLLA`) 로 강하·착륙 (S3). hold/directTo/rejoinPlan 은 데모 비필수. **`msg.scenarioId`** ("S1"\|"S2"\|"S3", optional) 가 PSU 발 3003 에 동봉됨 — 시나리오별 세부 세팅 분기 (예: S3 비상 강하율) 에 사용 가능 |
-| **V-2** | **바람 자체 생성 — 콘솔 파라미터 수신** | `on_simulation_setup(msg)` — `msg.wind.weather` 읽기 | 콘솔이 날씨 선택 시 1002 의 `wind.weather` 에 **uamodt standalone_weather 양식 그대로** (`preset/season/localHour/seed/includeGust/t`) 동봉함 — 기존 weather_core snapshot 에 바로 투입 가능 (grade 매핑: normal→good, warning→fair, serious→bad). 기체별 격자는 기존처럼 자체 생성. 5004 는 보류 (발행처 없음) |
+| **V-2** | **1002 wind.weather 수신 → 바람장 적용** (자체 임의 생성 아님 — 콘솔이 지정한 파라미터가 유일한 바람 소스) | `on_simulation_setup(msg)` — `msg.wind.weather` 읽기 | 콘솔이 날씨 선택 시 1002 의 `wind.weather` 에 **uamodt standalone_weather 양식 그대로** (`preset/season/localHour/seed/includeGust/t`) 동봉함 — 기존 weather_core snapshot 에 무변환 투입 → 그 파라미터로 바람장 구성·dynamics 적용 (grade 매핑: normal→good, warning→fair, serious→bad). 기체별 격자 계산은 weather_core 가 수행. 5004 는 보류 (발행처 없음) |
 | **V-3** | **2002 scenarioId 분기** | `integrated_service.py` — `on_dtam_execute` (L3689) 안에 `msg.scenarioId` 분기 추가 | `"S3"`: 배터리 열화 프로필 활성화 (faultStartSec=600, criticalAtSec=1500 → T+25 부근 9.4%) + UAO 겸업 판단 로직 무장. `"S1"`/`"S2"`/`None`: 분기 없음 |
 | **V-4** | **4002 발행 로직 (UAO 겸업)** | 신규 — 자가진단 루프 (30Hz tick 또는 1Hz 별도) + `self.send(parse_payload("4002", {...}))` | battery_pct 감시: <20% → 4002 warning (`recommendedAction="return_to_base"`), <10% → 4002 critical (`eventType="BATTERY_VOLTAGE_LOW"`, `recommendedAction="emergency_landing"`, `availableDistance` 계산). 착륙 후 **같은 eventId 로 `status="cleared"`**. eventId: `WARN-{vehicleId}-{YYYYMMDD}-{seq}` |
 
