@@ -62,7 +62,7 @@ def _validate_role_base(cls: Type[DtamModule]) -> Type[DtamModule]:
 class MissionModule(DtamModule):
     """Mission Planner 역할의 base 클래스.
 
-    FORWARD_RULES: 2001 (Flight Plan Request), 2002 (DTAM Execute),
+    FORWARD_RULES: 1002, 2001 (Flight Plan Request), 2002 (DTAM Execute),
     3003 (Tactical Separation — PSU 발행분 수신, plan 정합성 추적).
     """
     role = Role.MISSION
@@ -82,6 +82,10 @@ class MissionModule(DtamModule):
         PSU 가 즉시 개입(directTo/land 등)했음을 Mission 이 인지하여
         보유 plan 의 정합성(superseded 마킹 등)을 유지. Override to handle.
         """
+
+    @on_receive("1002")
+    def on_simulation_setup(self, msg: Any) -> None:
+        """MSG 1002 — 시뮬레이션 통제 + 바람 (wind.weather) — 계획 산정 시 바람 참고. Override to handle."""
 
 
 
@@ -131,7 +135,7 @@ class VehicleModule(DtamModule):
 class MonitoringModule(DtamModule):
     """Operations Console 역할의 base 클래스.
 
-    FORWARD_RULES: 0001, 0002, 2002, 4001, 4002, 4101, 4102, 4103.
+    FORWARD_RULES: 0001, 0002, 1002, 2002, 4001, 4002, 4101, 4102, 4103.
     """
     role = Role.MONITORING
 
@@ -142,6 +146,10 @@ class MonitoringModule(DtamModule):
     @on_receive("0002")
     def on_module_status(self, msg: Any) -> None:
         """MSG 0002 — 다른 모듈의 heartbeat. Override to handle."""
+
+    @on_receive("1002")
+    def on_simulation_setup(self, msg: Any) -> None:
+        """MSG 1002 — 시뮬레이션 통제 + 바람 (wind.weather) (자기 발행 echo). Override to handle."""
 
     @on_receive("2002")
     def on_dtam_execute(self, msg: Any) -> None:
@@ -216,13 +224,17 @@ class VisualModule(DtamModule):
 class SituationAwarenessModule(DtamModule):
     """Situation Awareness 플러그인 역할의 base 클래스.
 
-    FORWARD_RULES: 2002, 4001, 4002, 4101, 4102, 4103.
+    FORWARD_RULES: 1002, 2002, 4001, 4002, 4101, 4102, 4103.
     """
     role = Role.SITUATION_AWARENESS
 
     @on_receive("2002")
     def on_dtam_execute(self, msg: Any) -> None:
         """MSG 2002 — DTAM 실행 명령. Override to handle."""
+
+    @on_receive("1002")
+    def on_simulation_setup(self, msg: Any) -> None:
+        """MSG 1002 — 시뮬레이션 통제 + 바람 (wind.weather) — 상황 인식 보조. Override to handle."""
 
     @on_receive("4001")
     def on_vehicle_status(self, msg: Any) -> None:
@@ -254,10 +266,14 @@ class PSUModule(DtamModule):
     충돌 위험 또는 긴급 상황(배터리 부족 등) 시 3003 Tactical Separation
     을 직접 발행하여 즉시 개입.
 
-    FORWARD_RULES (수신): 4001 (Vehicle Status 10Hz), 4002 (Warning).
+    FORWARD_RULES (수신): 1002 (통제+바람), 4001 (Vehicle Status 10Hz), 4002 (Warning).
     발행: 3003 (Tactical Separation), 2001 (전략 재계획 트리거 — 보조 경로).
     """
     role = Role.PSU
+
+    @on_receive("1002")
+    def on_simulation_setup(self, msg: Any) -> None:
+        """MSG 1002 — 시뮬레이션 통제 + 바람 (wind.weather) — 궤적 예측 시 바람 파라미터 참고. Override to handle."""
 
     @on_receive("4001")
     def on_vehicle_status(self, msg: Any) -> None:

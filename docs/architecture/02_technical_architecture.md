@@ -261,7 +261,7 @@ PSU(Provider of Services for UAM)는 UAM 교통 흐름과 회랑(corridor) 운�
 | `0002` | 각 모듈 | Monitoring | 모듈 상태 heartbeat |
 | `0003` | StateServer | Vehicle, Visualization | 공통 시뮬레이션 시간 |
 | `1001` | Operation | StateServer | 모드 설정 |
-| `1002` | Operation | Vehicle, Visualization, StateServer | 재생/정지/속도/날씨 제어 |
+| `1002` | Operation | **전 모듈 (Vehicle, Visualization, StateServer, Mission, Monitoring, PSU, SA)** ★전체 개방 | 재생/정지/속도/날씨 제어 + wind.weather |
 | `1003` | Operation | StateServer, Visualization | 시나리오 설정 |
 | `2001` | Operation / **PSU / UAO** | Mission | 비행계획 요청 (재계획 트리거 포함) |
 | **`2002`** | Operation | Mission, Monitoring, Vehicle, Visualization, SituationAwareness | 실행 명령 (**+scenarioId (S1\|S2\|S3) 확장** ★ — 라우팅 변경 없음) |
@@ -287,7 +287,7 @@ PSU(Provider of Services for UAM)는 UAM 교통 흐름과 회랑(corridor) 운�
 2001 → [mission]
 2002 → [mission, monitoring, vehicle, visual, situation_awareness]  # +scenarioId 확장, 라우팅 변경 없음
 1001 → [sim_state]
-1002 → [vehicle, visual, sim_state]
+1002 → [vehicle, visual, sim_state, mission, monitoring, psu, situation_awareness]
 1003 → [sim_state, visual]
 0003 → [vehicle, visual]
 4101 → [monitoring, situation_awareness]

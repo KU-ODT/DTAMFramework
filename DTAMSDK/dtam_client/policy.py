@@ -14,7 +14,7 @@ FORWARD_RULES: Dict[str, List[Role]] = {
     "0002": [Role.MONITORING],                                                           # Phase 0
     "0003": [Role.VEHICLE, Role.VISUAL],                                                 # Phase 5 (1Hz)
     "1001": [Role.SIM_STATE],                                                            # Phase 1
-    "1002": [Role.VEHICLE, Role.VISUAL, Role.SIM_STATE],                                 # Phase 4
+    "1002": [Role.VEHICLE, Role.VISUAL, Role.SIM_STATE, Role.MISSION, Role.MONITORING, Role.PSU, Role.SITUATION_AWARENESS],  # Phase 4 (wind.weather 포함 — 전 모듈 개방)
     "1003": [Role.SIM_STATE, Role.VISUAL],                                                # Phase 1
     "2001": [Role.MISSION],                                                              # Phase 2
     "2002": [Role.MISSION, Role.MONITORING, Role.VEHICLE, Role.VISUAL, Role.SITUATION_AWARENESS],  # Phase 3
