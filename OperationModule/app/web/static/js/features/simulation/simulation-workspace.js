@@ -5,6 +5,8 @@ const SPEEDS = [1, 2, 4, 8];
 const PLAY_STATES = ["play", "pause", "reset"];
 const PRECIPITATION_TYPES = ["none", "rainy", "snow"];
 const WIND_GRADES = ["normal", "warning", "serious"];
+// 1002 wind.grade → Vehicle 바람 모델 (uamodt) preset 매핑
+const WIND_GRADE_TO_WEATHER_PRESET = { normal: "good", warning: "fair", serious: "bad" };
 const MAP_THEME_KEYS = ["dark", "light"];
 const PANEL_MODES = ["environment", "mission"];
 const ENVIRONMENT_TOOLS = ["select", "vertiport", "route", "link"];
@@ -8162,6 +8164,19 @@ class SimulationWorkspace {
         radius: normalizeNumber(this.state.gustRadius, 0, 50000, DEFAULT_STATE.gustRadius),
       };
     }
+
+    // Vehicle 측 바람 모델 (uamodt standalone_weather) 파라미터 — 그쪽 wire 키와 1:1.
+    // grade → preset 매핑: normal→good, warning→fair, serious→bad.
+    const simSeconds = payload.simSecondsOfDay || 0;
+    const month = new Date().getMonth() + 1;
+    payload.wind.weather = {
+      preset: WIND_GRADE_TO_WEATHER_PRESET[payload.wind.grade] || "good",
+      season: month >= 3 && month <= 5 ? "spring" : month >= 6 && month <= 8 ? "summer" : month >= 9 && month <= 11 ? "autumn" : "winter",
+      localHour: Math.min(23.999, Math.max(0, simSeconds / 3600)),
+      seed: 0,
+      includeGust: Boolean(this.state.gustEnabled),
+      t: simSeconds,
+    };
     return payload;
   }
 

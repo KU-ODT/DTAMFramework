@@ -53,6 +53,13 @@ MSG 1002는 재생, 기상, 바람만 제어한다.
 | `gust.lat` | float | -90 ~ 90 deg | 위도 |
 | `gust.lon` | float | -180 ~ 180 deg | 경도 |
 | `gust.radius` | float | 0 ~ 50000 m | 반경 |
+| `wind.weather` | obj | optional | Vehicle 측 바람 모델 (uamodt standalone_weather) 파라미터 — wire 키가 그쪽 양식과 1:1. 콘솔이 grade 에서 자동 채움 |
+| `wind.weather.preset` | str | `good`\|`fair`\|`bad` | 바람 강도 프리셋 (grade 매핑: normal→good, warning→fair, serious→bad) |
+| `wind.weather.season` | str | `spring`\|`summer`\|`autumn`\|`winter` | 계절 (콘솔이 현재 월에서 도출) |
+| `wind.weather.localHour` | float | 0 ~ 23.999 | sim 시각의 시 (simSecondsOfDay 에서 도출) |
+| `wind.weather.seed` | int | >= 0 | 재현성 시드 (0=기본) |
+| `wind.weather.includeGust` | bool | - | 거스트 포함 여부 (콘솔 국지바람 토글 연동) |
+| `wind.weather.t` | float | 0 ~ 86400 | sim 하루 경과 초 |
 
 ## 5. 예시
 

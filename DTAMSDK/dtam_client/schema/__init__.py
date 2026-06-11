@@ -35,7 +35,7 @@ from .msg_phase1 import (
     Msg1002_SimulationSetup,
     Msg1003_ScenarioSetup,
     VehicleSimType, MissionPlanningEntry, MissionPlanning, SingleFlight, Traffic,
-    Precipitation, Fog, WeatherEffect, Gust, Wind,
+    Precipitation, Fog, WeatherEffect, Gust, Wind, WeatherModelParams,
     OperationTime, Vertiport, ScenarioWaypoint, RouteNetwork,
 )
 
@@ -104,7 +104,7 @@ __all__ = [
     "Msg5004_WindEffectData",
     # Phase 1 sub-dataclass
     "VehicleSimType", "MissionPlanningEntry", "MissionPlanning", "SingleFlight", "Traffic",
-    "Precipitation", "Fog", "WeatherEffect", "Gust", "Wind",
+    "Precipitation", "Fog", "WeatherEffect", "Gust", "Wind", "WeatherModelParams",
     # Phase 2 sub-dataclass
     "OperationTime", "Vertiport", "ScenarioWaypoint", "RouteNetwork",
     "DepartureInfo", "ArrivalInfo", "EnRouteSegment",

@@ -79,9 +79,28 @@ class Gust:
 
 
 @dataclass
+class WeatherModelParams:
+    """Vehicle 측 바람 모델 (uamodt standalone_weather) 파라미터 — 그쪽 wire 키와 1:1.
+
+    Vehicle 개발자의 weather_core 가 이 dict 를 그대로 weather snapshot 으로
+    사용할 수 있도록 키 이름을 uamodt 양식(JSON)과 동일하게 유지한다:
+    ``{"preset", "season", "localHour", "seed", "includeGust", "t"}``.
+    콘솔은 wind.grade 를 preset 으로 자동 매핑해 채운다
+    (normal→good, warning→fair, serious→bad).
+    """
+    preset: str = "good"               # good | fair | bad  (← grade 매핑)
+    season: str = "spring"             # spring | summer | autumn | winter
+    localHour: float = 14.0            # 0.0 ~ 23.999 (sim 시각의 시)
+    seed: int = 0                      # 재현성 시드 (0=기본)
+    includeGust: bool = True
+    t: float = 0.0                     # sim 하루 경과 초 (0 ~ 86400)
+
+
+@dataclass
 class Wind:
     grade: str = "normal"              # normal | warning | serious
     gust: Optional[Gust] = None
+    weather: Optional[WeatherModelParams] = None   # uamodt 양식 (optional — Vehicle 바람 모델 파라미터)
 
 
 @dataclass

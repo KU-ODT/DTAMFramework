@@ -53,6 +53,13 @@ MSG 1002 controls playback, weather, and wind only.
 | `gust.lat` | float | -90 ~ 90 deg | Latitude |
 | `gust.lon` | float | -180 ~ 180 deg | Longitude |
 | `gust.radius` | float | 0 ~ 50000 m | Gust radius |
+| `wind.weather` | obj | optional | Vehicle-side wind model (uamodt standalone_weather) parameters — wire keys are 1:1 with that format. Console auto-fills from grade |
+| `wind.weather.preset` | str | `good`\|`fair`\|`bad` | Wind intensity preset (grade mapping: normal→good, warning→fair, serious→bad) |
+| `wind.weather.season` | str | `spring`\|`summer`\|`autumn`\|`winter` | Season (derived from current month) |
+| `wind.weather.localHour` | float | 0 ~ 23.999 | Hour of sim time (derived from simSecondsOfDay) |
+| `wind.weather.seed` | int | >= 0 | Reproducibility seed (0=default) |
+| `wind.weather.includeGust` | bool | - | Whether to include gusts (linked to local-wind toggle) |
+| `wind.weather.t` | float | 0 ~ 86400 | Elapsed sim seconds of day |
 
 ## 5. Examples
 
