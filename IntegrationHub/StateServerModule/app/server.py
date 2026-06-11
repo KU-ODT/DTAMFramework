@@ -213,28 +213,11 @@ def create_app(config: ServerConfig, db_root: str) -> FastAPI:
                 payload = evt.full_payload
                 engine.apply_control(payload)
 
-            # Auto-trigger 2001 Flight Plan Request to MissionModule after 1001 mode setup.
-            if is_local_state_command and evt.mid == "1001":
-                try:
-                    payload = evt.full_payload
-                    def get_val(obj, key):
-                        if hasattr(obj, key): return getattr(obj, key)
-                        if isinstance(obj, dict): return obj.get(key)
-                        return None
-                    
-                    scenario = get_val(payload, "traffic")
-                    scenario_file = get_val(scenario, "trafficScenario") if scenario else "default_scenario.json"
-                    
-                    req_2001 = {
-                        "timestamp": _event_iso_timestamp(evt, payload),
-                        "scenarioFileName": scenario_file or "default_scenario.json"
-                    }
-                    # Registration handling
-                    hub.push_to_role("mission", "2001", req_2001)
-                    logger.info(f"Auto-triggered 2001 Flight Plan Request for scenario: {scenario_file}")
-                except Exception as e:
-                    logger.error(f"Auto-trigger 2001 failed: {e}")
-                    
+            # (제거됨 2026-06-11) 1001 수신 시 2001 자동 발사 — 2001 은 콘솔 Play
+            # 사슬(user)·PSU 만 발행한다. 자동 발사는 scenarioFileName 이 없는 가짜
+            # 2001 ("default_scenario.json") 을 만들어 Mission 에러를 유발했고,
+            # "2001 은 런당 1회" 규칙도 위반했다.
+
             # Registration handling
             if loop is None or not clients:
                 return

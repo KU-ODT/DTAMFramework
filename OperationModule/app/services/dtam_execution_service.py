@@ -940,11 +940,9 @@ def _apply_camera_stream_capture_settings(settings: dict[str, Any]) -> None:
         if not isinstance(vehicle, dict):
             continue
         if name != primary_name:
-            existing_cameras = vehicle.get("Cameras")
-            if isinstance(existing_cameras, dict):
-                existing_cameras.pop(STREAM_CAMERA_NAME, None)
-                if not existing_cameras:
-                    vehicle.pop("Cameras", None)
+            # 템플릿(Drone1) 복제로 따라온 카메라(downward 등)까지 전부 제거 —
+            # 캡처 카메라는 render target 을 VRAM 에 상주시키므로 대표 1대만.
+            vehicle.pop("Cameras", None)
             continue
         cameras = vehicle.get("Cameras")
         if not isinstance(cameras, dict):
