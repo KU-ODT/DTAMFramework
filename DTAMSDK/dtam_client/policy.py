@@ -29,7 +29,6 @@ FORWARD_RULES: Dict[str, List[Role]] = {
     "5001": [Role.VEHICLE],                                                              # Phase 7
     "5002": [Role.VISUAL],                                                               # Phase 7
     "5003": [Role.VISUAL],                                                               # Phase 7
-    "5004": [Role.VEHICLE, Role.VISUAL, Role.PSU, Role.MISSION, Role.MONITORING, Role.SITUATION_AWARENESS],  # Phase 7 (데모 날씨 — 전 모듈 바람 영향 공유)
 }
 
 

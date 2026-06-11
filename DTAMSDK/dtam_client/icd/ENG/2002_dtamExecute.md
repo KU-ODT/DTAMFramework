@@ -35,7 +35,7 @@ It includes all configuration file names and the flight plan folder name from pr
 | `simulationSetupFileName` | str | MSG 1002 simulation setup file | `simulationSetup_20260416T103000000Z.json` |
 | `scenarioFileName` | str | MSG 1003 scenario setup file | `scenarioSetup_20260416T103000000Z.json` |
 | `flightPlanFolderName` | str | MSG 3001 flight plan folder | `FlightPlan_20260416T103500000Z` |
-| `scenarioId` | str (optional) | Demo scenario identifier — used by Vehicle for per-scenario branching (`"S1"`\|`"S2"`\|`"S3"`). S3: battery degradation profile + arming the combined UAO decision logic, S2: PSU speed-adjustment re-plan scenario — no vehicle-side special arming (5004 wind and 3003 setSpeed are standard message handling). Omitted → normal execution | `S3` |
+| `scenarioId` | str (optional) | Demo scenario identifier — used by Vehicle for per-scenario branching (`"S1"`\|`"S2"`\|`"S3"`). S3: battery degradation profile + arming the combined UAO decision logic, S2: PSU speed-adjustment re-plan scenario — no vehicle-side special arming (1002 wind.weather wind and 3003 setSpeed are standard message handling). Omitted → normal execution | `S3` |
 
 ## 4. Example
 
@@ -74,5 +74,5 @@ With demo scenario (`scenarioId` included):
 - On receiving MSG 2002, the module loads all 4 files/folders and initializes the simulation.
 - Load order: 1001 (mode) → 1002 (setup) → 1003 (scenario) → 3001 (flight plans folder)
 - `scenarioId` lets the Operation Console tell Vehicle which demo scenario (S1/S2/S3) is running at execution time.
-  Vehicle branches on `scenarioId` in `on_dtam_execute()`: S1 → normal run, S2 → PSU speed-adjustment re-plan scenario — no vehicle-side special arming (5004 wind and 3003 setSpeed are standard message handling), S3 → activate battery degradation profile + arm the combined UAO decision logic (the UAO role is handled by VehicleModule itself, not a separate module).
+  Vehicle branches on `scenarioId` in `on_dtam_execute()`: S1 → normal run, S2 → PSU speed-adjustment re-plan scenario — no vehicle-side special arming (1002 wind.weather wind and 3003 setSpeed are standard message handling), S3 → activate battery degradation profile + arm the combined UAO decision logic (the UAO role is handled by VehicleModule itself, not a separate module).
 - Omitted → normal execution. Vehicle already receives MSG 2002, so no routing change is required.

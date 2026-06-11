@@ -423,43 +423,6 @@ def sample_abnormal_situation_command(**overrides: Any) -> Dict[str, Any]:
     )
 
 
-def sample_wind_effect_data(**overrides: Any) -> Dict[str, Any]:
-    return _merge(
-        {
-            "timestamp": ISO_TS,
-            "profileId": "DEMO_WIND_01",
-            "windGrade": "serious",
-            "windPreset": "bad",
-            "windSeed": 20260610,
-            "vehicleWindEffects": [
-                {
-                    "aircraftId": "UAM0001",
-                    "windSpeedMps": 7.5,
-                    "windDirFromDeg": 270.0,
-                    "gustFactor": 1.3,
-                    "crossTrackDriftM": 120.0,
-                    "alongTrackDeltaMps": -2.0,
-                    "localZone": {
-                        "lat": 37.5300,
-                        "lon": 126.9800,
-                        "radiusM": 3000.0,
-                        "preset": "serious",
-                    },
-                },
-                {
-                    "aircraftId": "UAM0002",
-                    "windSpeedMps": 5.2,
-                    "windDirFromDeg": 250.0,
-                    "gustFactor": 1.1,
-                    "crossTrackDriftM": 60.0,
-                    "alongTrackDeltaMps": 1.0,
-                },
-            ],
-        },
-        overrides,
-    )
-
-
 def sample_camera_stream_descriptor(**overrides: Any) -> Dict[str, Any]:
     return _merge(
         {
@@ -582,7 +545,6 @@ _SAMPLE_BUILDERS: Dict[str, Callable[..., Dict[str, Any]]] = {
     "5001": sample_operator_control_input,
     "5002": sample_camera_control_command,
     "5003": sample_abnormal_situation_command,
-    "5004": sample_wind_effect_data,
 }
 
 _ALIASES = {
@@ -630,8 +592,6 @@ _ALIASES = {
     "push_camera_control_command": "5002",
     "abnormal_situation_command": "5003",
     "push_abnormal_situation_command": "5003",
-    "wind_effect_data": "5004",
-    "push_wind_effect_data": "5004",
     "obstacle_spawn_command": "5003",
     "bird_flock_command": "5003",
 }

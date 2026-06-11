@@ -184,14 +184,6 @@ MESSAGE_TABLE: Dict[str, Dict[str, Any]] = {
         "rate_hz": 0.0,
         "phase": 7,
     },
-    "5004": {
-        "name": "Wind Effect Data",
-        "name_ko": "바람 영향 데이터",
-        "proto": "ws",
-        "direction": "operator->server",
-        "rate_hz": 0.0,
-        "phase": 7,
-    },
 }
 
 # 메시지 ID → DB 저장 폴더명
@@ -214,7 +206,6 @@ DB_FOLDER_FOR_MID: Dict[str, str] = {
     "5001": "OperatorControlInput",
     "5002": "CameraControlCommand",
     "5003": "AbnormalSituationCommand",
-    "5004": "WindEffectData",
 }
 
 # SDK policy is the single forwarding authority. CoreServer keeps MESSAGE_TABLE

@@ -83,16 +83,13 @@ class MissionModule(DtamModule):
         보유 plan 의 정합성(superseded 마킹 등)을 유지. Override to handle.
         """
 
-    @on_receive("5004")
-    def on_wind_effect_data(self, msg: Any) -> None:
-        """MSG 5004 — 데모 날씨 기체별 바람 영향 (향후 계획 산정 참고). Override to handle."""
 
 
 @_validate_role_base
 class VehicleModule(DtamModule):
     """Air Mobility 역할의 base 클래스.
 
-    FORWARD_RULES: 0003, 1002, 2002, 3001, 3002, 3003, 4103, 5001, 5004.
+    FORWARD_RULES: 0003, 1002, 2002, 3001, 3002, 3003, 4103, 5001.
     """
     role = Role.VEHICLE
 
@@ -128,9 +125,6 @@ class VehicleModule(DtamModule):
     def on_operator_control_input(self, msg: Any) -> None:
         """MSG 5001 — 수동 조종 입력. Override to handle."""
 
-    @on_receive("5004")
-    def on_wind_effect_data(self, msg: Any) -> None:
-        """MSG 5004 — 데모 날씨 기체별 바람 영향 (dynamics 보정). Override to handle."""
 
 
 @_validate_role_base
@@ -172,16 +166,13 @@ class MonitoringModule(DtamModule):
     def on_vehicle_collision_event(self, msg: Any) -> None:
         """MSG 4103 — 비행체 충돌 이벤트. Override to handle."""
 
-    @on_receive("5004")
-    def on_wind_effect_data(self, msg: Any) -> None:
-        """MSG 5004 — 데모 날씨 기체별 바람 영향 (자기 발행 echo — 대시보드 표시). Override to handle."""
 
 
 @_validate_role_base
 class VisualModule(DtamModule):
     """Visualization (Unreal) 역할의 base 클래스.
 
-    FORWARD_RULES: 0003, 1002, 1003, 2002, 3001, 4001, 5002, 5003, 5004.
+    FORWARD_RULES: 0003, 1002, 1003, 2002, 3001, 4001, 5002, 5003.
     현재 Visual 은 외부 Unreal Engine 바이너리이고 Python SDK 사용처가
     없지만, 향후 Python 시각화기를 만들 때를 위해 준비.
     """
@@ -219,9 +210,6 @@ class VisualModule(DtamModule):
     def on_abnormal_situation_command(self, msg: Any) -> None:
         """MSG 5003 — 비정상 상황/장애물 생성 명령. Override to handle."""
 
-    @on_receive("5004")
-    def on_wind_effect_data(self, msg: Any) -> None:
-        """MSG 5004 — 데모 날씨 기체별 바람 영향 (시각화). Override to handle."""
 
 
 @_validate_role_base
@@ -255,9 +243,6 @@ class SituationAwarenessModule(DtamModule):
     def on_vehicle_collision_event(self, msg: Any) -> None:
         """MSG 4103 — 비행체 충돌 이벤트. Override to handle."""
 
-    @on_receive("5004")
-    def on_wind_effect_data(self, msg: Any) -> None:
-        """MSG 5004 — 데모 날씨 기체별 바람 영향 (상황 인식 보조). Override to handle."""
 
 
 @_validate_role_base
@@ -269,8 +254,7 @@ class PSUModule(DtamModule):
     충돌 위험 또는 긴급 상황(배터리 부족 등) 시 3003 Tactical Separation
     을 직접 발행하여 즉시 개입.
 
-    FORWARD_RULES (수신): 4001 (Vehicle Status 10Hz), 4002 (Warning),
-    5004 (Wind Effect — 궤적 예측에 바람 반영).
+    FORWARD_RULES (수신): 4001 (Vehicle Status 10Hz), 4002 (Warning).
     발행: 3003 (Tactical Separation), 2001 (전략 재계획 트리거 — 보조 경로).
     """
     role = Role.PSU
@@ -283,9 +267,6 @@ class PSUModule(DtamModule):
     def on_vehicle_warning_event(self, msg: Any) -> None:
         """MSG 4002 — 비행체 경고 이벤트 (이상 감지). Override to handle."""
 
-    @on_receive("5004")
-    def on_wind_effect_data(self, msg: Any) -> None:
-        """MSG 5004 — 데모 날씨 기체별 바람 영향 (궤적 예측 보정). Override to handle."""
 
 
 __all__ = [

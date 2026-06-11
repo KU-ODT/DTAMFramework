@@ -143,12 +143,6 @@ CATALOG: Dict[str, MessageSpec] = {
         direction="operator->server", rate_hz=0.0, phase=7,
         icd_proto="ws", db_folder="AbnormalSituationCommand",
     ),
-    "5004": MessageSpec(
-        mid="5004", alias="wind_effect_data",
-        name_en="Wind Effect Data", name_ko="바람 영향 데이터",
-        direction="operator->server", rate_hz=0.0, phase=7,
-        icd_proto="ws", db_folder="WindEffectData",
-    ),
 }
 
 
