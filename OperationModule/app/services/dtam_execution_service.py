@@ -80,6 +80,10 @@ DEMO_PLAN_PACKS = {
     "S3": "S3_uao_battery_alt_vertiport",
 }
 DEMO_PLANS_DIR = FRAMEWORK_ROOT / "MissionModule" / "data" / "demo_plans"
+# FlightScheduler plugin output: FPL/<run folder>/FPL_all.csv (utf-8-sig, no route).
+FPL_FOLDERS_DIR = FRAMEWORK_ROOT / "PlugIn" / "FlightScheduler" / "FPL"
+# fpn fallback base when fpl_id has no usable numeric part.
+FPL_FPN_FALLBACK_BASE = 1301
 VALID_CONTROLLERS = {"Joystick", "Keyboard", "Autopilot"}
 VALID_DYNAMICS_MODELS = {"simple", "highFidelity"}
 DEFAULT_DYNAMICS_MODEL = "simple"
@@ -545,6 +549,60 @@ def _demo_missions_from_pack(scenario_id: str) -> list[dict[str, Any]] | None:
     return entries or None
 
 
+def _traffic_missions_from_fpl(folder_name: str) -> list[dict[str, Any]] | None:
+    """Synthesize console-shaped mission entries from FlightScheduler FPL_all.csv.
+
+    The CSV carries no enRoute geometry — routeData stays None and Mission's
+    RoutePlanner computes the origin→destination route later.  Vertiport names
+    are Korean and match the console map / RoutePlanner network naming.
+    """
+    name = str(folder_name or "").strip()
+    if not name or name != Path(name).name or name in {".", ".."}:
+        return None
+    csv_path = FPL_FOLDERS_DIR / name / "FPL_all.csv"
+    if not csv_path.is_file():
+        return None
+    entries: list[dict[str, Any]] = []
+    try:
+        with csv_path.open(encoding="utf-8-sig", newline="") as fh:
+            for row in csv.DictReader(fh):
+                aircraft = str(row.get("aircraft_id") or "").strip()
+                departure = str(row.get("origin_vertiport") or "").strip()
+                arrival = str(row.get("destination_vertiport") or "").strip()
+                takeoff = str(row.get("takeoff_time") or "").strip()
+                if not aircraft or not departure or not arrival:
+                    continue
+                entries.append(
+                    {
+                        "aircraftName": aircraft,
+                        "departureName": departure,
+                        "arrivalName": arrival,
+                        "departureTime": takeoff,
+                        "std": takeoff,
+                        "routeData": None,
+                        "fpn": _fpn_from_fpl_id(
+                            row.get("fpl_id"),
+                            FPL_FPN_FALLBACK_BASE + len(entries),
+                        ),
+                    }
+                )
+    except (OSError, csv.Error) as exc:
+        logger.warning("Unreadable FPL_all.csv %s: %s", csv_path, exc)
+        return None
+    return entries or None
+
+
+def _fpn_from_fpl_id(fpl_id: Any, fallback: int) -> int:
+    """FPL0116001 -> 116001; fall back to a sequential number from 1301."""
+    match = re.search(r"(\d+)", str(fpl_id or ""))
+    if match:
+        try:
+            return int(match.group(1))
+        except ValueError:
+            pass
+    return int(fallback)
+
+
 def _validate_mode_payload(
     mode_payload: dict[str, Any],
     demo_scenario_id: str = "",
@@ -580,6 +638,54 @@ def _validate_mode_payload(
             return missions, controller
         # Pack missing/misconfigured: fall through to normal validation so the
         # standard incomplete-mission error still surfaces.
+
+    traffic_sim = mode_payload.get("trafficSim") if isinstance(mode_payload.get("trafficSim"), dict) else {}
+    custom_mission_folder = str(traffic_sim.get("customMissionFolder") or "").strip()
+    if custom_mission_folder:
+        # Traffic mode (density "customed"): the console editor carries no
+        # missions[]; synthesize entries from the FlightScheduler FPL CSV and
+        # validate them through the same per-entry pipeline as demo packs.
+        traffic_missions = _traffic_missions_from_fpl(custom_mission_folder)
+        if not traffic_missions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"FPL folder '{custom_mission_folder}' has no readable FPL_all.csv flights.",
+            )
+        # Traffic payloads may lack singleFlight; prefer a top-level
+        # vehicleSimType, then the singleFlight one, then Autopilot/simple.
+        traffic_sim_type = (
+            mode_payload.get("vehicleSimType")
+            if isinstance(mode_payload.get("vehicleSimType"), dict)
+            else {}
+        )
+        controller = str(
+            traffic_sim_type.get("mainVehicleController")
+            or vehicle_sim_type.get("mainVehicleController")
+            or "Autopilot"
+        ).strip()
+        if controller not in VALID_CONTROLLERS:
+            raise HTTPException(status_code=400, detail=MISSION_INCOMPLETE_MESSAGE)
+        dynamics = str(
+            traffic_sim_type.get("dynamics")
+            or vehicle_sim_type.get("dynamics")
+            or DEFAULT_DYNAMICS_MODEL
+        ).strip()
+        if dynamics not in VALID_DYNAMICS_MODELS:
+            raise HTTPException(status_code=400, detail=MISSION_INCOMPLETE_MESSAGE)
+        missions = []
+        for entry in traffic_missions:
+            entry_controller = _mission_controller(entry, controller)
+            if entry_controller not in VALID_CONTROLLERS:
+                raise HTTPException(status_code=400, detail=MISSION_INCOMPLETE_MESSAGE)
+            entry_dynamics = _mission_dynamics(entry, dynamics)
+            if entry_dynamics not in VALID_DYNAMICS_MODELS:
+                raise HTTPException(status_code=400, detail=MISSION_INCOMPLETE_MESSAGE)
+            prepared_entry = dict(entry)
+            prepared_entry["_dtam_controller"] = entry_controller
+            prepared_entry["_dtam_dynamics"] = entry_dynamics
+            _resolve_settings_start_point(prepared_entry)
+            missions.append(prepared_entry)
+        return missions, controller
 
     operation_mode = str(mode_payload.get("operationMode") or "").strip()
     if operation_mode != "single":
@@ -1708,7 +1814,15 @@ def _resolve_settings_start_point(mission: dict[str, Any]) -> dict[str, Any]:
 
     planner = _get_route_planner()
     port = planner.ports.get(departure) if planner is not None and departure else None
-    fallback_point = _extract_start_point(mission)
+    try:
+        fallback_point = _extract_start_point(mission)
+    except HTTPException:
+        # Traffic/FPL missions carry no routeData geometry yet (Mission's
+        # RoutePlanner computes it later).  Fall through to the vertiport-name
+        # spawn resolution below instead of failing on the missing route.
+        if not departure:
+            raise
+        fallback_point = {}
     explicit_alt_m = _point_altitude_m(fallback_point) if _is_geo_point(fallback_point) else None
     spawn_id = str(fallback_point.get("spawn_point_id") or fallback_point.get("spawnPointId") or "").strip().upper()
     # Prefer the calibrated Unreal Editor preview marker mapping over the older

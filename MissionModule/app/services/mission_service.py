@@ -6,6 +6,7 @@ helpers. It handles inbound 2001/2002 messages, automatically builds and sends
 """
 from __future__ import annotations
 
+import csv
 import datetime
 import json
 import logging
@@ -30,6 +31,9 @@ logger = logging.getLogger(__name__)
 
 # Pre-built 3001 demo plan packs: MissionModule/data/demo_plans/<scenario_key>/3001_*.json
 DEMO_PLANS_DIR = Path(__file__).resolve().parents[2] / "data" / "demo_plans"
+
+# FlightScheduler FPL packs: PlugIn/FlightScheduler/FPL/<scenario_key>/FPL_all.csv
+FPL_DIR = Path(__file__).resolve().parents[3] / "PlugIn" / "FlightScheduler" / "FPL"
 
 
 def _result_raw(result: Any) -> Dict[str, Any]:
@@ -190,6 +194,20 @@ class MissionService(MissionModule):
                     )
             return
 
+        # FPL pack branch: PlugIn/FlightScheduler/FPL/<scenario_key>/FPL_all.csv.
+        # Demo plan packs take precedence; legacy pipeline remains the fallback.
+        fpl_rows = self._load_fpl_csv_rows(scenario_file_name)
+        if fpl_rows:
+            if self.route_planner is None or self._resource_csv is None:
+                logger.warning(
+                    "FPL pack found for %s but route planner/resource CSV unavailable; "
+                    "falling back to legacy pipeline",
+                    scenario_file_name,
+                )
+            else:
+                self._publish_fpl_pack(Path(scenario_file_name).stem, fpl_rows)
+                return
+
     # Auto-3001 helper methods used by on_flight_plan_request
         try:
             scenario: Dict[str, Any] = {}
@@ -276,6 +294,139 @@ class MissionService(MissionModule):
                 continue
             records.append(payload)
         return records or None
+
+    def _load_fpl_csv_rows(self, scenario_file_name: str) -> Optional[List[Dict[str, Any]]]:
+        """Load FlightScheduler FPL rows for a scenario, or ``None`` if no pack exists."""
+        scenario_key = Path(str(scenario_file_name or "")).stem
+        if not scenario_key:
+            return None
+        csv_path = FPL_DIR / scenario_key / "FPL_all.csv"
+        if not csv_path.is_file():
+            return None
+        rows: List[Dict[str, Any]] = []
+        try:
+            with csv_path.open("r", encoding="utf-8-sig", newline="") as handle:
+                for index, row in enumerate(csv.DictReader(handle)):
+                    if not isinstance(row, dict):
+                        continue
+                    aircraft_id = str(row.get("aircraft_id") or "").strip()
+                    origin = str(row.get("origin_vertiport") or "").strip()
+                    destination = str(row.get("destination_vertiport") or "").strip()
+                    if not aircraft_id or not origin or not destination:
+                        logger.warning(
+                            "FPL row %d skipped (%s): missing aircraft_id/origin/destination",
+                            index + 1, csv_path.name,
+                        )
+                        continue
+                    rows.append(row)
+        except (OSError, csv.Error) as exc:
+            logger.warning("FPL pack unreadable (%s): %s", csv_path, exc)
+            return None
+        return rows or None
+
+    def _publish_fpl_pack(self, scenario_key: str, rows: List[Dict[str, Any]]) -> None:
+        """Build 3001 records from FPL rows via the route pipeline and publish them."""
+        default_speed = float(self.settings.get("default_speed_mps", 30.0))
+        missions: List[Dict[str, Any]] = []
+        fleet: List[Dict[str, Any]] = []
+        row_errors: List[str] = []
+
+        for index, row in enumerate(rows):
+            aircraft_id = str(row.get("aircraft_id") or "").strip() or f"UAM{index + 1:04d}"
+            fpl_id = str(row.get("fpl_id") or "").strip()
+            digits = re.sub(r"\D", "", fpl_id)
+            flight_plan_number = int(digits) if digits else 1301 + index
+            departure = str(row.get("origin_vertiport") or "").strip()
+            arrival = str(row.get("destination_vertiport") or "").strip()
+            std = _normalize_std_value(row.get("takeoff_time"), None)
+            label = fpl_id or aircraft_id
+            try:
+                route = self.route_planner.find_route(departure, arrival, include_turn_arcs=False)
+                route_data = (
+                    self._route_response_fn(departure, arrival, route, include_turn_arcs=False)
+                    if self._route_response_fn is not None
+                    else {"path": list(route.path), "distance_km": route.distance_km}
+                )
+            except Exception as exc:
+                row_errors.append(f"{label}: route {departure}->{arrival} failed: {exc}")
+                logger.warning(
+                    "FPL row skipped (%s): route %s -> %s failed: %s",
+                    label, departure, arrival, exc,
+                )
+                continue
+            fleet.append({
+                "aircraftId": aircraft_id,
+                "vehicleName": aircraft_id,
+                "flightPlanNumber": flight_plan_number,
+                "std": std,
+            })
+            missions.append({
+                "mode": "route",
+                "departureName": departure,
+                "arrivalName": arrival,
+                "routeData": route_data,
+                "std": std,
+                "departureTime": std,
+                "options": {
+                    "std": std,
+                    "cruiseSpeedMps": default_speed,
+                },
+            })
+
+        if not missions:
+            summary = "; ".join(row_errors) or "FPL pack produced no missions"
+            with self._mc_lock:
+                self._last_auto_3001_error = summary
+            logger.warning("auto_3001 FPL pack failed: %s", summary)
+            return
+
+        try:
+            export = self.build_mission_icd_bundle(
+                {"mode": "route", "missions": missions, "fleet": fleet, "options": {}},
+                fleet,
+            )
+        except Exception as exc:
+            err = f"FPL pack pipeline raised: {type(exc).__name__}: {exc}"
+            with self._mc_lock:
+                self._last_auto_3001_error = "; ".join([err, *row_errors])
+            logger.exception("auto_3001 FPL pack pipeline failed")
+            return
+
+        validation = export.get("validation") if isinstance(export, dict) else None
+        if not (isinstance(validation, dict) and validation.get("valid")):
+            errs = "; ".join(str(e) for e in (validation or {}).get("errors", []))
+            summary = f"FPL pack validation failed: {errs}" if errs else "FPL pack validation failed"
+            with self._mc_lock:
+                self._last_auto_3001_error = "; ".join([summary, *row_errors])
+            logger.warning(summary)
+            return
+
+        records = self.extract_records_from_export(export)
+        if not records:
+            with self._mc_lock:
+                self._last_auto_3001_error = "FPL pack generated no records"
+            logger.warning("auto_3001 FPL pack: no records")
+            return
+
+        send_result = self.send_scheduled_flights(records)
+        ok = bool(send_result.get("ok"))
+        count = int(send_result.get("count") or 0)
+        with self._mc_lock:
+            if ok:
+                self._auto_3001_count += count
+                self._last_auto_3001 = f"FPL pack: {scenario_key}, sent {count} scheduled flight(s)"
+                self._last_auto_3001_error = "; ".join(row_errors)
+                logger.info(
+                    "auto_3001 FPL pack sent: scenario=%s count=%d skipped=%d",
+                    scenario_key, count, len(row_errors),
+                )
+            else:
+                errors_out: List[str] = []
+                for item in send_result.get("results", []) or []:
+                    if isinstance(item, dict):
+                        errors_out.extend(str(e) for e in (item.get("errors") or []))
+                self._last_auto_3001_error = "; ".join([*errors_out, *row_errors]) or "send failed"
+                logger.warning("auto_3001 FPL pack failed: %s", self._last_auto_3001_error)
 
     @on_receive("2002")
     def on_dtam_execute(self, msg: Any) -> None:

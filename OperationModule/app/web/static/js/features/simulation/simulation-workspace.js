@@ -24,6 +24,7 @@ const ICD_SEND_DEBOUNCE_MS = 300;
 const WEATHER_ICD_SEND_DEBOUNCE_MS = 120;
 const COMMERCIAL_TRAFFIC_URL = "/api/v1/traffic/commercial?region=korea";
 const FLIGHT_SCHEDULER_LAUNCH_URL = "/api/v1/plugins/uam-scheduler/launch";
+const TRAFFIC_FPL_FOLDERS_URL = "/api/v1/traffic/fpl-folders";
 const COMMERCIAL_TRAFFIC_REFRESH_MS = 5000;
 const COMMERCIAL_AIRCRAFT_SOURCE_ID = "commercial-aircraft";
 const COMMERCIAL_AIRCRAFT_LAYER_ID = "commercial-aircraft-symbol";
@@ -462,6 +463,9 @@ Object.assign(COPY.en, {
   trafficCustomFolderSelected: "Mission folder selected: {name}",
   trafficCustomFolderGenerateSelected: "Generate folder selected: {name}",
   trafficCustomFolderLoadSelected: "Loaded folder: {name}",
+  trafficFplListLoading: "Loading FPL folders...",
+  trafficFplListFallback: "FPL folder list unavailable — pick a folder manually.",
+  trafficFplFlightCount: "{count} flights",
   trafficSchedulerLaunchStarting: "Opening UAM Flight Scheduler...",
   trafficSchedulerLaunchOk: "UAM Flight Scheduler opened.",
   trafficSchedulerLaunchError: "Failed to open UAM Flight Scheduler.",
@@ -541,6 +545,9 @@ Object.assign(COPY.ko, {
   trafficCustomFolderSelected: "임무계획 폴더 선택: {name}",
   trafficCustomFolderGenerateSelected: "정기편 생성 폴더 선택: {name}",
   trafficCustomFolderLoadSelected: "임무계획 폴더 불러오기: {name}",
+  trafficFplListLoading: "FPL 폴더 목록을 불러오는 중...",
+  trafficFplListFallback: "FPL 폴더 목록을 가져오지 못해 직접 폴더를 선택합니다.",
+  trafficFplFlightCount: "{count}편",
   trafficSchedulerLaunchStarting: "UAM Flight Scheduler를 여는 중입니다...",
   trafficSchedulerLaunchOk: "UAM Flight Scheduler를 열었습니다.",
   trafficSchedulerLaunchError: "UAM Flight Scheduler를 열지 못했습니다.",
@@ -2404,6 +2411,7 @@ class SimulationWorkspace {
                 <button type="button" class="scenario-btn" data-traffic-custom-action="generate">${this.t("trafficRegularFlightGenerate")}</button>
                 <button type="button" class="scenario-btn" data-traffic-custom-action="load">${this.t("trafficMissionLoad")}</button>
               </div>
+              <div class="traffic-fpl-list" data-traffic-fpl-list hidden></div>
               <div class="scenario-hint traffic-custom-status" data-traffic-custom-status>${this.trafficCustomMissionText()}</div>
               <input type="file" data-traffic-folder-input="generate" webkitdirectory directory multiple hidden />
               <input type="file" data-traffic-folder-input="load" webkitdirectory directory multiple hidden />
@@ -2856,12 +2864,18 @@ class SimulationWorkspace {
         return;
       }
 
+      const trafficFplFolderButton = event.target.closest("[data-traffic-fpl-folder]");
+      if (trafficFplFolderButton) {
+        this.selectTrafficFplFolder(trafficFplFolderButton.dataset.trafficFplFolder);
+        return;
+      }
+
       const trafficCustomActionButton = event.target.closest("[data-traffic-custom-action]");
       if (trafficCustomActionButton?.dataset.trafficCustomAction) {
         if (trafficCustomActionButton.dataset.trafficCustomAction === "generate") {
           void this.launchTrafficScheduleGenerator();
         } else {
-          this.openTrafficMissionFolderInput(trafficCustomActionButton.dataset.trafficCustomAction);
+          void this.openTrafficFplFolderPicker();
         }
         return;
       }
@@ -3120,6 +3134,84 @@ class SimulationWorkspace {
     }
     input.value = "";
     input.click();
+  }
+
+  async openTrafficFplFolderPicker() {
+    // 불러오기: 서버에 있는 PlugIn/FlightScheduler/FPL 하위 폴더 목록을 받아
+    // 인라인 리스트로 보여준다. 실패/빈 목록이면 기존 webkitdirectory 입력으로 폴백.
+    const list = this.container.querySelector("[data-traffic-fpl-list]");
+    if (!list) {
+      this.openTrafficMissionFolderInput("load");
+      return;
+    }
+    list.hidden = false;
+    list.replaceChildren(document.createTextNode(this.t("trafficFplListLoading")));
+    let folders = [];
+    try {
+      const response = await fetch(TRAFFIC_FPL_FOLDERS_URL, { headers: { Accept: "application/json" }, cache: "no-store" });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      folders = Array.isArray(data) ? data : (Array.isArray(data?.folders) ? data.folders : []);
+    } catch (error) {
+      folders = [];
+    }
+    if (!folders.length) {
+      list.hidden = true;
+      list.replaceChildren();
+      this.setMissionStatus(this.t("trafficFplListFallback"), "info");
+      this.openTrafficMissionFolderInput("load");
+      return;
+    }
+    this.renderTrafficFplFolderList(folders);
+  }
+
+  renderTrafficFplFolderList(folders) {
+    const list = this.container.querySelector("[data-traffic-fpl-list]");
+    if (!list) {
+      return;
+    }
+    const buttons = folders
+      .map((folder) => {
+        const name = String(folder?.name ?? folder ?? "").trim();
+        if (!name) {
+          return null;
+        }
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "scenario-btn traffic-fpl-folder-btn";
+        button.dataset.trafficFplFolder = name;
+        const flightCount = Number(folder?.flightCount ?? folder?.flight_count);
+        const modified = String(folder?.modified ?? folder?.modifiedAt ?? "").trim();
+        const meta = [
+          Number.isFinite(flightCount) ? this.tf("trafficFplFlightCount", { count: flightCount }) : "",
+          modified,
+        ].filter(Boolean).join(" · ");
+        button.textContent = meta ? `${name} — ${meta}` : name;
+        return button;
+      })
+      .filter(Boolean);
+    list.hidden = false;
+    list.replaceChildren(...buttons);
+  }
+
+  selectTrafficFplFolder(folderName) {
+    const name = String(folderName || "").trim();
+    if (!name) {
+      return;
+    }
+    this.state.trafficCustomMissionAction = "load";
+    this.state.trafficCustomMissionFolderName = name;
+    this.state.modeSaveStatus = "idle";
+    this.state.modeSaveMessage = "";
+    const list = this.container.querySelector("[data-traffic-fpl-list]");
+    if (list) {
+      list.hidden = true;
+      list.replaceChildren();
+    }
+    this.clearMissionStatus();
+    this.syncUi();
   }
 
   handleTrafficMissionFolderSelection(fileList, action) {
@@ -7310,6 +7402,12 @@ class SimulationWorkspace {
     if (demoFile) {
       return demoFile;
     }
+    // 사용자 정의 traffic: 선택한 FPL 폴더명을 scenarioFileName 으로 사용
+    // (Mission 이 stem 처리하여 PlugIn/FlightScheduler/FPL/<stem>/ 을 찾는다).
+    const trafficFolderName = String(this.state.trafficCustomMissionFolderName || "").trim();
+    if (this.state.operationMode === "traffic" && this.state.trafficDensity === "customed" && trafficFolderName) {
+      return `${trafficFolderName}.json`;
+    }
     const now = new Date();
     const stamp = now.toISOString().replaceAll(":", "").replaceAll("-", "").replace(/\.\d{3}Z$/, "Z");
     return `scenarioSetup_${stamp}.json`;
@@ -7342,6 +7440,14 @@ class SimulationWorkspace {
         return { ok: false, message: this.t("missionIncomplete") };
       }
       return { ok: true, message: "" };
+    }
+    if (this.state.operationMode === "traffic" && this.state.trafficDensity === "customed") {
+      // 사용자 정의 traffic — 임무계획은 FPL 폴더(백엔드 브릿지가 spawn 합성)가
+      // 제공하므로 수동 entries 검증을 건너뛴다. 폴더 선택 + 제어방식만 확인.
+      const trafficFolderName = String(this.state.trafficCustomMissionFolderName || "").trim();
+      if (trafficFolderName && CONTROLLER_MODES.includes(this.state.mainVehicleController)) {
+        return { ok: true, message: "" };
+      }
     }
     if (this.state.operationMode !== "single") {
       return { ok: false, message: this.t("missionIncomplete") };
