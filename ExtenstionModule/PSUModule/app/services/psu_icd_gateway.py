@@ -918,7 +918,9 @@ def dispatch_3002_command(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def dispatch_3003_command(data: dict[str, Any]) -> dict[str, Any]:
-    return _with_dispatch_result(build_3003_draft(data), "3003", target_role="vehicle")
+    # 3003 은 FORWARD_RULES 가 vehicle+mission 양쪽으로 배달한다 — role 을 못박으면
+    # Mission 의 plan 장부 추적 (M-1) 이 빠진다. 빈 role = 허브 브로드캐스트.
+    return _with_dispatch_result(build_3003_draft(data), "3003", target_role="")
 
 
 def summarize_vehicle_snapshot(snapshot: dict[str, Any]) -> dict[str, int]:
