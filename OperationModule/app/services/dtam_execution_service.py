@@ -7,6 +7,7 @@ import csv
 import json
 import logging
 import math
+import os
 import re
 import socket
 import subprocess
@@ -83,6 +84,25 @@ DEMO_PLAN_PACKS = {
 DEMO_FPL_PACKS = {
     "S2": "20260611_131306_98f166edc22f",
 }
+# UE 스폰 상한 — 현 DTAMVisualization 빌드는 기체마다 SceneCapture 를 자동
+# 부착해 (settings 카메라와 별개) pawn 수에 비례해 VRAM 을 소모한다.
+# 실측: RTX 3060 12GB 에서 136 pawn → D3D12 CreateCommittedResource 실패.
+# UE 에는 출발 빠른 순 N대만 스폰하고, 비행/지도(4001)는 전 기체 정상 동작.
+# VZ-3 (기체별 캡처 자동 부착 제한) 해결 후 상향 가능. env 로 조절.
+MAX_SPAWN_VEHICLES = max(1, int(os.environ.get("DTAM_MAX_SPAWN_VEHICLES", "24")))
+
+
+def _cap_spawn_entries(entries: list[dict[str, Any]], label: str) -> list[dict[str, Any]]:
+    """UE 스폰 entries 를 출발시각(std) 빠른 순으로 MAX_SPAWN_VEHICLES 대로 제한."""
+    if len(entries) <= MAX_SPAWN_VEHICLES:
+        return entries
+    ordered = sorted(entries, key=lambda e: str(e.get("std") or ""))
+    kept = ordered[:MAX_SPAWN_VEHICLES]
+    logger.warning(
+        "%s: UE 스폰 %d→%d대 제한 (DTAM_MAX_SPAWN_VEHICLES=%d) — 나머지 기체도 비행·지도에는 정상 표시",
+        label, len(entries), len(kept), MAX_SPAWN_VEHICLES,
+    )
+    return kept
 DEMO_PLANS_DIR = FRAMEWORK_ROOT / "MissionModule" / "data" / "demo_plans"
 # FlightScheduler plugin output: FPL/<run folder>/FPL_all.csv (utf-8-sig, no route).
 FPL_FOLDERS_DIR = FRAMEWORK_ROOT / "PlugIn" / "FlightScheduler" / "FPL"
@@ -541,7 +561,8 @@ def _demo_missions_from_pack(scenario_id: str) -> list[dict[str, Any]] | None:
             prev = dedup.get(name)
             if prev is None or str(entry.get("std") or "") < str(prev.get("std") or ""):
                 dedup[name] = entry
-        return list(dedup.values()) or None
+        capped = _cap_spawn_entries(list(dedup.values()), f"demo {sid}")
+        return capped or None
     pack = DEMO_PLAN_PACKS.get(sid)
     if not pack:
         return None
@@ -619,7 +640,7 @@ def _traffic_missions_from_fpl(folder_name: str) -> list[dict[str, Any]] | None:
         prev = dedup.get(key)
         if prev is None or str(entry.get("std") or "") < str(prev.get("std") or ""):
             dedup[key] = entry
-    return list(dedup.values()) or None
+    return _cap_spawn_entries(list(dedup.values()), f"traffic {name}") or None
 
 
 def _fpn_from_fpl_id(fpl_id: Any, fallback: int) -> int:

@@ -67,6 +67,7 @@
 | # | 작업 | 내용 |
 |---|---|---|
 | VZ-2 (선택) | 3003 land 강조 | 비상 착륙 시각화 + 카메라 트래킹 |
+| **VZ-3** ★ | **기체별 SceneCapture 자동 부착 제한** | 현 DTAMVisualization 빌드가 settings 와 무관하게 pawn 마다 SituationAwareness RGB 캡처(DTAMSceneCaptureComponent)를 자동 생성 — 실측 RTX 3060 12GB 에서 136 pawn → D3D12 CreateCommittedResource 실패 (UE 사망). 선택 기체만/요청 시만 부착으로 변경 필요. 해결 전까지 콘솔이 UE 스폰을 `DTAM_MAX_SPAWN_VEHICLES`(기본 24) 로 제한 중 (비행·지도는 전 기체 정상) |
 
 ---
 
