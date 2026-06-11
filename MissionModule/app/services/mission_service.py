@@ -572,9 +572,34 @@ class MissionService(MissionModule):
         }
 
     def send_scheduled_flights(self, records: List[Dict[str, Any]]) -> Dict[str, Any]:
+        # 대량 발행(수천 건) 시 WS 연결이 끊기면 SDK 가 ~3초 후 자동 재연결한다.
+        # 끊긴 동안의 send 는 False 로 떨어지므로, 재연결을 기다렸다가 해당
+        # 레코드부터 재시도한다 (실측: 3,360건 burst 중 2,590건째 단절 → 770건 유실).
+        # 가벼운 스로틀로 단절 자체도 줄인다.
+        import time as _time
+        throttle_every, throttle_s = 50, 0.05
+        reconnect_wait_s, max_retries = 15.0, 3
         items: List[Dict[str, Any]] = []
-        for record in records or []:
-            items.append(self.send_scheduled_flight(record))
+        for idx, record in enumerate(records or []):
+            item = self.send_scheduled_flight(record)
+            retries = 0
+            while (
+                not item["ok"]
+                and any("WebSocket send failed" in e for e in item.get("errors") or [])
+                and retries < max_retries
+            ):
+                retries += 1
+                deadline = _time.monotonic() + reconnect_wait_s
+                while _time.monotonic() < deadline and not (self.connected and self.registered):
+                    _time.sleep(0.25)
+                logger.warning(
+                    "scheduled_flight send retry %d/%d (record %d/%d, fpn=%s)",
+                    retries, max_retries, idx + 1, len(records), record.get("flightPlanNumber"),
+                )
+                item = self.send_scheduled_flight(record)
+            items.append(item)
+            if throttle_every and (idx + 1) % throttle_every == 0:
+                _time.sleep(throttle_s)
         ok = all(item["ok"] for item in items) if items else False
         return {"ok": ok, "count": len(items), "results": items}
 
