@@ -91,10 +91,21 @@ async def start_module(role: str):
             if module_venv.is_file():
                 interpreter = str(module_venv)
                 print(f"[DTAM Core] {role}: module venv interpreter -> {module_venv}")
+            # CREATE_NO_WINDOW 스폰은 표준 핸들이 무효라 모듈의 print/uvicorn 배너가
+            # OSError 를 내며 REST 층이 죽는다 (실측: AM REST 미기동 — 비행 엔진만
+            # 생존하는 '반쯤 죽은' 상태). 로그 파일로 리다이렉트해 해결 + 가시성 확보.
+            log_dir = FRAMEWORK_ROOT / ".dtam_runtime" / "logs"
+            log_dir.mkdir(parents=True, exist_ok=True)
+            module_log = open(log_dir / f"module_{role}.log", "a", encoding="utf-8", errors="replace")
+            module_log.write(f"\n===== start {role}: {script_path} =====\n")
+            module_log.flush()
             new_proc = subprocess.Popen(
                 [interpreter, str(script_path), *list(info.get("args", []))],
                 cwd=str(script_path.parent),
                 creationflags=_creation_flags(),
+                stdout=module_log,
+                stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
             )
         else:  # bat
             new_proc = subprocess.Popen(
