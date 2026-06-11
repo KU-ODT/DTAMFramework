@@ -2,9 +2,9 @@
 
 ## 1. 개요
 
-- **목적**: 운영자가 Ops Console **기상 패널에서 바람 등급(serious)을 선택**하면 **1002 SimulationSetup 이 발행되고(기존 날씨 선택 기능)**, Vehicle 이 1002 의 `wind.weather` 파라미터 (uamodt 양식 — 콘솔이 grade 에서 자동 구성) 를 수신해 **바람장을 구성·적용**하여 두 비행체(UAM0001, UAM0002)의 궤적이 바람 영향(crossTrackDrift)으로 흔들린다. **PSU 는 4001 스트림(10 Hz)만으로 지속 궤적 예측(외삽)** 을 수행해 분리 손실(loss of separation)을 사전 감지하여 **3003 Tactical Separation (actions = `setSpeed`, 속도 조정) 을 직접 발행**, 속도 조정만으로 충돌을 예방하는 시나리오를 검증한다. **바람은 외란 환경 요소일 뿐**이며, Vehicle 의 wind.weather 수신·적용은 시나리오와 무관한 표준 처리다 (5004 는 폐기됨 — §3.1). Vehicle 은 3003 의 setSpeed 를 즉시 수행하고, Mission 은 3003 을 **수신만** 하여 plan 정합성을 추적한다. `scenarioId="S2"` 의 Vehicle 측 의미는 **특별 무장 없음 (정보성)** — 시나리오 전용 분기를 두지 않는다. 전략 재계획 경로(2001 확장 → 3001 v2 + 3002)는 SDK 인터페이스로 유지되지만 **S2 데모 흐름에서는 사용하지 않는다**.
+- **목적**: 운영자가 Ops Console **기상 패널에서 바람 등급(serious)을 선택**하면 **1002 SimulationSetup 이 발행되고(기존 날씨 선택 기능)**, Vehicle 이 1002 의 `wind.weather` 파라미터 (uamodt 양식 — 콘솔이 grade 에서 자동 구성) 를 수신해 **바람장을 구성·적용**하여 두 비행체(UAM0001, UAM0002)의 궤적이 바람 영향(crossTrackDrift)으로 흔들린다. **PSU 는 4001 스트림(10 Hz)만으로 지속 궤적 예측(외삽)** 을 수행해 분리 손실(loss of separation)을 사전 감지하여 **3003 Tactical Separation (actions = `setSpeed`, 속도 조정) 을 직접 발행**, 속도 조정만으로 충돌을 예방하는 시나리오를 검증한다. **바람은 외란 환경 요소일 뿐**이며, Vehicle 의 wind.weather 수신·적용은 시나리오와 무관한 표준 처리다. Vehicle 은 3003 의 setSpeed 를 즉시 수행하고, Mission 은 3003 을 **수신만** 하여 plan 정합성을 추적한다. `scenarioId="S2"` 의 Vehicle 측 의미는 **특별 무장 없음 (정보성)** — 시나리오 전용 분기를 두지 않는다. 전략 재계획 경로(2001 확장 → 3001 v2 + 3002)는 SDK 인터페이스로 유지되지만 **S2 데모 흐름에서는 사용하지 않는다**.
 - **주요 참여 모듈 (역할)**
-  - **IntegrationHub (SERVER)**: 메시지 포워딩 (FORWARD_RULES 기반) — 1002 → SIM_STATE/VEHICLE 등, 3003 → VEHICLE/MISSION
+  - **IntegrationHub (SERVER)**: 메시지 포워딩 (FORWARD_RULES 기반) — 1002 → **전 모듈** (VEHICLE/VISUAL/SIM_STATE/MISSION/MONITORING/PSU/SA — 전체 개방), 3003 → VEHICLE/MISSION
   - **SimulationStateModule (SIM_STATE)**: CommonTime(0003) 발생, 1001/1002/1003 소비, playState 제어
   - **VehicleModule (VEHICLE)** × 2: UAM0001, UAM0002 비행 상태 머신, 4001 송출 (10 Hz), 1002 `wind.weather` 파라미터 기반 바람장 구성·적용, 3003 setSpeed 즉시 수행
   - **MissionModule (MISSION)**: 초기 2001(기본) 소비, 3001 v1 발행. 이후 3003 **수신 전용** (plan 정합성 추적) — S2 트리거 구간에서 발행 없음
@@ -99,12 +99,15 @@ T+10:00  VEHICLE    → SERVER     [4001]  (양 비행체 순항 진입)
 
 # Phase 5: 기상 패널 바람 등급 변경 → 바람 영향 (T+20:00 ~ T+25:00)
 T+20:00  User(OpsConsole) → SERVER  [1002]  SimulationSetup — 기상 패널 바람 등급 serious 선택 — TRIGGER 1
-                                          payload preview: { playState: "play", wind: { grade: "serious" } }
+                                          payload preview: { playState: "play", wind: { grade: "serious",
+                                            weather: { preset: "bad", season: "summer", localHour: 9, seed: 20260611, includeGust: true, t: 0.0 } } }
                                           note: 운영자 바람 등급 변경 — 기존 날씨 선택 기능 (기상 dock: 강수/안개/바람등급/국지바람
-                                                → 변경 시 1002 자동 발행, wind.weather 동봉). Vehicle 이 수신 파라미터로 바람장 적용 시작
+                                                → 변경 시 1002 자동 발행, wind.weather 자동 동봉 — uamodt standalone_weather 양식 1:1,
+                                                grade 매핑 serious→bad). FORWARD_RULES[1002]=전 모듈 (VEHICLE/VISUAL/SIM_STATE/MISSION/
+                                                MONITORING/PSU/SA — 전체 개방). VEHICLE 이 수신 파라미터로 바람장 적용 시작
 
-T+20:01  VEHICLE    (internal)            1002 wind.grade="serious" 수신 — 자체 WindModel 활성화
-                                          note: 등급 기반 바람 생성·적용 → dynamics 바람 보정 시작, 궤적이 횡방향으로 흔들리기 시작
+T+20:01  VEHICLE    (internal)            1002 wind.weather (preset="bad") 수신 — weather_core snapshot 에 투입
+                                          note: 수신 파라미터로 바람장 구성 → dynamics 적용 시작, 궤적이 횡방향으로 흔들리기 시작
 
 T+20:05  VEHICLE    → SERVER     [4001]  (양 비행체 궤적 drift 발생)
                                           note: crossTrack 오차 누적 — UAM0001 +120 m, UAM0002 +90 m 수준으로 발산
@@ -122,6 +125,7 @@ T+25:00  PSU        → SERVER     [3003]  TacticalSeparation (PSU 직접 발행
                                             commandId: "TMP-PSU-UAM0002-20260610-0001",
                                             aircraftId: "UAM0002",
                                             reasonCode: "LOSS_OF_SEPARATION_RISK",
+                                            scenarioId: "S2",
                                             actions: [ { type: "setSpeed", targetSpeed: 40.0 } ]
                                           }
                                           note: UAM0002 감속 (targetSpeed 낮춤) — 속도 조정만으로 분리 회복. directTo 없음.
@@ -145,6 +149,7 @@ T+30:00  PSU        → SERVER     [3003]  TacticalSeparation (속도 복원 —
                                             commandId: "TMP-PSU-UAM0002-20260610-0002",
                                             aircraftId: "UAM0002",
                                             reasonCode: "LOSS_OF_SEPARATION_RISK",
+                                            scenarioId: "S2",
                                             actions: [ { type: "setSpeed", targetSpeed: 55.0 } ]
                                           }
                                           note: 분리 회복 확인 후 순항 속도 복원. 대안: actions=[{ type: "rejoinPlan", atSeq: 2 }].
@@ -171,7 +176,7 @@ T+50:00  VEHICLE    → SERVER     [4001]  (UAM0002 착륙 완료)
 
 ## 3. 메시지별 상세 payload
 
-### 3.1 (보류) 5004 WindEffectData — 본 시나리오 미사용
+### 3.1 5004 WindEffectData — 폐기
 
 > 5004 WindEffectData 는 **폐기됨 (2026-06-11)** — 바람은 1002 `wind.weather` 파라미터 전달로 일원화.
 
@@ -229,7 +234,7 @@ T+50:00  VEHICLE    → SERVER     [4001]  (UAM0002 착륙 완료)
 | 1 | 0001/0002 수신 | 모듈 등록·heartbeat 상태 시각화 | (없음 — 수신만) |
 | 2 | 4001/4101 수신 | 비행 상태·카메라 프레임 실시간 표시 | (없음 — 수신만) |
 | 3 | 운영자 기상 패널 바람 등급 serious 클릭 (T+20:00) | 기존 날씨 선택 기능 (기상 dock: 강수/안개/바람등급/국지바람 → 변경 시 1002 자동 발행) | **1002** SimulationSetup `wind.grade=serious` 발행 (기존 기능) |
-| 4 | 3003 발생 인지 | PSU 개입 알림 배너 표시 (commandId, reasonCode) | (없음 — 수신만) |
+| 4 | 3003 발생 인지 (DB/로그 경유 — 3003 직접 forward 대상은 VEHICLE/MISSION 만) | PSU 개입 알림 배너 표시 (commandId, reasonCode) | (없음) |
 
 > 바람 트리거는 별도 데모 버튼이 아니라 **기존 기상 패널의 바람 등급 선택**으로 수행한다 — 신규 UI 작업 없음.
 
@@ -238,11 +243,12 @@ T+50:00  VEHICLE    → SERVER     [4001]  (UAM0002 착륙 완료)
 | # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
 |---|---|---|---|
 | 1 | 4001 수신 (10 Hz, 지속) | 두 기체(UAM0001/UAM0002) 시계열 궤적 추적 — 외삽 모델 지속 갱신 (바람 drift 는 4001 시계열에 그대로 나타나므로 별도 바람 입력 불필요) | (없음 — 내부 처리) |
-| 2 | 충돌 예측 (내부, T+24:30~25:00) | 90 s lookahead 에서 수평 분리 < 300 m 수렴 → loss of separation 예측, 충돌 예상 쌍(UAM0001-UAM0002) 식별 | **3003** setSpeed `targetSpeed=40.0` (UAM0002 감속, `reasonCode=LOSS_OF_SEPARATION_RISK`, `commandId=TMP-PSU-{aircraftId}-{YYYYMMDD}-{SEQ}`) |
+| 2 | 충돌 예측 (내부, T+24:30~25:00) | 90 s lookahead 에서 수평 분리 < 300 m 수렴 → loss of separation 예측, 충돌 예상 쌍(UAM0001-UAM0002) 식별 | **3003** setSpeed `targetSpeed=40.0` (UAM0002 감속, `reasonCode=LOSS_OF_SEPARATION_RISK`, `commandId=TMP-PSU-{aircraftId}-{YYYYMMDD}-{SEQ}`, `scenarioId="S2"` 동봉) |
 | 3 | 분리 회복 확인 (내부 재평가, T+25:10 이후) | 외삽 재계산 — 분리 거리 ≥ 300 m 회복 추세 확인 | **3003** setSpeed `targetSpeed=55.0` 복원 또는 rejoinPlan `atSeq=2` (선택 — 생략 가능) |
 
 > **속도 조정 재계획 주체** (S2 의 의사결정 모듈). actions 는 **setSpeed 단일 액션** — directTo 미사용.
 > **2001 확장(전략 재계획 요청)은 발행하지 않음** — S2 는 속도 조정 전술 개입만 사용.
+> PSU 는 **1002 도 수신 가능** (전체 개방) — 궤적 예측 시 바람 파라미터 참고 가능 (선택, 외삽은 4001 만으로도 충분).
 
 ### 4.3 VehicleModule (UAM0001, UAM0002 — UAO 겸업)
 
@@ -271,10 +277,11 @@ T+50:00  VEHICLE    → SERVER     [4001]  (UAM0002 착륙 완료)
 | # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
 |---|---|---|---|
 | 1 | 0001/0002 수신 | FORWARD_RULES 조회 + DB 저장 | **0001**/**0002** → MONITORING forward |
-| 2 | 3001 수신 | FORWARD_RULES 조회 + DB 저장 | **3001** → VEHICLE/VISUAL forward |
-| 3 | 4001 수신 (10 Hz) | FORWARD_RULES 조회 + DB 저장 | **4001** → PSU/MONITORING/VISUAL/SA forward |
-| 4 | 4101 수신 (5 Hz) | FORWARD_RULES 조회 + DB 저장 | **4101** → MONITORING/SA forward |
-| 5 | 3003 수신 | FORWARD_RULES[3003] 조회 + DB 저장 | **3003** → VEHICLE/MISSION forward |
+| 2 | 1002 수신 | FORWARD_RULES[1002] 조회 + DB 저장 | **1002** → **전 모듈** fan-out (VEHICLE/VISUAL/SIM_STATE/MISSION/MONITORING/PSU/SA — 전체 개방) |
+| 3 | 3001 수신 | FORWARD_RULES 조회 + DB 저장 | **3001** → VEHICLE/VISUAL forward |
+| 4 | 4001 수신 (10 Hz) | FORWARD_RULES 조회 + DB 저장 | **4001** → PSU/MONITORING/VISUAL/SA forward |
+| 5 | 4101 수신 (5 Hz) | FORWARD_RULES 조회 + DB 저장 | **4101** → MONITORING/SA forward |
+| 6 | 3003 수신 | FORWARD_RULES[3003] 조회 + DB 저장 | **3003** → VEHICLE/MISSION forward |
 
 ### 4.6 VisualizationModule
 
@@ -440,9 +447,8 @@ UAM0002)과 출발/도착 정보는 `scenarioFileName` 이 가리키는 시뮬�
 ### 6.3 시뮬레이터-side 보조 데이터 (SDK ICD 외)
 
 `scenarioFileName` 이 가리키는 시뮬레이터 입력 파일에는 ICD payload 외 보조 데이터가
-들어간다. 이는 모듈 내부 구현 영역이고 wire 송수신되지 않는다. `windDemoProfiles` 는
-**(보류)** — 5004 발행처가 없으므로 현재 미사용 (바람은 1002 wind.grade 기반 Vehicle
-1002 wind.weather 전달로 대체). ICD/보조 데이터 형식은 향후 재사용 대비 기록만 유지한다.
+들어간다. 이는 모듈 내부 구현 영역이고 wire 송수신되지 않는다. 바람 관련 보조 데이터는
+없다 — 바람의 유일한 소스는 콘솔 1002 `wind.weather` 다 (구 `windDemoProfiles` 는 폐기, §변경 이력).
 
 ```json
 {
@@ -454,40 +460,12 @@ UAM0002)과 출발/도착 정보는 `scenarioFileName` 이 가리키는 시뮬�
   "separation": {
     "minHorizontalM": 300.0,
     "lookaheadSec": 90
-  },
-  "windDemoProfiles": [
-    {
-      "profileId": "DEMO_WIND_01",
-      "windGrade": "serious",
-      "windPreset": "bad",
-      "windSeed": 20260610,
-      "vehicleWindEffects": [
-        {
-          "aircraftId": "UAM0001",
-          "windSpeedMps": 7.5,
-          "windDirFromDeg": 270.0,
-          "gustFactor": 1.3,
-          "crossTrackDriftM": 120.0,
-          "alongTrackDeltaMps": -2.0,
-          "localZone": { "lat": 37.53, "lon": 126.98, "radiusM": 3000.0, "preset": "serious" }
-        },
-        {
-          "aircraftId": "UAM0002",
-          "windSpeedMps": 6.8,
-          "windDirFromDeg": 265.0,
-          "gustFactor": 1.25,
-          "crossTrackDriftM": 90.0,
-          "alongTrackDeltaMps": 1.5
-        }
-      ]
-    }
-  ]
+  }
 }
 ```
 
 > `separation.minHorizontalM` / `lookaheadSec` 은 PSU 의 충돌 예측 파라미터로, §5 의
-> 분리 임계값(300 m)과 1:1 대응. `windDemoProfiles` 는 **(보류)** — 5004 미사용에 따라
-> 현재 어떤 모듈도 읽지 않는다 (§3.1 참조).
+> 분리 임계값(300 m)과 1:1 대응.
 
 > **데모 플랜 팩**: S2 의 3001 은 Mission 계산 파이프라인이 아니라 사전 작성된 데모 플랜 팩
 > (`MissionModule/data/demo_plans/S2_psu_replan/`)에서 로드되어 발행된다. S1 은 데모 팩 없이
@@ -497,7 +475,7 @@ UAM0002)과 출발/도착 정보는 `scenarioFileName` 이 가리키는 시뮬�
 
 - **구 흐름 (전략 재계획)**: PSU 가 충돌을 감지하면 2001 확장(TRAFFIC_CONFLICT)을 발행하고 Mission 이 3001 v2 + 3002 + 3003 을 발행하는 전략 재계획 경로였다.
 - **신 흐름 (PSU 전술 직접 개입)**: 데모에서 보여주려는 핵심이 "PSU 의 실시간 감시·즉시 개입" 이므로, Mission 을 경유하는 다단계 재계획 대신 PSU 가 3003 을 직접 발행해 반응 시간을 줄이고 책임 경계(PSU=전술, Mission=전략)를 명확히 드러내도록 변경했다. 전략 재계획 경로(2001 확장)는 SDK 인터페이스로 유지된다.
-- **S2 재정의 (속도 조정 재계획, 2026-06-10)**: PSU 개입을 3003 `setSpeed` (속도 조정) 중심으로 재정의 — directTo 는 기본 흐름에서 제거. 바람(5004)은 외란 환경 요소이며 Vehicle 의 5004 처리는 시나리오 무관 표준 처리(`on_wind_effect_data`). `scenarioId="S2"` 는 Vehicle 측 특별 무장 없음(정보성). 분리 회복 후 두 번째 3003(setSpeed 복원 또는 rejoinPlan)은 선택 단계. `reasonCode=LOSS_OF_SEPARATION_RISK` 유지.
-- **바람 트리거 변경 (2026-06-11)**: "데모 날씨" 버튼 및 5004 발행 제거 — 바람 트리거는 기존 기상 패널 바람 등급(serious) 선택 → 1002 발행(기존 기능)으로 대체. Vehicle 이 1002 `wind.weather` 파라미터 기반 바람장 적용, PSU 충돌 예측은 4001 스트림만 사용. 5004 ICD 는 SDK 계약으로 유지하되 "발행처 없음 — 보류" 상태 (§3.1), `windDemoProfiles` 도 보류.
+- **S2 재정의 (속도 조정 재계획, 2026-06-10)**: PSU 개입을 3003 `setSpeed` (속도 조정) 중심으로 재정의 — directTo 는 기본 흐름에서 제거. 바람은 외란 환경 요소이며 Vehicle 의 바람 처리는 시나리오 무관 표준 처리 (당시 5004 경유 — 2026-06-11 폐기, 아래 항목). `scenarioId="S2"` 는 Vehicle 측 특별 무장 없음(정보성). 분리 회복 후 두 번째 3003(setSpeed 복원 또는 rejoinPlan)은 선택 단계. `reasonCode=LOSS_OF_SEPARATION_RISK` 유지.
+- **바람 트리거 변경 (2026-06-11)**: "데모 날씨" 버튼 및 5004 발행 제거 — 바람 트리거는 기존 기상 패널 바람 등급(serious) 선택 → 1002 발행(기존 기능)으로 대체. Vehicle 이 1002 `wind.weather` 파라미터 기반 바람장 적용, PSU 충돌 예측은 4001 스트림만 사용. 5004 는 같은 날 폐기 확정 (아래 항목), `windDemoProfiles` 도 폐기.
 - **바람 구조 확정 (2026-06-11)**: "Vehicle 자체 바람 생성" 개념 폐기 — 바람은 콘솔이 1002 `wind.weather` (uamodt standalone_weather 양식: preset/season/localHour/seed/includeGust/t) 로 지정·전달하고, Vehicle 은 수신한 파라미터를 weather_core 에 투입해 바람장을 구성·적용한다. 콘솔이 유일한 바람 소스.
 - **5004 폐기 (2026-06-11)**: 발행처·소비자 없음 + 1002 `wind.weather` 가 역할을 완전 대체하여 ICD 폐기 (SDK/Hub/docs 에서 제거). ICD 총 19개.

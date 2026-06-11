@@ -27,7 +27,8 @@ T+00:00  User       → SERVER     [1003]  ScenarioSetup
                                           note: SIM_STATE/VISUAL이 vertiport 3개 + 항로망 로드.
 
 T+00:01  User       → SERVER     [2001]  FlightPlanRequest (base, 1회)
-                                          payload preview: { scenarioFileName: "S3_...", flightPlanNumber: null, reasonCode: null }
+                                          payload preview: { scenarioFileName: "S3_...", flightPlanNumber: null, reasonCode: null,
+                                                             triggeringEventId: null, arrivalVertiportHint: null }
                                           note: 최초 요청 — MISSION 이 scenarioFileName 으로 데모 플랜 팩
                                                 (data/demo_plans/S3_uao_battery_alt_vertiport/) 감지 → 사전 작성 plan 발행.
 
@@ -40,8 +41,9 @@ T+00:02  MISSION    → SERVER     [3001]  ScheduledFlight v1
                                           note: 데모 플랜 팩 로드 (계산 파이프라인 우회) — VEHICLE/VISUAL 수신.
 
 T+00:04  User       → SERVER     [1002]  SimulationSetup (play)
-                                          payload preview: { playState: "play", playbackSpeed: 1, simSecondsOfDay: 32400.0 }
-                                          note: 09:00 시작, 실시간 1배속. (S1/S2 와 동일하게 plan 수신 후 play — 순서 통일)
+                                          payload preview: { playState: "play", playbackSpeed: 1, simSecondsOfDay: 23400.0 }
+                                          note: 06:30 시작(sim 기본), 실시간 1배속 — 데모 플랜 팩 std 06:32 직전.
+                                                (S1/S2 와 동일하게 plan 수신 후 play — 순서 통일)
 
 T+00:05  User       → SERVER     [2002]  DtamExecute
                                           payload preview: { simModeFileName, simulationSetupFileName, scenarioFileName, flightPlanFolderName,
@@ -89,6 +91,7 @@ T+25:02  PSU        → SERVER     [3003]  TacticalSeparation (IMMEDIATE land) �
                                           payload preview: { commandId: "TMP-PSU-1201-LAND-001",
                                                              aircraftId: "UAM0001",
                                                              reasonCode: "LOW_BATTERY",
+                                                             scenarioId: "S3",
                                                              actions: [{ type: "land", vertiport: "VP_KU", fatoNumber: "FATO_A" }] }
                                           note: Hub → VEHICLE + MISSION 양쪽 전달. 전략 재계획(2001 확장) 우회 — 즉시 착륙 명령.
 
@@ -196,7 +199,7 @@ T+32:00  User       → SERVER     [1002]  SimulationSetup (pause)
 > Hub의 FORWARD_RULES["3003"] = [vehicle, mission] 에 따라 VEHICLE과 MISSION 양쪽에 전달된다.
 > VEHICLE은 즉시 land 수행, MISSION은 `on_tactical_separation`에서 fpn=1201을 superseded로 마킹한다.
 
-> **참고**: 전략 재계획(2001 확장 — `reasonCode`/`triggeringEventId`/`arrivalVertiportHint` 필드) 경로는
+> **참고**: 전략 재계획(2001 확장 4필드 — `flightPlanNumber`/`reasonCode`/`triggeringEventId`/`arrivalVertiportHint`) 경로는
 > SDK 인터페이스에 유지되지만, 본 데모 시나리오에서는 사용하지 않는다. 3001 v2(rerouted) 발행도 없다.
 
 ## 4. 모듈별 동작 → 발행 메시지
@@ -226,7 +229,7 @@ UAO 는 별도 모듈이 아니라 VehicleModule 이 겸업한다(사용자 결�
 | # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
 |---|---|---|---|
 | 1 | **4002** (warning) 수신 (battery 18.0%) | 아직 critical 아님 — 이벤트 리스트 등재 후 관찰만 | (없음 — 수신만) |
-| 2 | **4002** (critical) 수신 (battery 9.4%, BATTERY_VOLTAGE_LOW) | 현재 position 기준 가용 vertiport 분석(거리/availability/class) — 후보 [VP_KU, VP_JAMSIL, VP_YEOUIDO] 중 가장 가까운 VP_KU 선정 (내부 판단, T+25:01) | **3003** TacticalSeparation (IMMEDIATE land) — reasonCode=LOW_BATTERY, actions=[{type:"land", vertiport:"VP_KU", fatoNumber:"FATO_A", targetLLA}] |
+| 2 | **4002** (critical) 수신 (battery 9.4%, BATTERY_VOLTAGE_LOW) | 현재 position 기준 가용 vertiport 분석(거리/availability/class) — 후보 [VP_KU, VP_JAMSIL, VP_YEOUIDO] 중 가장 가까운 VP_KU 선정 (내부 판단, T+25:01) | **3003** TacticalSeparation (IMMEDIATE land) — reasonCode=LOW_BATTERY, **scenarioId="S3" 동봉**, actions=[{type:"land", vertiport:"VP_KU", fatoNumber:"FATO_A", targetLLA}] |
 | 3 | **4002** (cleared) 수신 | 동일 eventId 이벤트 종결 처리 | (없음 — 수신만) |
 
 4002 critical 중 energy 계열(LOW_BATTERY / BATTERY_VOLTAGE_LOW / BATTERY_OVERHEAT 등)은 우선 이벤트
@@ -254,6 +257,7 @@ PSU 개입 이후 **본 시나리오에서 메시지 발행 없음** — 3001 v2
 
 | # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
 |---|---|---|---|
+| 0 | **1002** 수신 (play/pause) | FORWARD_RULES["1002"] 조회 + DB 저장 — **전 모듈 전체 개방** | **1002** → vehicle/visual/sim_state/mission/monitoring/psu/situation_awareness forward |
 | 1 | **2002** 수신 | FORWARD_RULES["2002"] 조회 + DB 저장 | **2002** → mission/monitoring/vehicle/visual/situation_awareness forward |
 | 2 | **3001** 수신 | FORWARD_RULES["3001"] 조회 + DB 저장 (plan 이력) | **3001** → vehicle/visual forward |
 | 3 | **4001** 수신 (10 Hz) | FORWARD_RULES["4001"] 조회 + DB 저장 — 고주기 메시지는 latest-only forward | **4001** → monitoring/visual/situation_awareness/psu forward |
@@ -282,9 +286,9 @@ PSU 개입 이후 **본 시나리오에서 메시지 발행 없음** — 3001 v2
 ## 5. 검증 가능한 결과 (acceptance criteria)
 
 - T+25:00 ±200 ms 내에 VEHICLE이 4002(critical, BATTERY_VOLTAGE_LOW, severity=critical, recommendedAction=emergency_landing, status=active)를 정확히 **1회** publish 한다.
-- 착륙 완료 직후 VEHICLE이 동일 `eventId`로 4002 `status="cleared"`를 정확히 **1회** 발행한다 — **4002 active 1건 + cleared 1건**.
+- 착륙 완료 직후 VEHICLE이 critical 과 동일 `eventId`로 4002 `status="cleared"`를 정확히 **1회** 발행한다 — **4002 active 2건 (warning + critical) + cleared 1건** (warning→critical→cleared lifecycle).
 - 4002 critical은 FORWARD_RULES에 따라 **MONITORING, SITUATION_AWARENESS, PSU** 세 모듈로 모두 도달한다.
-- PSU는 4002 수신 후 가용 vertiport 분석을 거쳐 `reasonCode="LOW_BATTERY"`, `actions[0].type="land"`, `actions[0].vertiport="VP_KU"`, `actions[0].fatoNumber="FATO_A"`인 **3003을 정확히 1회 직접 발행**한다.
+- PSU는 4002 수신 후 가용 vertiport 분석을 거쳐 `reasonCode="LOW_BATTERY"`, `scenarioId="S3"`, `actions[0].type="land"`, `actions[0].vertiport="VP_KU"`, `actions[0].fatoNumber="FATO_A"`인 **3003을 정확히 1회 직접 발행**한다.
 - 3003은 FORWARD_RULES["3003"]에 따라 **VEHICLE과 MISSION 양쪽**에 전달된다.
 - **2001(확장) 발행 0건, 3001 v2(rerouted) 발행 0건** — 전략 재계획 경로 미사용 검증.
 - MISSION은 3003 수신 후 fpn=1201 plan을 superseded로 마킹하되 어떤 메시지도 발행하지 않는다.
@@ -385,7 +389,7 @@ per-aircraft 정보(aircraftName, battery, vehicleSimType)는 §6.2 의 Msg1001 
         "links": []
       }
     ]
-  },
+  }
 }
 ```
 
@@ -408,8 +412,8 @@ UAM0001 의 출발지/도착지/std/dynamics 는 SDK 의 `Msg1001_SimModeSetup` 
       "missions": [
         {
           "aircraftName":  "UAM0001",
-          "departureTime": "09:00:00",
-          "std":           "09:00:00",
+          "departureTime": "06:32:00",
+          "std":           "06:32:00",
           "departureName": "VP_YEOUIDO",
           "arrivalName":   "VP_JAMSIL"
         }

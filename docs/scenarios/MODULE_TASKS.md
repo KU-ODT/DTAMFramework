@@ -8,7 +8,7 @@
 | 시나리오 | 지금 되는 것 | 막혀 있는 것 (담당 작업) |
 |---|---|---|
 | S1 정상 운항 | ✅ **전 구간 검증** — 데모 선택→설정 저장→Play→1001→2001→3001(팩)→2002→이륙→순항 (4001 10Hz, 지도 표출) | 없음 |
-| S2 PSU 속도 조정 | 2기체 plan 로드·비행 ✓, 기상 패널 날씨 선택 → 1002 `wind.weather` 발행 ✓ | Vehicle 의 1002 wind.weather 적용 (**V-2**) / 충돌 예측·3003 발행 (**P-0/P-1/P-3**) / setSpeed 수행 (**V-1**) |
+| S2 PSU 속도 조정 | 2기체 plan 로드·비행 ✓, 기상 패널 날씨 선택 → 1002 `wind.weather` 발행 ✓ (콘솔이 자동 동봉) | Vehicle 의 1002 wind.weather 적용 (**V-2**) / 충돌 예측·3003 발행 (**P-0/P-1/P-3**) / setSpeed 수행 (**V-1**) |
 | S3 배터리 비상 | plan 로드·비행 ✓, scenarioId=S3 전달 ✓ | 배터리 열화+4002 발행 (**V-3, V-4**) / PSU 판단·3003 land (**P-4**) / land 수행 (**V-1**) |
 
 **공통 전제**: `git pull origin JW`. ICD 스키마·라우팅·role base stub 은 SDK 에 전부 준비됨 — **base 메서드 override + 도메인 로직만** 구현하면 됨.
@@ -42,7 +42,9 @@
 | **P-3** | **S2: 궤적 외삽 + 3003 setSpeed 발행** | 내부 로직 + `self.send(parse_payload("3003", {...}))` | 4001 스트림만으로 90s lookahead 외삽 → 수평 분리 <300m 수렴 예측 → **3003**: `actions=[{type:"setSpeed", targetSpeed:40.0}]`, `reasonCode="LOSS_OF_SEPARATION_RISK"`, `commandId="TMP-PSU-{aircraftId}-{YYYYMMDD}-{seq}"`, **`scenarioId:"S2"` 동봉** (Vehicle 세부 세팅 분기용). 분리 ≥300m 회복 후 (선택) setSpeed 복원 또는 rejoinPlan(atSeq) |
 | **P-4** | **S3: 4002 critical → 3003 land 발행** | `on_vehicle_warning_event(msg)` override | severity=critical & energy 계열만: 후보 [VP_KU, VP_JAMSIL, VP_YEOUIDO] 중 nearest_available → **3003**: `actions=[{type:"land", vertiport:"VP_KU", fatoNumber:"FATO_A"}]`, `reasonCode="LOW_BATTERY"`, **`scenarioId:"S3"` 동봉**. **warning 은 관찰만 (개입 금지)** |
 
-(P-5 선택: 기존 PSU UI 의 Priority Event List 에 4002 수신·3003 개입 이력 표시)
+**PSU 는 1002 도 수신** (FORWARD_RULES 전체 개방) — 궤적 예측 시 바람 파라미터 참고 가능 (선택, 외삽은 4001 만으로도 충분).
+
+(P-2 는 존재하지 않음 — 5004 폐기됨 (1002 wind.weather 로 대체). P-5 선택: 기존 PSU UI 의 Priority Event List 에 4002 수신·3003 개입 이력 표시)
 
 **acceptance**: S2 — 3003 setSpeed ≥1건 (directTo 0건), S3 — 3003 land 정확히 1건, S1 — 발행 0건.
 
@@ -88,11 +90,17 @@ V-2/V-3 독립 — 병렬 가능 / M-1 독립 — 언제든
 임무계획 패널 → 데모 시나리오 [S1|S2|S3] 선택 (수동 기체 편집 자동 잠김)
 → 설정 저장 → ▶ Play
 → 자동: 1001 → 2001(팩 파일명) → Mission 팩 3001 일괄 발행 → 2002(scenarioId) → 비행
-S2 는 비행 중 기상 패널에서 바람 등급 serious 선택 → 1002 (기존 기능)
+S2 는 비행 중 기상 패널에서 바람 등급 serious 선택 → 1002 (wind.weather 자동 동봉)
 [없음] 선택 시 기존 수동 흐름 (기체 하나씩 + 임무 입력) 그대로 — 데모 변경 무영향
 ```
 
 **데모 플랜 팩**: `MissionModule/data/demo_plans/{S1_nominal, S2_psu_replan, S3_uao_battery_alt_vertiport}/3001_*.json`
 - 기체 추가 = JSON 파일 추가 (코드 수정 0) — fpn 은 데모 대역 (1001, 1201~) 사용
-- 출발시각은 sim 기본 시작 (06:30) 직후로 조정됨: S1 06:34 / S2 06:32+06:34 (2분 간격 = 회랑 진입 ~16초 기하) / S3 06:32
-- Mission 은 2001 수신 때마다 팩을 디스크에서 새로 읽음 — 팩 수정 후 2001 재발사만 하면 반영
+- 출발시각은 sim 기본 시작 (06:30) 직후로 조정됨: S1 06:34 / S2 06:32+06:34 (2분 간격 = 회랑 진입 ~16초/880m 기하) / S3 06:32
+- **2001 은 런당 1회만 발행 (중복 발행 금지)**. Mission 은 2001 수신 때마다 팩을 디스크에서 새로 읽음 — 팩 수정 후 다음 런의 2001 로 반영
+
+---
+
+## 참고: FPL 정기편 traffic 흐름 (구현 완료 — 데모 시나리오와 별개)
+
+S1/S2/S3 데모 플랜 팩과는 **별개의 흐름**으로, FPL 정기편 traffic 사슬도 구현·동작 완료: 콘솔에서 **정기편 생성 → 불러오기 → 2001 → Mission 이 FPL CSV 를 읽어 3001 발행 → Vehicle 비행** (2001 한 발로 전 기체 비행). 데모 시나리오 선택과 혼용하지 않으며, 본 문서의 모듈 작업 목록 (V/P/M/VZ) 에는 영향 없음.

@@ -10,7 +10,7 @@
   - `VEHICLE` — Air Mobility (UAM0001): 3001 plan 수신 → 4001 비행 상태 발행 (10 Hz)
   - `VISUAL` — Visualization (Unreal/AirSim): 1003 scene load, 4101 카메라 프레임 (5 Hz)
   - `MONITORING` — Operations Console: 0001/0002/4001/4101 관찰 only
-  - `PSU` — Provider of Services for UAM: 4002 수신 listener (S1 에서는 수신 이벤트 없음)
+  - `PSU` — Provider of Services for UAM: 1002/4001 수신 관찰 + 4002 수신 listener (S1 에서는 4002 수신 0건, 개입 없음)
   - `SITUATION_AWARENESS` — SA 플러그인: 4001/4101 관찰 only
 - **시나리오 길이**: 시뮬레이션 시간 약 45분 (T+00:00 도구 부팅 ~ T+45:45 종료). `playbackSpeed=8x` 로 wall-clock 약 5~6분 진행.
 - **트리거 메커니즘**:
@@ -131,11 +131,10 @@ T+00:25  user(OpsConsole) → SERVER  [1002]  Simulation Setup (play)
                     weatherEffect:{ precipitation:{type:"none",intensity:0},
                                     fog:{intensity:0} },
                     wind:{ grade:"normal", gust:null } }
-         note: VEHICLE / VISUAL / SIM_STATE 동시 forward — sim clock 가동
+         note: 전 모듈 forward (★전체 개방) — sim clock 가동
 
-T+00:26  SERVER           → VEHICLE     [1002]  forward
-T+00:26  SERVER           → VISUAL      [1002]  forward
-T+00:26  SERVER           → SIM_STATE   [1002]  forward
+T+00:26  SERVER → VEHICLE,VISUAL,SIM_STATE,MISSION,MONITORING,PSU,SITUATION_AWARENESS  [1002]  fan-out
+         note: FORWARD_RULES[1002]=전 모듈 — S1 에서 PSU 등 비행 외 모듈은 수신만 하고 동작 없음
 
 T+00:28  user(OpsConsole) → SERVER  [2002]  DTAM Execute
          payload: { timestamp:"2026-06-10T09:00:28Z",
@@ -144,7 +143,7 @@ T+00:28  user(OpsConsole) → SERVER  [2002]  DTAM Execute
                     scenarioFileName:"S1_nominal.json",
                     flightPlanFolderName:"flightPlans/UAM0001_v1",
                     scenarioId:"S1" }
-         note: 4-target forward (MISSION/MONITORING/VEHICLE/VISUAL/SA) — 실제 비행 시작
+         note: 5-target forward (MISSION/MONITORING/VEHICLE/VISUAL/SA) — 실제 비행 시작
 
 T+00:29  SERVER → MISSION,MONITORING,VEHICLE,VISUAL,SITUATION_AWARENESS  [2002]  fan-out
 
@@ -163,7 +162,7 @@ T+00:30+ VEHICLE   → SERVER  [4001]  Vehicle Status (10 Hz)
                                     altitude:30.0, ... },
                               energy:{ battery_pct:98.0,
                                        state_of_charge_pct:98.0 } } }
-         note: SERVER → MONITORING/VISUAL/SITUATION_AWARENESS fan-out
+         note: SERVER → MONITORING/VISUAL/SITUATION_AWARENESS/PSU fan-out
 
 T+00:30+ VISUAL    → SERVER  [4101]  Camera Image Frame (5 Hz)
          payload: { vehicle_id:"UAM0001", camera_name:"front",
@@ -354,12 +353,12 @@ T+45:45  user(OpsConsole) → SERVER  [1002]  Simulation Setup (reset)
 | 5 | 1003 수신 | forward + DB 저장; sim_state 시나리오 컨텍스트 로드 | **1003** → SIM_STATE/VISUAL forward |
 | 6 | 2001 수신 | FORWARD_RULES[2001]=[MISSION] 조회 + DB 저장 | **2001** → MISSION forward |
 | 7 | 3001 수신 | forward + DB 저장 | **3001** → VEHICLE/VISUAL forward |
-| 8 | 1002 수신 (playState="play") | forward + DB 저장; sim_state sim clock 가동 준비 | **1002** → VEHICLE/VISUAL/SIM_STATE forward |
+| 8 | 1002 수신 (playState="play") | forward + DB 저장; sim_state sim clock 가동 준비 | **1002** → 전 모듈 (VEHICLE/VISUAL/SIM_STATE/MISSION/MONITORING/PSU/SA) fan-out ★전체 개방 |
 | 9 | 2002 수신 | 5-target fan-out + DB 저장 | **2002** → MISSION/MONITORING/VEHICLE/VISUAL/SA fan-out |
 | 10 | sim clock 가동 (내부, 1 Hz, T+00:30~) | sim_state 가 sim 시각 산출 — 전 모듈 시계 sync 기준 | **0003** CommonTimeInfo (simSecondsOfDay, playbackSpeed=8, 1 Hz) → VEHICLE/VISUAL forward |
-| 11 | 4001 수신 (10 Hz) | forward + DB 저장 | **4001** → MONITORING/VISUAL/SA fan-out |
+| 11 | 4001 수신 (10 Hz) | forward + DB 저장 | **4001** → MONITORING/VISUAL/SA/PSU fan-out |
 | 12 | 4101 수신 (5 Hz) | forward + DB 저장 | **4101** → MONITORING/SA forward |
-| 13 | 1002 수신 (pause/reset, T+45:40/45:45) | forward; sim_state sim clock 정지/리셋 | **1002** → VEHICLE/VISUAL/SIM_STATE forward |
+| 13 | 1002 수신 (pause/reset, T+45:40/45:45) | forward; sim_state sim clock 정지/리셋 | **1002** → 전 모듈 fan-out |
 
 > sim_state 는 IntegrationHub 측 역할 — `1001`/`1002`/`1003` 을 소비해 내부 sim time/mode 를 관리하고
 > `0003` CommonTime 1 Hz emitter 를 담당. S1 에서는 4002/4103/3002/3003 forward 트래픽이 0건이다.
@@ -409,7 +408,8 @@ T+45:45  user(OpsConsole) → SERVER  [1002]  Simulation Setup (reset)
 | # | 트리거 (수신 메시지/내부 이벤트) | 동작 설명 | 동작 후 발행 메시지 |
 |---|---|---|---|
 | 1 | 모듈 부팅 (내부) | 자기 식별 등록 + heartbeat 시작 | **0001** (moduleId="EXT-PSU", role="PSU") + **0002** (1 Hz) |
-| 2 | 4002 listener 대기 (상시) | Vehicle Warning Event 수신 listener 구독 — **S1 에서는 한 건도 수신하지 않음** | (없음 — 발행 없음) |
+| 2 | 1002 수신 (전체 개방 fan-out) / 4001 수신 (10 Hz) | sim 설정·비행 상태 관찰만 — S1 에서는 어떤 판단/개입도 하지 않음 | (없음 — 수신만) |
+| 3 | 4002 listener 대기 (상시) | Vehicle Warning Event 수신 listener 구독 — **S1 에서는 한 건도 수신하지 않음** | (없음 — 발행 없음) |
 
 > 관찰만. 어떤 우선순위 이벤트 처리 / `2001` 재요청도 발행하지 않는다.
 
