@@ -608,7 +608,16 @@ def _traffic_missions_from_fpl(folder_name: str) -> list[dict[str, Any]] | None:
     except (OSError, csv.Error) as exc:
         logger.warning("Unreadable FPL_all.csv %s: %s", csv_path, exc)
         return None
-    return entries or None
+    # 스폰은 기체 단위 — 같은 기체의 다회 운항(편)을 그대로 두면 편수만큼
+    # pawn 이 생성된다 (실측: 68대 셋이 1,623 pawn → UE VRAM OOM).
+    # 기체별 최초 출발 편 하나만 남긴다 (비행 자체는 Mission 이 전 편 발행).
+    dedup: dict[str, dict[str, Any]] = {}
+    for entry in entries:
+        key = str(entry.get("aircraftName") or "")
+        prev = dedup.get(key)
+        if prev is None or str(entry.get("std") or "") < str(prev.get("std") or ""):
+            dedup[key] = entry
+    return list(dedup.values()) or None
 
 
 def _fpn_from_fpl_id(fpl_id: Any, fallback: int) -> int:
