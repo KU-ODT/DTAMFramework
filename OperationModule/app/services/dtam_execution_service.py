@@ -918,8 +918,24 @@ def _apply_camera_stream_capture_settings(settings: dict[str, Any]) -> None:
     if not isinstance(vehicles, dict):
         return
 
-    for vehicle in vehicles.values():
+    # 캡처 카메라(렌더 타겟)는 VRAM 상주 자원 — 기체마다 붙이면 다수 기체
+    # 스폰 시 GPU 메모리가 바닥난다 (실측: 1,623대 × 카메라 → UE OOM/행).
+    # 스트림 뷰(4101)는 한 번에 한 대만 보므로 대표 기체 1대에만 부착한다.
+    primary_name = None
+    for name in sorted(vehicles, key=_drone_sort_key):
+        if isinstance(vehicles.get(name), dict):
+            primary_name = name
+            break
+
+    for name, vehicle in vehicles.items():
         if not isinstance(vehicle, dict):
+            continue
+        if name != primary_name:
+            existing_cameras = vehicle.get("Cameras")
+            if isinstance(existing_cameras, dict):
+                existing_cameras.pop(STREAM_CAMERA_NAME, None)
+                if not existing_cameras:
+                    vehicle.pop("Cameras", None)
             continue
         cameras = vehicle.get("Cameras")
         if not isinstance(cameras, dict):
