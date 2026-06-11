@@ -562,6 +562,9 @@ def _demo_missions_from_pack(scenario_id: str) -> list[dict[str, Any]] | None:
             if prev is None or str(entry.get("std") or "") < str(prev.get("std") or ""):
                 dedup[name] = entry
         capped = _cap_spawn_entries(list(dedup.values()), f"demo {sid}")
+        # 데모 동역학 배정 (사용자 결정 2026-06-11): S2 는 전 기체 간단 동역학.
+        for entry in capped:
+            entry["dynamics"] = "simple"
         return capped or None
     pack = DEMO_PLAN_PACKS.get(sid)
     if not pack:
@@ -588,6 +591,14 @@ def _demo_missions_from_pack(scenario_id: str) -> list[dict[str, Any]] | None:
             )
         except (OSError, ValueError, AttributeError) as exc:
             logger.warning("Skipping unreadable demo plan %s: %s", plan_path, exc)
+    # 데모 동역학 배정 (사용자 결정 2026-06-11): S3 는 앞 1~2대만 고정밀(KP-2A,
+    # VFDS 런타임은 prepare 가 자동 기동), 나머지/타 시나리오는 간단 동역학.
+    if sid == "S3":
+        for index, entry in enumerate(entries):
+            entry["dynamics"] = "highFidelity" if index < 2 else "simple"
+    else:
+        for entry in entries:
+            entry["dynamics"] = "simple"
     return entries or None
 
 
