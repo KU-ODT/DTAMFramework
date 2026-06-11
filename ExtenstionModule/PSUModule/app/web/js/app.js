@@ -1,58 +1,148 @@
-import { initPsuMap, selectAircraftOnMap, selectConflictOnMap, setPsuMapTheme, setTrafficMapFilter } from "./map.js?v=psu-live-4001-20260519-reactive";
+import { initPsuMap, selectAircraftOnMap, setDraftRouteOnMap, setPsuMapTheme } from "./map.js?v=psu-console-v39";
 
-const healthStatus = document.querySelector("[data-health-status]");
-const themeToggle = document.querySelector("[data-theme-toggle]");
-const serverTime = document.querySelector("[data-server-time]");
-const mapStatus = document.querySelector("[data-map-status]");
-const tabs = Array.from(document.querySelectorAll("[data-tab]"));
-const panels = Array.from(document.querySelectorAll("[data-panel]"));
 const THEME_STORAGE_KEY = "psu-theme";
+const PLAN_DRAFT_STORAGE_KEY = "psu-plan-modification-drafts";
+const PLAN_COMMAND_COUNTER_STORAGE_KEY = "psu-plan-command-counter";
+const ACTION_COMMAND_STORAGE_KEY = "psu-action-command-requests";
+const ACTION_COMMAND_COUNTER_STORAGE_KEY = "psu-action-command-counter";
 
-let mapReady = false;
-let trafficPayload = null;
-let trafficFilter = "ALL";
-let selectedConflictId = null;
-let selectedAircraftId = null;
-let flowPayload = null;
-let selectedCapacityTarget = null;
-let decisionPayload = null;
-let selectedRecommendationId = null;
-let reportPayload = null;
-let replayPayload = null;
-let validationPayload = null;
-let selectedReplayStep = 1;
-let replayTimer = null;
-let replayIntervalMs = 1600;
+const state = {
+  activeTab: "strategic-plans",
+  planGroup: "byDestination",
+  strategic: null,
+  selectedPlanKey: null,
+  savedPlanDrafts: [],
+  planModificationCommandId: "",
+  planModificationTimestamp: "",
+  tactical: null,
+  selectedAircraftId: null,
+  aircraftPanelOpen: false,
+  aircraftPanelMode: "status",
+  modalActions: [],
+  actionDraftForm: null,
+  savedActionDrafts: [],
+  actionCommandId: "",
+  actionCommandTimestamp: "",
+  mapPick: null,
+  operationalLayers: null,
+  replay: null,
+  report: null,
+  validation: null,
+  selectedReplayStep: 1,
+  replayTimer: null,
+  replayIntervalMs: 1600,
+  mapReady: false,
+};
 
-function formatDelay(seconds) {
-  const value = Number(seconds || 0);
-  const min = Math.floor(Math.abs(value) / 60);
-  const sec = Math.round(Math.abs(value) % 60);
-  return `${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
-}
+const ACTION_LABELS = {
+  directTo: "Avoidance route",
+  hold: "Holding pattern",
+  land: "Alternate or emergency landing",
+  setSpeed: "Speed adjustment",
+  rejoinPlan: "Rejoin planned route",
+};
 
-function formatSignedDelay(seconds) {
-  const value = Number(seconds || 0);
-  if (value === 0) {
-    return "00:00";
-  }
-  return `${value > 0 ? "+" : "-"}${formatDelay(value)}`;
-}
+const ACTION_KO = {
+  directTo: "회피 경로",
+  hold: "대기 선회",
+  land: "대체/비상 착륙",
+  setSpeed: "속도 조정",
+  rejoinPlan: "계획 경로 복귀",
+};
 
-function formatTime(value) {
-  if (!value) return "--";
-  const match = String(value).match(/T(\d{2}:\d{2})/);
-  return match ? match[1] : String(value);
-}
+const FATO_OPTIONS = Array.from({ length: 8 }, (_, index) => {
+  const value = `FATO-${index + 1}`;
+  return [value, value];
+});
 
-function formatPercent(value) {
-  return `${(Number(value || 0) * 100).toFixed(0)}%`;
-}
+const TACTICAL_REASON_LABELS = {
+  LOSS_OF_SEPARATION_RISK: "Loss of separation risk",
+  LOCAL_CORRIDOR_BLOCKED: "Local corridor blocked",
+  LOW_BATTERY: "Low battery",
+  WEATHER_AVOIDANCE: "Weather avoidance",
+  OPERATOR_OVERRIDE: "Operator override",
+  EMERGENCY_LANDING: "Emergency landing",
+};
 
-function formatCoordinate(value) {
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric.toFixed(5) : "--";
-}
+const TACTICAL_REASON_KO = {
+  LOSS_OF_SEPARATION_RISK: "분리 거리 위험",
+  LOCAL_CORRIDOR_BLOCKED: "국지 회랑 차단",
+  LOW_BATTERY: "배터리 부족",
+  WEATHER_AVOIDANCE: "기상 회피",
+  OPERATOR_OVERRIDE: "운영자 개입",
+  EMERGENCY_LANDING: "비상 착륙",
+};
+
+const TACTICAL_REASON_ACTIONS = {
+  LOSS_OF_SEPARATION_RISK: ["directTo", "hold", "setSpeed"],
+  LOCAL_CORRIDOR_BLOCKED: ["directTo", "hold", "rejoinPlan"],
+  LOW_BATTERY: ["land", "directTo", "setSpeed"],
+  WEATHER_AVOIDANCE: ["directTo", "hold"],
+  OPERATOR_OVERRIDE: ["directTo", "hold", "setSpeed", "rejoinPlan", "land"],
+  EMERGENCY_LANDING: ["land", "directTo"],
+};
+
+const TACTICAL_REASON_HINTS = {
+  LOSS_OF_SEPARATION_RISK: "Prepare an avoidance route, temporary hold, or speed adjustment.",
+  LOCAL_CORRIDOR_BLOCKED: "Route around the blocked segment, hold locally, or rejoin after the blockage.",
+  LOW_BATTERY: "Prioritize alternate landing; speed reduction or direct routing can be added if needed.",
+  WEATHER_AVOIDANCE: "Generate a weather avoidance route or hold clear of the affected area.",
+  OPERATOR_OVERRIDE: "Manual override allows any available action type.",
+  EMERGENCY_LANDING: "Prioritize emergency landing site or direct routing to a safe landing point.",
+};
+
+const STRATEGIC_MODIFICATION_TYPES = [
+  ["scheduleResourceUpdate", "Schedule or resource update"],
+  ["routeUpdate", "Route update"],
+  ["aircraftSwap", "Aircraft swap"],
+  ["delayOnly", "Delay only"],
+  ["cancelPlan", "Cancel plan"],
+];
+
+const STRATEGIC_REASONS = [
+  ["VERTIPORT_CAPACITY", "Vertiport capacity"],
+  ["CORRIDOR_CLOSED", "Corridor closed"],
+  ["WEATHER", "Weather"],
+  ["VEHICLE_UNAVAILABLE", "Vehicle unavailable"],
+  ["OPERATOR_REQUEST", "Operator request"],
+];
+
+const STRATEGIC_SCOPES = [
+  ["departureAndArrival", "Departure and arrival"],
+  ["departureOnly", "Departure only"],
+  ["arrivalOnly", "Arrival only"],
+  ["enRouteOnly", "En-route only"],
+  ["aircraftOnly", "Aircraft only"],
+  ["fullPlan", "Full plan"],
+];
+
+const STRATEGIC_MODIFICATION_KO = {
+  scheduleResourceUpdate: "일정/자원 변경",
+  routeUpdate: "경로 변경",
+  aircraftSwap: "비행체 교체",
+  delayOnly: "지연 반영",
+  cancelPlan: "계획 취소",
+};
+
+const STRATEGIC_REASON_KO = {
+  VERTIPORT_CAPACITY: "버티포트 용량",
+  CORRIDOR_CLOSED: "회랑 폐쇄",
+  WEATHER: "기상",
+  VEHICLE_UNAVAILABLE: "비행체 사용 불가",
+  OPERATOR_REQUEST: "운영자 요청",
+};
+
+const STRATEGIC_SCOPE_KO = {
+  departureAndArrival: "출발/도착",
+  departureOnly: "출발만",
+  arrivalOnly: "도착만",
+  enRouteOnly: "비행 경로만",
+  aircraftOnly: "비행체만",
+  fullPlan: "전체 계획",
+};
+
+const $ = (selector, root = document) => root.querySelector(selector);
+const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -62,13 +152,128 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
-function setText(selector, text) {
-  const element = document.querySelector(selector);
-  if (element) {
-    element.textContent = text;
-  }
+function asNumber(value, fallback = null) {
+  if (value === "" || value == null) return fallback;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
 }
 
+function formatCoord(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toFixed(5) : "--";
+}
+
+function formatSpeed(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? `${number.toFixed(1)} m/s` : "--";
+}
+
+function formatTime(value) {
+  if (!value) return "--";
+  const text = String(value);
+  const match = text.match(/T?(\d{2}:\d{2})(?::\d{2})?/);
+  return match ? match[1] : text;
+}
+
+function utcDateStamp(date = new Date()) {
+  return date.toISOString().slice(0, 10).replace(/-/g, "");
+}
+
+function nextStrategicCommandId() {
+  const date = utcDateStamp();
+  let nextSeq = 1;
+  try {
+    const saved = JSON.parse(localStorage.getItem(PLAN_COMMAND_COUNTER_STORAGE_KEY) || "{}");
+    if (saved?.date === date) {
+      nextSeq = Math.max(1, Number(saved.seq || 0) + 1);
+    }
+    localStorage.setItem(PLAN_COMMAND_COUNTER_STORAGE_KEY, JSON.stringify({ date, seq: nextSeq }));
+  } catch (_) {
+    nextSeq = Math.floor(Date.now() / 1000) % 1000 || 1;
+  }
+  return `SMP-${date}-${String(nextSeq).padStart(3, "0")}`;
+}
+
+function nextTacticalCommandId() {
+  const date = utcDateStamp();
+  let nextSeq = 1;
+  try {
+    const saved = JSON.parse(localStorage.getItem(ACTION_COMMAND_COUNTER_STORAGE_KEY) || "{}");
+    if (saved?.date === date) {
+      nextSeq = Math.max(1, Number(saved.seq || 0) + 1);
+    }
+    localStorage.setItem(ACTION_COMMAND_COUNTER_STORAGE_KEY, JSON.stringify({ date, seq: nextSeq }));
+  } catch (_) {
+    nextSeq = Math.floor(Date.now() / 1000) % 1000 || 1;
+  }
+  return `TMP-${date}-${String(nextSeq).padStart(3, "0")}`;
+}
+
+function setText(selector, text) {
+  const element = $(selector);
+  if (element) element.textContent = text;
+}
+
+function optionMarkup(options, selectedValue = "") {
+  return options
+    .map(([value, label]) => `<option value="${escapeHtml(value)}" ${value === selectedValue ? "selected" : ""}>${escapeHtml(label)}</option>`)
+    .join("");
+}
+
+function buttonCardMarkup(items, selectedValue, attrName, descriptions = {}) {
+  return items
+    .map(([value, label]) => `
+      <button class="option-card ${value === selectedValue ? "is-selected" : ""}" type="button" ${attrName}="${escapeHtml(value)}">
+        <strong>${escapeHtml(label)}</strong>
+        ${descriptions[value] ? `<small>${escapeHtml(descriptions[value])}</small>` : ""}
+      </button>
+    `)
+    .join("");
+}
+
+function planOptionCardMarkup(name, items, selectedValue, descriptions = {}) {
+  return items
+    .map(([value, label]) => `
+      <button class="option-card ${value === selectedValue ? "is-selected" : ""}" type="button" data-plan-option-name="${escapeHtml(name)}" data-plan-option-value="${escapeHtml(value)}">
+        <strong>${escapeHtml(label)}</strong>
+        ${descriptions[value] ? `<small>${escapeHtml(descriptions[value])}</small>` : ""}
+      </button>
+    `)
+    .join("");
+}
+
+function bilingualLabel(en, ko) {
+  return `${escapeHtml(en)} <small>${escapeHtml(ko)}</small>`;
+}
+
+function setConnectionState(isOnline, label) {
+  const element = $("[data-health-status]");
+  if (!element) return;
+  element.classList.remove("is-checking", "is-online", "is-offline");
+  element.classList.add(isOnline ? "is-online" : "is-offline");
+  element.title = label;
+  element.setAttribute("aria-label", label);
+}
+
+async function fetchJson(url, options = {}) {
+  const response = await fetch(url, {
+    headers: { Accept: "application/json", ...(options.headers || {}) },
+    cache: "no-store",
+    ...options,
+  });
+  if (!response.ok) {
+    throw new Error(`${url} HTTP ${response.status}`);
+  }
+  return response.json();
+}
+
+async function postJson(url, payload) {
+  return fetchJson(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
 
 function normalizedTheme(value) {
   return value === "light" ? "light" : "dark";
@@ -77,20 +282,20 @@ function normalizedTheme(value) {
 function applyTheme(theme, { persist = false } = {}) {
   const nextTheme = normalizedTheme(theme);
   document.documentElement.dataset.theme = nextTheme;
-  if (themeToggle) {
-    const label = nextTheme === "light" ? "\uc5b4\ub450\uc6b4 \ud14c\ub9c8\ub85c \uc804\ud658" : "\ubc1d\uc740 \ud14c\ub9c8\ub85c \uc804\ud658";
-    themeToggle.dataset.theme = nextTheme;
-    themeToggle.setAttribute("aria-label", label);
-    themeToggle.title = label;
+  const toggle = $("[data-theme-toggle]");
+  if (toggle) {
+    toggle.dataset.theme = nextTheme;
+    toggle.title = nextTheme === "light" ? "Switch to dark theme" : "Switch to light theme";
+    toggle.setAttribute("aria-label", toggle.title);
   }
   setPsuMapTheme(nextTheme);
   window.dispatchEvent(new CustomEvent("psu:theme-changed", { detail: { theme: nextTheme } }));
-  window.setTimeout(() => window.__PSU_MAP__?.resize?.(), 60);
+  window.setTimeout(() => window.__PSU_MAP__?.resize?.(), 80);
   if (persist) {
     try {
       localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
     } catch (_) {
-      // localStorage may be unavailable in restricted browser contexts.
+      // localStorage may be unavailable in restricted contexts.
     }
   }
 }
@@ -99,1170 +304,1890 @@ function initTheme() {
   let theme = normalizedTheme(document.documentElement.dataset.theme);
   try {
     const saved = localStorage.getItem(THEME_STORAGE_KEY);
-    if (saved === "light" || saved === "dark") {
-      theme = saved;
-    }
+    if (saved === "light" || saved === "dark") theme = saved;
   } catch (_) {
-    // Keep the theme selected by the early inline bootstrap.
+    // Keep bootstrap theme.
   }
   applyTheme(theme);
 }
 
-
-function setConnectionState(isOnline, label) {
-  if (!healthStatus) return;
-  healthStatus.classList.remove("is-checking", "is-online", "is-offline");
-  healthStatus.classList.add(isOnline ? "is-online" : "is-offline");
-  healthStatus.dataset.state = isOnline ? "online" : "offline";
-  healthStatus.title = label;
-  healthStatus.setAttribute("aria-label", label);
-}
-
-function statusClass(value) {
-  return `status-badge--${String(value || "NORMAL").toUpperCase()}`;
-}
-
-function severityRank(value) {
-  const rank = { WARNING: 3, CAUTION: 2, NORMAL: 1 };
-  return rank[String(value || "NORMAL").toUpperCase()] || 0;
-}
-
-
 function tabIdFromHash() {
   const value = String(window.location.hash || "").replace(/^#/, "");
-  return panels.some((panel) => panel.dataset.panel === value) ? value : "overview";
+  return $$("[data-panel]").some((panel) => panel.dataset.panel === value) ? value : "strategic-plans";
 }
 
-function setActiveTab(tabId, shouldScroll = false) {
-  const targetTabId = panels.some((panel) => panel.dataset.panel === tabId) ? tabId : "overview";
-
-  for (const tab of tabs) {
-    tab.classList.toggle("is-active", tab.dataset.tab === targetTabId);
-    tab.setAttribute("aria-selected", tab.dataset.tab === targetTabId ? "true" : "false");
+function setActiveTab(tabId, updateHash = true) {
+  const target = $$("[data-panel]").some((panel) => panel.dataset.panel === tabId) ? tabId : "strategic-plans";
+  state.activeTab = target;
+  for (const tab of $$("[data-tab]")) {
+    const active = tab.dataset.tab === target;
+    tab.classList.toggle("is-active", active);
+    tab.setAttribute("aria-selected", active ? "true" : "false");
   }
-
-  for (const panel of panels) {
-    const active = panel.dataset.panel === targetTabId;
+  for (const panel of $$("[data-panel]")) {
+    const active = panel.dataset.panel === target;
     panel.hidden = !active;
     panel.classList.toggle("is-active-panel", active);
-    panel.style.outline = "";
-    panel.style.opacity = "";
   }
-
-  if (shouldScroll) {
-    document.querySelector(`[data-panel="${targetTabId}"]`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  if (updateHash && window.location.hash !== `#${target}`) {
+    window.history.replaceState(null, "", `#${target}`);
   }
-
-  if (targetTabId === "traffic-map") {
-    window.setTimeout(() => window.__PSU_MAP__?.resize?.(), 80);
+  if (target === "tactical-monitoring") {
+    bootMap();
+    window.setTimeout(() => window.__PSU_MAP__?.resize?.(), 90);
   }
-}
-
-function screenToTabId(screen) {
-  const normalized = String(screen || "").toLowerCase();
-  if (normalized.includes("replay") || normalized.includes("report")) {
-    return "replay-report";
-  }
-  if (
-    normalized.includes("decision") ||
-    normalized.includes("support") ||
-    normalized.includes("mitigation")
-  ) {
-    return "decision-support";
-  }
-  if (normalized.includes("flow") || normalized.includes("capacity")) {
-    return "flow-capacity";
-  }
-  if (normalized.includes("traffic") || normalized.includes("conflict")) {
-    return "traffic-map";
-  }
-  return "overview";
 }
 
 async function refreshStatus() {
   try {
-    const response = await fetch("/api/status", { headers: { Accept: "application/json" } });
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    const payload = await response.json();
-    const stateServer = payload?.state_server || {};
-    const operationStatus = payload?.operation_status || {};
-    const vehicleStream = payload?.vehicle_stream || {};
-    const streamCount = Number(vehicleStream.fresh_vehicle_count || 0);
-    const serverReady = Boolean(payload?.connected || vehicleStream.server_connected || stateServer.connected || operationStatus.connected);
-    const sourceLabel = operationStatus.connected
-      ? "OperationModule 4001 API"
-      : stateServer.connected
-        ? "StateServer 4001 DB"
-        : "4001 서버";
-    const detail = streamCount
-      ? ` · 4001 ${streamCount} UAM 수신`
-      : serverReady
-        ? " · 4001 연결됨 / 비행체 대기"
-        : " · 4001 연결 대기";
-    setConnectionState(serverReady, `${sourceLabel}${detail}`);
-    if (serverTime) {
-      serverTime.textContent = payload?.time?.display || "서버 시간 수신 완료";
-    }
+    const payload = await fetchJson("/api/status");
+    const stream = payload.vehicle_stream || {};
+    const stateServer = payload.state_server || {};
+    const operationStatus = payload.operation_status || {};
+    const fresh = Number(stream.fresh_vehicle_count || 0);
+    const connected = Boolean(payload.connected || stateServer.connected || operationStatus.connected);
+    const label = fresh ? `Live tracks ${fresh}` : connected ? "Connected, waiting for live tracks" : "Waiting for live tracks";
+    setConnectionState(connected, label);
+    setText("[data-server-time]", payload.time?.display || label);
   } catch (error) {
-    setConnectionState(false, "4001 서버 연결 끊김");
-    if (serverTime) {
-      serverTime.textContent = error instanceof Error ? error.message : String(error);
-    }
+    setConnectionState(false, "DTAM connection failed");
+    setText("[data-server-time]", error instanceof Error ? error.message : String(error));
   }
 }
 
-function updateKpiCards(kpis) {
-  setText("[data-kpi='active_uam']", kpis.active_uam ?? "--");
-  setText("[data-kpi='pending_intent']", kpis.pending_intent ?? "--");
-  setText("[data-kpi='conflict_alert']", kpis.conflict_alert ?? "--");
-  setText("[data-kpi='capacity_alert']", kpis.capacity_alert ?? "--");
-  setText("[data-kpi='average_delay']", formatDelay(kpis.average_delay_sec));
-  setText("[data-kpi='data_link_health']", kpis.data_link_health || "--");
-  setText("[data-kpi='max_delay']", formatDelay(kpis.max_delay_sec));
-  setText("[data-kpi='off_nominal_event']", kpis.off_nominal_event ?? "--");
+function selectedPlan() {
+  const plans = state.strategic?.plans || [];
+  return plans.find((plan) => String(plan.key) === String(state.selectedPlanKey)) || null;
+}
 
-  for (const element of document.querySelectorAll("[data-kpi]")) {
-    const card = element.closest(".kpi-card");
-    if (!card) continue;
-    card.classList.remove("kpi-card--warning", "kpi-card--caution", "kpi-card--normal");
+function selectedPlanIssues(plan) {
+  return plan?.validationIssues || [];
+}
+
+function normalizeSavedPlanDrafts(value) {
+  return Array.isArray(value)
+    ? value.filter((item) => item && typeof item === "object" && item.result && typeof item.result === "object")
+    : [];
+}
+
+function loadSavedPlanDrafts() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PLAN_DRAFT_STORAGE_KEY) || "[]");
+    state.savedPlanDrafts = normalizeSavedPlanDrafts(parsed);
+  } catch (_) {
+    state.savedPlanDrafts = [];
   }
-  const warningKeys = ["conflict_alert", "capacity_alert", "off_nominal_event"];
-  for (const key of warningKeys) {
-    const value = Number(kpis[key] || 0);
-    const card = document.querySelector(`[data-kpi='${key}']`)?.closest(".kpi-card");
-    if (card) {
-      card.classList.add(value >= 2 ? "kpi-card--warning" : value === 1 ? "kpi-card--caution" : "kpi-card--normal");
-    }
+}
+
+function persistSavedPlanDrafts() {
+  try {
+    localStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(state.savedPlanDrafts.slice(0, 100)));
+  } catch (_) {
+    // Keep the in-memory queue if localStorage is unavailable.
   }
 }
 
-function renderPriorityEvents(events) {
-  const eventList = document.querySelector("[data-priority-events]");
-  setText("[data-event-count]", `${events.length} OPEN`);
-  if (!eventList) return;
-  eventList.innerHTML = events.length
-    ? events
-        .slice(0, 5)
-        .map((event) => {
-          const relatedTargets = (event.related_targets || []).join(",");
-          return `
-            <li class="event-item" data-recommended-screen="${escapeHtml(event.recommended_screen)}" data-related-targets="${escapeHtml(relatedTargets)}" data-event-id="${escapeHtml(event.event_id)}" tabindex="0" role="button">
-              <span class="status-badge ${statusClass(event.severity)}">${escapeHtml(event.severity)}</span>
-              ${escapeHtml(event.title)}
-              <span class="event-meta">
-                ${escapeHtml(formatTime(event.expected_time))} · ${escapeHtml(event.recommended_screen)} · Score ${escapeHtml(event.priority_score)}
-              </span>
-            </li>
-          `;
-        })
-        .join("")
-    : "<li>열린 우선 이벤트가 없습니다.</li>";
+function loadSavedActionDrafts() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(ACTION_COMMAND_STORAGE_KEY) || "[]");
+    state.savedActionDrafts = normalizeSavedPlanDrafts(parsed);
+  } catch (_) {
+    state.savedActionDrafts = [];
+  }
 }
 
-function resourceOccupancy(available, total) {
-  const totalValue = Number(total || 0);
-  if (!totalValue) return 0;
-  return Math.max(0, Math.min(1, 1 - Number(available || 0) / totalValue));
+function persistSavedActionDrafts() {
+  try {
+    localStorage.setItem(ACTION_COMMAND_STORAGE_KEY, JSON.stringify(state.savedActionDrafts.slice(0, 100)));
+  } catch (_) {
+    // Keep the in-memory queue if localStorage is unavailable.
+  }
 }
 
-function renderVertiports(vertiports) {
-  const vertiportList = document.querySelector("[data-vertiport-summary]");
-  setText("[data-vertiport-count]", `${vertiports.length} VP`);
-  if (!vertiportList) return;
-  vertiportList.innerHTML = vertiports
-    .slice()
-    .sort((a, b) => severityRank(b.status) - severityRank(a.status) || Number(b.average_delay_sec || 0) - Number(a.average_delay_sec || 0))
-    .slice(0, 5)
-    .map((vp) => {
-      const fatoOcc = resourceOccupancy(vp.fato_available, vp.fato_total);
-      const gateOcc = resourceOccupancy(vp.gate_available, vp.gate_total);
+function planDraftsFor(plan) {
+  if (!plan) return [];
+  return state.savedPlanDrafts.filter((item) => {
+    const payload = item?.result?.payload || {};
+    return (
+      String(payload.flightPlanNumber || "") === String(plan.flightPlanNumber || "") &&
+      String(payload.aircraftId || "") === String(plan.aircraftId || "")
+    );
+  });
+}
+
+function latestPlanDraft(plan) {
+  return planDraftsFor(plan)[0] || null;
+}
+
+function planDraftNoticeMarkup(plan) {
+  const draft = latestPlanDraft(plan);
+  if (!draft) return "";
+  const payload = draft.result?.payload || {};
+  const status = commandResultStatus(draft.result || {});
+  return `
+    <div class="draft-status ${status.className}">
+      <strong>Modification request ${escapeHtml(status.label.toLowerCase())}.</strong>
+      <small>${escapeHtml(payload.commandId || "--")} targets v${escapeHtml(payload.planVersion || "--")}. ${escapeHtml(commandResultMessage(draft.result || {}))}</small>
+    </div>
+  `;
+}
+
+function draftPlanKey(draft) {
+  const payload = draft?.result?.payload || {};
+  return `${payload.flightPlanNumber || "--"} / ${payload.aircraftId || "--"}`;
+}
+
+function renderModificationQueue() {
+  const container = $("[data-modification-request-list]");
+  const countEl = $("[data-modification-request-count]");
+  const drafts = state.savedPlanDrafts;
+  if (countEl) countEl.textContent = `${drafts.length} Requests`;
+  if (!container) return;
+  if (!drafts.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <strong>No modification requests sent.</strong>
+        <small>3002 requests created from flight-plan details will appear here.</small>
+      </div>
+    `;
+    return;
+  }
+  container.innerHTML = drafts
+    .map((draft, index) => {
+      const result = draft.result || {};
+      const payload = result.payload || {};
+      const status = commandResultStatus(result);
       return `
-        <li class="vertiport-row">
-          <div>
-            <span class="status-badge ${statusClass(vp.status)}">${escapeHtml(vp.status)}</span>
-            <strong>${escapeHtml(vp.vertiport_id)}</strong> · ${escapeHtml(vp.name)}
-          </div>
-          <div class="event-meta">
-            Arr Q ${escapeHtml(vp.arrival_queue)} · Dep Q ${escapeHtml(vp.departure_queue)} · Delay ${formatDelay(vp.average_delay_sec)}
-          </div>
-          <div class="resource-bar" title="FATO occupancy"><span style="width:${(fatoOcc * 100).toFixed(0)}%"></span></div>
-          <div class="resource-bar" title="Gate occupancy"><span style="width:${(gateOcc * 100).toFixed(0)}%"></span></div>
-        </li>
+        <button class="modification-request ${status.blocked ? "is-blocked" : ""}" type="button" data-plan-draft-index="${escapeHtml(index)}">
+          <span>
+            <strong>${escapeHtml(draftPlanKey(draft))}</strong>
+            <small>${escapeHtml(payload.commandId || "--")}</small>
+          </span>
+          <span>
+            <strong>${escapeHtml(payload.modificationType || "--")}</strong>
+            <small>${escapeHtml(payload.reasonCode || "--")} / ${escapeHtml(payload.modifyScope || "--")}</small>
+          </span>
+          <span>
+            <strong>v${escapeHtml(payload.planVersion || "--")}</strong>
+            <small>${escapeHtml(status.label)}</small>
+          </span>
+        </button>
       `;
     })
     .join("");
 }
 
-function renderTrafficTrend(trend, summary) {
-  const container = document.querySelector("[data-traffic-trend]");
-  if (!container) return;
-  const peakActive = Math.max(Number(summary?.peak_active_flights || 1), 1);
-  const peakDelay = Math.max(Number(summary?.peak_average_delay_sec || 1), 1);
-  const peakConflict = Math.max(Number(summary?.peak_conflict_count || 1), 1);
-  container.innerHTML = trend.length
-    ? trend
-        .map((point) => {
-          const activePct = Math.min(100, (Number(point.active_flights || 0) / peakActive) * 100);
-          const delayPct = Math.min(100, (Number(point.average_delay_sec || 0) / peakDelay) * 100);
-          const conflictPct = Math.min(100, (Number(point.conflict_count || 0) / peakConflict) * 100);
-          return `
-            <div class="trend-row">
-              <span>${escapeHtml(point.time)}</span>
-              <div class="trend-bars">
-                <div class="trend-bar trend-bar--active"><span style="width:${activePct.toFixed(0)}%"></span></div>
-                <div class="trend-bar trend-bar--delay"><span style="width:${delayPct.toFixed(0)}%"></span></div>
-                <div class="trend-bar trend-bar--conflict"><span style="width:${conflictPct.toFixed(0)}%"></span></div>
-              </div>
-              <span>${escapeHtml(point.active_flights)} AC</span>
-            </div>
-          `;
-        })
-        .join("")
-    : "<p>교통 추세 데이터가 없습니다.</p>";
+function openPlanDraftModal(index) {
+  const draft = state.savedPlanDrafts[Number(index)];
+  if (!draft) return;
+  const result = draft.result || {};
+  const payload = result.payload || {};
+  openInfoModal({
+    kicker: "Modification Request",
+    title: `${payload.flightPlanNumber || "--"} / ${payload.aircraftId || "--"}`,
+    body: `
+      <div class="command-context-bar">
+        <div><span>Command</span><strong>${escapeHtml(payload.commandId || "--")}</strong></div>
+        <div><span>Target Plan</span><strong>${escapeHtml(draftPlanKey(draft))}</strong></div>
+        <div><span>Requested Version</span><strong>v${escapeHtml(payload.planVersion || "--")}</strong></div>
+        <div><span>Status</span><strong>${escapeHtml(commandResultStatus(result).label)}</strong></div>
+      </div>
+      <dl class="detail-grid detail-grid--wide">
+        <div><dt>Modification Type</dt><dd>${escapeHtml(payload.modificationType || "--")}</dd></div>
+        <div><dt>Reason Code</dt><dd>${escapeHtml(payload.reasonCode || "--")}</dd></div>
+        <div><dt>Modify Scope</dt><dd>${escapeHtml(payload.modifyScope || "--")}</dd></div>
+        <div><dt>Created</dt><dd>${escapeHtml(draft.createdAt || "--")}</dd></div>
+      </dl>
+      ${dispatchDetailMarkup(result)}
+      ${(result.validationIssues || []).length ? `<div class="validation-list">${(result.validationIssues || []).map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>` : ""}
+      <details class="technical-preview" open>
+        <summary>Technical Payload</summary>
+        <pre class="payload-preview">${escapeHtml(JSON.stringify(payload, null, 2))}</pre>
+      </details>
+    `,
+    panelClass: "app-modal__panel--command",
+  });
 }
 
-function renderOperationalSnapshot(overview) {
-  const container = document.querySelector("[data-operational-snapshot]");
+function actionRequestKey(draft) {
+  const payload = draft?.result?.payload || {};
+  return `${payload.commandId || "--"} / ${payload.aircraftId || "--"}`;
+}
+
+function actionRequestSummary(payload = {}) {
+  const actions = Array.isArray(payload.actions) ? payload.actions : [];
+  if (!actions.length) return "--";
+  return actions.map((action) => ACTION_LABELS[action.type] || action.type || "--").join(", ");
+}
+
+function renderActionRequestQueue() {
+  const container = $("[data-action-request-list]");
+  const drafts = state.savedActionDrafts;
+  for (const countEl of $$('[data-tactical-count="actions"]')) {
+    countEl.textContent = String(drafts.length);
+  }
   if (!container) return;
-  const status = overview.status_summary || {};
-  const map = overview.map_summary || {};
-  const hotspot = overview.capacity_hotspots?.[0];
-  const topEvent = overview.top_priority_event;
-  container.innerHTML = `
-    <div class="snapshot-card">
-      <span>Event Severity</span>
-      <strong>W${status.event_severity?.WARNING || 0} / C${status.event_severity?.CAUTION || 0}</strong>
+  if (!drafts.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <strong>No tactical commands sent.</strong>
+        <small>3003 tactical commands created from aircraft status will appear here.</small>
+      </div>
+    `;
+    return;
+  }
+  container.innerHTML = drafts
+    .map((draft, index) => {
+      const result = draft.result || {};
+      const payload = result.payload || {};
+      const status = commandResultStatus(result);
+      return `
+        <button class="action-request ${status.blocked ? "is-blocked" : ""}" type="button" data-action-request-index="${escapeHtml(index)}">
+          <span>
+            <strong>${escapeHtml(payload.aircraftId || "--")}</strong>
+            <small>${escapeHtml(payload.commandId || "--")}</small>
+          </span>
+          <span>
+            <strong>${escapeHtml(payload.reasonCode || "--")}</strong>
+            <small>${escapeHtml(actionRequestSummary(payload))}</small>
+          </span>
+          <span>
+            <strong>${escapeHtml(status.label)}</strong>
+            <small>${escapeHtml(draft.createdAt || "--")}</small>
+          </span>
+        </button>
+      `;
+    })
+    .join("");
+}
+
+function openActionRequestModal(index) {
+  const draft = state.savedActionDrafts[Number(index)];
+  if (!draft) return;
+  const result = draft.result || {};
+  const payload = result.payload || {};
+  openInfoModal({
+    kicker: "Tactical Command",
+    title: actionRequestKey(draft),
+    body: `
+      <div class="command-context-bar">
+        <div><span>Command</span><strong>${escapeHtml(payload.commandId || "--")}</strong></div>
+        <div><span>Aircraft</span><strong>${escapeHtml(payload.aircraftId || "--")}</strong></div>
+        <div><span>Reason</span><strong>${escapeHtml(payload.reasonCode || "--")}</strong></div>
+        <div><span>Status</span><strong>${escapeHtml(commandResultStatus(result).label)}</strong></div>
+      </div>
+      <dl class="detail-grid detail-grid--wide">
+        <div><dt>Action</dt><dd>${escapeHtml(actionRequestSummary(payload))}</dd></div>
+        <div><dt>Created</dt><dd>${escapeHtml(draft.createdAt || "--")}</dd></div>
+      </dl>
+      ${dispatchDetailMarkup(result)}
+      ${(result.validationIssues || []).length ? `<div class="validation-list">${(result.validationIssues || []).map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>` : ""}
+      <details class="technical-preview" open>
+        <summary>Technical Payload</summary>
+        <pre class="payload-preview">${escapeHtml(JSON.stringify(payload, null, 2))}</pre>
+      </details>
+    `,
+    panelClass: "app-modal__panel--command",
+  });
+}
+
+function formatLla(value) {
+  if (!value || typeof value !== "object") return "--";
+  return `${formatCoord(value.lat)}, ${formatCoord(value.lon)}, ${escapeHtml(value.alt ?? "--")} m`;
+}
+
+function routeRows(plan) {
+  const rows = Array.isArray(plan?.enRoute) ? plan.enRoute : [];
+  if (!rows.length) {
+    return `<tr><td colspan="6">No en-route segments.</td></tr>`;
+  }
+  return rows
+    .map((item) => `
+      <tr>
+        <td>${escapeHtml(item.seq ?? "--")}</td>
+        <td>${escapeHtml(item.phase || "--")}</td>
+        <td>${formatLla(item.startLLA)}</td>
+        <td>${formatLla(item.endLLA)}</td>
+        <td>${escapeHtml(formatSpeed(item.targetSpeed))}</td>
+        <td>${escapeHtml(item.turnDirection || "--")}</td>
+      </tr>
+    `)
+    .join("");
+}
+
+function planDetailMarkup(plan, { modal = false } = {}) {
+  const issues = selectedPlanIssues(plan);
+  return `
+    <dl class="detail-grid ${modal ? "detail-grid--wide" : ""}">
+      <div><dt>Flight Plan</dt><dd>${escapeHtml(plan.flightPlanNumber)}</dd></div>
+      <div><dt>Aircraft</dt><dd>${escapeHtml(plan.aircraftId)}</dd></div>
+      <div><dt>Version</dt><dd>v${escapeHtml(plan.planVersion)}</dd></div>
+      <div><dt>Status</dt><dd>${escapeHtml(plan.planStatus)}</dd></div>
+      <div><dt>Departure Vertiport</dt><dd>${escapeHtml(plan.departureVertiport || "--")}</dd></div>
+      <div><dt>Departure Gate/FATO</dt><dd>${escapeHtml(plan.departureGate || "--")} / ${escapeHtml(plan.departureFato || "--")}</dd></div>
+      <div><dt>STD / EOBT / ETOT</dt><dd>${escapeHtml(formatTime(plan.std))} / ${escapeHtml(formatTime(plan.eobt))} / ${escapeHtml(formatTime(plan.etot))}</dd></div>
+      <div><dt>Arrival Vertiport</dt><dd>${escapeHtml(plan.arrivalVertiport || "--")}</dd></div>
+      <div><dt>Arrival Gate/FATO</dt><dd>${escapeHtml(plan.arrivalGate || "--")} / ${escapeHtml(plan.arrivalFato || "--")}</dd></div>
+      <div><dt>STA / EIBT / ELDT</dt><dd>${escapeHtml(formatTime(plan.sta))} / ${escapeHtml(formatTime(plan.eibt))} / ${escapeHtml(formatTime(plan.eldt))}</dd></div>
+      <div><dt>Route Seq</dt><dd>${escapeHtml(plan.routeSeqCount ?? 0)}</dd></div>
+      <div><dt>Source</dt><dd>${escapeHtml(plan.source || "--")}</dd></div>
+    </dl>
+    <div class="route-table-wrap">
+      <table class="route-table">
+        <thead>
+          <tr>
+            <th>Seq</th>
+            <th>Phase</th>
+            <th>Start LLA</th>
+            <th>End LLA</th>
+            <th>Speed</th>
+            <th>Turn</th>
+          </tr>
+        </thead>
+        <tbody>${routeRows(plan)}</tbody>
+      </table>
     </div>
-    <div class="snapshot-card">
-      <span>Vertiport Warning</span>
-      <strong>${status.vertiport_status?.WARNING || 0}</strong>
-    </div>
-    <div class="snapshot-card">
-      <span>Map Objects</span>
-      <strong>${map.track_count || 0}+${map.route_count || 0}+${map.vertiport_count || 0}</strong>
-    </div>
-    <div class="snapshot-card">
-      <span>Top Hotspot</span>
-      <strong>${hotspot ? `${escapeHtml(hotspot.target_id)} ${(Number(hotspot.utilization || 0) * 100).toFixed(0)}%` : "--"}</strong>
-    </div>
-    <div class="snapshot-card snapshot-card--wide">
-      <span>Next Operator Focus</span>
-      <strong>${topEvent ? escapeHtml(topEvent.recommended_screen) : "--"}</strong>
-    </div>
+    ${issues.length ? `<div class="validation-list">${issues.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>` : ""}
   `;
 }
 
-function renderMiniMapSummary(mapSummary) {
-  const container = document.querySelector("[data-mini-map-summary]");
-  if (!container) return;
-  container.innerHTML = `
-    <span>UAM ${escapeHtml(mapSummary.track_count || 0)}</span>
-    <span>Routes ${escapeHtml(mapSummary.route_count || 0)}</span>
-    <span>Corridors ${escapeHtml(mapSummary.corridor_count || 0)}</span>
-    <span>Conflicts ${escapeHtml(mapSummary.conflict_count || 0)}</span>
-  `;
+function displaySource(source) {
+  const value = String(source || "").trim();
+  if (!value) return "Live Feed";
+  return value.replace(/ICD[-\s]?4001/gi, "Live Feed").replace(/4001/g, "Live Feed");
 }
 
-function currentActiveAircraftSet() {
-  return new Set((trafficPayload?.flights || []).filter((flight) => flight.is_active).map((flight) => String(flight.aircraft_id)));
+async function ensureOperationalLayers() {
+  if (state.operationalLayers) return state.operationalLayers;
+  try {
+    state.operationalLayers = await fetchJson("/api/map/layers");
+  } catch (_) {
+    state.operationalLayers = {};
+  }
+  return state.operationalLayers;
 }
 
-function findFlightByAircraftId(aircraftId) {
-  const normalized = String(aircraftId || "");
-  if (!normalized) return null;
-  return (trafficPayload?.flights || []).find((flight) => String(flight.aircraft_id) === normalized) || null;
+function vertiportChoices() {
+  const features = state.operationalLayers?.vertiports?.features || [];
+  return features
+    .map((feature) => {
+      const props = feature?.properties || {};
+      const id = String(props.vertiport_id || props.id || props.name || "").trim();
+      const name = String(props.name || props.vertiport_name || id || "").trim();
+      return id ? [id, name && name !== id ? `${name} (${id})` : id] : null;
+    })
+    .filter(Boolean);
 }
 
-function trafficDataLinkState() {
-  const dataLink = trafficPayload?.data_link || {};
-  const stream = dataLink.vehicle_stream || {};
-  const stateServer = dataLink.state_server || {};
-  const operationStatus = dataLink.operation_status || {};
-  const freshCount = Number(stream.fresh_vehicle_count || 0);
-  const totalCount = Number(stream.total_vehicle_count || 0);
-  const serverReady = Boolean(dataLink.connected || stream.server_connected || stateServer.connected || operationStatus.connected);
-  const sourceLabel = operationStatus.connected
-    ? "OperationModule 4001 API"
-    : stateServer.connected
-      ? "StateServer 4001 DB"
-      : "ICD 4001";
+function vertiportFeature(value) {
+  const key = String(value || "").trim();
+  if (!key) return null;
+  const features = state.operationalLayers?.vertiports?.features || [];
+  return features.find((feature) => {
+    const props = feature?.properties || {};
+    return [feature?.id, props.name, props.vertiport_id, props.id]
+      .some((item) => String(item || "").trim() === key);
+  }) || null;
+}
+
+function vertiportCoords(value) {
+  const feature = vertiportFeature(value);
+  const coordinates = feature?.geometry?.coordinates;
+  if (!Array.isArray(coordinates) || coordinates.length < 2) return null;
+  return { lat: Number(coordinates[1]), lon: Number(coordinates[0]), alt: selectedVehicle()?.altitude ?? 0 };
+}
+
+function formatCoordsText(coords) {
+  if (!coords) return "--";
+  return `${formatCoord(coords.lat)}, ${formatCoord(coords.lon)}, ${escapeHtml(coords.alt ?? "--")} m`;
+}
+
+function routePointPrefix(index) {
+  return `routePoint${index}`;
+}
+
+function normalizeRoutePoint(point = {}, fallback = {}) {
   return {
-    serverReady,
-    freshCount,
-    totalCount,
-    sourceLabel,
-    health: dataLink.data_link_health || (freshCount ? "LIVE_4001" : serverReady ? "WAITING_4001" : "OFFLINE"),
-    message: dataLink.message || "",
+    lat: String(point.lat ?? fallback.lat ?? ""),
+    lon: String(point.lon ?? fallback.lon ?? ""),
+    alt: String(point.alt ?? fallback.alt ?? ""),
+    targetSpeed: String(point.targetSpeed ?? point.speed ?? fallback.targetSpeed ?? "20"),
   };
 }
 
-function trafficEmptyStateMarkup(kind, { filtered = false } = {}) {
-  const link = trafficDataLinkState();
-  if (filtered) {
-    return `
-      <div class="traffic-empty-state">
-        <strong>현재 필터에 해당하는 ${kind} 데이터가 없습니다.</strong>
-        <small>${escapeHtml(link.sourceLabel)} · ${escapeHtml(link.health)}</small>
+function collectRoutePointsFromForm(form = $("[data-action-command-form]")) {
+  if (!form) return [];
+  return $$("[data-route-point-row]", form).map((row, index) => {
+    const prefix = row.dataset.routePointPrefix || routePointPrefix(index);
+    const value = (suffix) => String(form.elements.namedItem(`${prefix}${suffix}`)?.value ?? "");
+    return {
+      lat: value("Lat"),
+      lon: value("Lon"),
+      alt: value("Alt"),
+      targetSpeed: value("Speed"),
+    };
+  });
+}
+
+function routePointsFromDraft(draft = {}, fallback = {}) {
+  if (Array.isArray(draft.routePoints) && draft.routePoints.length) {
+    return draft.routePoints.map((point) => normalizeRoutePoint(point, fallback));
+  }
+  const indexes = new Set();
+  for (const key of Object.keys(draft || {})) {
+    const match = /^routePoint(\d+)(Lat|Lon|Alt|Speed)$/.exec(key);
+    if (match) indexes.add(Number(match[1]));
+  }
+  if (indexes.size) {
+    return Array.from(indexes)
+      .sort((a, b) => a - b)
+      .map((index) => {
+        const prefix = routePointPrefix(index);
+        return normalizeRoutePoint({
+          lat: draft[`${prefix}Lat`],
+          lon: draft[`${prefix}Lon`],
+          alt: draft[`${prefix}Alt`],
+          targetSpeed: draft[`${prefix}Speed`],
+        }, fallback);
+      });
+  }
+  if ("targetLat" in draft || "targetLon" in draft || "targetAlt" in draft || "targetSpeed" in draft) {
+    return [normalizeRoutePoint({
+      lat: draft.targetLat,
+      lon: draft.targetLon,
+      alt: draft.targetAlt,
+      targetSpeed: draft.targetSpeed,
+    }, fallback)];
+  }
+  return [];
+}
+
+function routePointOrigin() {
+  const vehicle = selectedVehicle();
+  const lat = asNumber(vehicle?.latitude);
+  const lon = asNumber(vehicle?.longitude);
+  if (lat === null || lon === null) return null;
+  return { lat, lon };
+}
+
+function syncDraftRouteVisualization(points = routePointsFromDraft(state.actionDraftForm || {})) {
+  const numericPoints = (points || [])
+    .map((point) => ({
+      lat: asNumber(point.lat),
+      lon: asNumber(point.lon),
+      alt: asNumber(point.alt),
+      targetSpeed: asNumber(point.targetSpeed),
+    }))
+    .filter((point) => point.lat !== null && point.lon !== null);
+  setDraftRouteOnMap(numericPoints, routePointOrigin());
+}
+
+function captureActionDraftForm() {
+  const form = $("[data-action-command-form]");
+  if (!form) return state.actionDraftForm || {};
+  const draft = {};
+  for (const [key, value] of new FormData(form).entries()) {
+    draft[key] = String(value ?? "");
+  }
+  const routePoints = collectRoutePointsFromForm(form);
+  if (routePoints.length) draft.routePoints = routePoints;
+  state.actionDraftForm = draft;
+  return draft;
+}
+
+function applyActionDraftForm() {
+  const draft = state.actionDraftForm || {};
+  const form = $("[data-action-command-form]");
+  if (!form) return;
+  for (const [key, value] of Object.entries(draft)) {
+    const field = form.elements.namedItem(key);
+    if (field && "value" in field) {
+      field.value = value;
+    }
+  }
+}
+
+function setActionDraftFields(values) {
+  state.actionDraftForm = { ...(state.actionDraftForm || {}), ...values };
+  applyActionDraftForm();
+  renderModalActionPreview();
+}
+
+function selectedReasonCode() {
+  return $("[data-modal-reason-code]")?.value || state.actionDraftForm?.reasonCode || "LOSS_OF_SEPARATION_RISK";
+}
+
+function selectedActionType() {
+  return $("[data-modal-action-type]")?.value || state.actionDraftForm?.actionType || "directTo";
+}
+
+function setLlaFields(prefix, coords) {
+  if (!coords) return;
+  const values = {
+    [`${prefix}Lat`]: Number(coords.lat).toFixed(6),
+    [`${prefix}Lon`]: Number(coords.lon).toFixed(6),
+    [`${prefix}Alt`]: String(Math.round(Number(coords.alt ?? selectedVehicle()?.altitude ?? 0))),
+  };
+  const routePointMatch = /^routePoint(\d+)$/.exec(String(prefix || ""));
+  if (routePointMatch) {
+    const index = Number(routePointMatch[1]);
+    const points = routePointsFromDraft(state.actionDraftForm || {}, {
+      lat: selectedVehicle()?.latitude ?? "",
+      lon: selectedVehicle()?.longitude ?? "",
+      alt: selectedVehicle()?.altitude ?? "",
+      targetSpeed: "20",
+    });
+    while (points.length <= index) {
+      points.push(normalizeRoutePoint({}, { alt: selectedVehicle()?.altitude ?? "", targetSpeed: "20" }));
+    }
+    points[index] = {
+      ...points[index],
+      lat: values[`${prefix}Lat`],
+      lon: values[`${prefix}Lon`],
+      alt: values[`${prefix}Alt`],
+    };
+    values.routePoints = points;
+  }
+  setActionDraftFields(values);
+}
+
+function updateMapPickBanner() {
+  const banner = $("[data-map-pick-banner]");
+  if (!banner) return;
+  banner.hidden = !state.mapPick;
+  setText("[data-map-pick-label]", state.mapPick?.label || "");
+  setText("[data-map-pick-hint]", state.mapPick?.hint || "Click the map to fill command coordinates.");
+  const finish = $("[data-map-pick-finish]");
+  if (finish) finish.hidden = state.mapPick?.mode !== "route";
+}
+
+async function startMapPick(prefix) {
+  captureActionDraftForm();
+  const routePointMatch = /^routePoint(\d+)$/.exec(String(prefix || ""));
+  const labels = {
+    target: "Pick route point",
+    hold: "Pick holding point",
+    land: "Pick landing point",
+  };
+  state.mapPick = {
+    prefix,
+    mode: "single",
+    label: routePointMatch ? `Pick route point ${Number(routePointMatch[1]) + 1}` : labels[prefix] || "Pick point",
+    hint: "Click the map once to fill this coordinate.",
+  };
+  closeInfoModal();
+  setActiveTab("tactical-monitoring");
+  await bootMap();
+  updateMapPickBanner();
+}
+
+async function startRouteDraw() {
+  const draft = stripRoutePointDraftFields(captureActionDraftForm());
+  const existingPoints = routePointsFromDraft(state.actionDraftForm || {})
+    .filter((point) => String(point.lat || "").trim() && String(point.lon || "").trim());
+  state.actionDraftForm = { ...draft, actionType: "directTo", routePoints: existingPoints };
+  state.mapPick = {
+    mode: "route",
+    label: "Draw avoidance route",
+    hint: "Click the map to add route points in order.",
+  };
+  setActiveTab("tactical-monitoring");
+  await bootMap();
+  syncDraftRouteVisualization(existingPoints);
+  updateMapPickBanner();
+}
+
+function appendRoutePoint(coords) {
+  if (!coords) return;
+  const points = routePointsFromDraft(state.actionDraftForm || {})
+    .filter((point) => String(point.lat || "").trim() || String(point.lon || "").trim());
+  points.push(normalizeRoutePoint({
+    lat: Number(coords.lat).toFixed(6),
+    lon: Number(coords.lon).toFixed(6),
+    alt: String(Math.round(Number(coords.alt ?? selectedVehicle()?.altitude ?? 0))),
+    targetSpeed: points[points.length - 1]?.targetSpeed || "20",
+  }));
+  state.actionDraftForm = { ...(state.actionDraftForm || {}), actionType: "directTo", routePoints: points };
+  renderModalActionFields();
+  applyActionDraftForm();
+  renderModalActionPreview();
+  syncDraftRouteVisualization(points);
+  state.mapPick = {
+    ...(state.mapPick || {}),
+    mode: "route",
+    label: `Draw avoidance route (${points.length} points)`,
+    hint: "Click more points, or finish the route.",
+  };
+  updateMapPickBanner();
+}
+
+function stripRoutePointDraftFields(draft = {}) {
+  const clean = { ...draft };
+  for (const key of Object.keys(clean)) {
+    if (/^routePoint\d+(Lat|Lon|Alt|Speed)$/.test(key) || ["targetLat", "targetLon", "targetAlt", "targetSpeed"].includes(key)) {
+      delete clean[key];
+    }
+  }
+  return clean;
+}
+
+function clearRoutePoints() {
+  const draft = stripRoutePointDraftFields(captureActionDraftForm());
+  state.actionDraftForm = {
+    ...draft,
+    actionType: "directTo",
+    routePoints: [],
+  };
+  renderModalActionFields();
+  applyActionDraftForm();
+  renderModalActionPreview();
+  setDraftRouteOnMap([]);
+}
+
+function completeMapPick(coords, extraDraft = {}) {
+  if (!state.mapPick || !coords) return;
+  if (state.mapPick.mode === "route") {
+    appendRoutePoint(coords);
+    return;
+  }
+  const prefix = state.mapPick.prefix;
+  if (prefix === "land") {
+    state.actionDraftForm = {
+      ...(state.actionDraftForm || {}),
+      landingMode: extraDraft.landingMode || "emergencyPoint",
+    };
+  }
+  state.actionDraftForm = { ...(state.actionDraftForm || {}), ...extraDraft };
+  setLlaFields(prefix, coords);
+  state.mapPick = null;
+  updateMapPickBanner();
+  openActionCommandForm(selectedVehicle(), { preserveDraft: true });
+}
+
+function cancelMapPick() {
+  state.mapPick = null;
+  updateMapPickBanner();
+}
+
+function finishMapPick() {
+  state.mapPick = null;
+  updateMapPickBanner();
+}
+
+function openInfoModal({ kicker = "Details", title = "Details", body = "", panelClass = "" } = {}) {
+  const modal = $("[data-modal]");
+  if (!modal) return;
+  const panel = $(".app-modal__panel", modal);
+  if (panel) {
+    panel.classList.remove("app-modal__panel--command", "app-modal__panel--wide");
+    if (panelClass) panel.classList.add(panelClass);
+  }
+  setText("[data-modal-kicker]", kicker);
+  setText("[data-modal-title]", title);
+  const bodyEl = $("[data-modal-body]");
+  if (bodyEl) bodyEl.innerHTML = body;
+  modal.hidden = false;
+  document.body.classList.add("has-modal");
+  $("[data-modal-close]", modal)?.focus?.();
+}
+
+function closeInfoModal() {
+  const modal = $("[data-modal]");
+  if (!modal) return;
+  $(".app-modal__panel", modal)?.classList.remove("app-modal__panel--command", "app-modal__panel--wide");
+  modal.hidden = true;
+  document.body.classList.remove("has-modal");
+}
+
+function dispatchInfo(result = {}) {
+  return result?.dispatch && typeof result.dispatch === "object" ? result.dispatch : {};
+}
+
+function commandResultStatus(result = {}) {
+  const issues = result?.validationIssues || [];
+  const dispatch = dispatchInfo(result);
+  if (issues.length) return { label: "REVIEW", blocked: true, className: "is-blocked" };
+  if (dispatch.attempted) {
+    const acceptedOnly = dispatch.status === "accepted_by_state_server";
+    return dispatch.ok
+      ? { label: acceptedOnly ? "ACCEPTED" : "SENT", blocked: false, className: "is-ready" }
+      : { label: "NOT SENT", blocked: true, className: "is-blocked" };
+  }
+  return result?.ok
+    ? { label: "READY", blocked: false, className: "is-ready" }
+    : { label: "REVIEW", blocked: true, className: "is-blocked" };
+}
+
+function commandResultMessage(result = {}) {
+  const issues = result?.validationIssues || [];
+  const dispatch = dispatchInfo(result);
+  if (issues.length) return issues.join(", ");
+  if (dispatch.attempted) return dispatch.message || (dispatch.ok ? "Delivered through StateServer." : "Dispatch failed.");
+  return "Payload is valid but has not been dispatched.";
+}
+
+function dispatchDetailMarkup(result = {}) {
+  const dispatch = dispatchInfo(result);
+  if (!dispatch.attempted) return "";
+  const status = commandResultStatus(result);
+  return `
+    <div class="draft-status ${status.className}">
+      <strong>${escapeHtml(status.label)}</strong>
+      <small>${escapeHtml(commandResultMessage(result))}</small>
+    </div>
+  `;
+}
+
+function renderDraftStatus(result, label) {
+  const issues = result?.validationIssues || [];
+  const dispatch = dispatchInfo(result);
+  const status = commandResultStatus(result);
+  let title = `${label} ready.`;
+  if (issues.length) {
+    title = `${label} has validation issues.`;
+  } else if (dispatch.attempted && dispatch.ok) {
+    title = `${label} sent.`;
+  } else if (dispatch.attempted) {
+    title = `${label} not sent.`;
+  }
+  return `
+    <div class="draft-status ${status.className}">
+      <strong>${escapeHtml(title)}</strong>
+      <small>${escapeHtml(commandResultMessage(result))}</small>
+    </div>
+  `;
+}
+
+function openPlanModal(plan) {
+  if (!plan) return;
+  openInfoModal({
+    kicker: "Flight Plan",
+    title: `${plan.flightPlanNumber || "--"} / ${plan.aircraftId || "--"}`,
+    body: `
+      ${planDraftNoticeMarkup(plan)}
+      ${planDetailMarkup(plan, { modal: true })}
+      <div class="modal-actions">
+        <button class="chip command-button command-button--modify" type="button" data-open-plan-modification>Modify Flight Plan</button>
+      </div>
+    `,
+  });
+}
+
+function planModificationSummaryMarkup(plan) {
+  return `
+    <div class="plan-current-grid">
+      <div><span>Flight Plan</span><strong>${escapeHtml(plan.flightPlanNumber || "--")}</strong></div>
+      <div><span>Aircraft</span><strong>${escapeHtml(plan.aircraftId || "--")}</strong></div>
+      <div><span>Version</span><strong>v${escapeHtml(plan.planVersion || "--")}</strong></div>
+      <div><span>Status</span><strong>${escapeHtml(plan.planStatus || "--")}</strong></div>
+      <div><span>Departure</span><strong>${escapeHtml(plan.departureVertiport || "--")}</strong><small>${escapeHtml(plan.departureGate || "--")} / ${escapeHtml(plan.departureFato || "--")}</small></div>
+      <div><span>ETOT / STD</span><strong>${escapeHtml(formatTime(plan.etot))} / ${escapeHtml(formatTime(plan.std))}</strong></div>
+      <div><span>Arrival</span><strong>${escapeHtml(plan.arrivalVertiport || "--")}</strong><small>${escapeHtml(plan.arrivalGate || "--")} / ${escapeHtml(plan.arrivalFato || "--")}</small></div>
+      <div><span>ELDT / STA</span><strong>${escapeHtml(formatTime(plan.eldt))} / ${escapeHtml(formatTime(plan.sta))}</strong></div>
+    </div>
+  `;
+}
+
+function currentPlanModificationPayload(form = $("[data-plan-modification-form]"), plan = selectedPlan()) {
+  if (!form) return {};
+  const data = new FormData(form);
+  const flightPlanNumber = plan?.flightPlanNumber ?? asNumber(data.get("flightPlanNumber"));
+  const aircraftId = plan?.aircraftId ?? String(data.get("aircraftId") || "");
+  return {
+    timestamp: String(data.get("timestamp") || state.planModificationTimestamp || new Date().toISOString()),
+    commandId: String(data.get("commandId") || state.planModificationCommandId || nextStrategicCommandId()),
+    flightPlanNumber,
+    aircraftId,
+    planVersion: asNumber(data.get("planVersion"), Number(plan?.planVersion || data.get("currentPlanVersion") || 1) + 1),
+    modificationType: String(data.get("modificationType") || "routeUpdate"),
+    reasonCode: String(data.get("reasonCode") || "VERTIPORT_CAPACITY"),
+    modifyScope: String(data.get("modifyScope") || "enRouteOnly"),
+  };
+}
+
+function planFromModificationForm(form) {
+  if (!form) return null;
+  const data = new FormData(form);
+  const flightPlanNumber = asNumber(data.get("flightPlanNumber"));
+  const aircraftId = String(data.get("aircraftId") || "").trim();
+  const planVersion = asNumber(data.get("currentPlanVersion"), 1);
+  if (!flightPlanNumber || !aircraftId) return null;
+  return { flightPlanNumber, aircraftId, planVersion };
+}
+
+function renderPlanModificationPreview(result = null) {
+  const preview = $("[data-plan-draft-preview]");
+  if (!preview) return;
+  preview.textContent = JSON.stringify(result?.payload || currentPlanModificationPayload(), null, 2);
+}
+
+function planModificationWorkspaceMarkup(plan, commandId, timestamp) {
+  const nextVersion = Number(plan.planVersion || 1) + 1;
+  return `
+    <form class="plan-modification-workspace modal-command-form" data-plan-modification-form>
+      <input name="timestamp" type="hidden" value="${escapeHtml(timestamp)}" />
+      <input name="commandId" type="hidden" value="${escapeHtml(commandId)}" />
+      <input name="flightPlanNumber" type="hidden" value="${escapeHtml(plan.flightPlanNumber || "")}" />
+      <input name="aircraftId" type="hidden" value="${escapeHtml(plan.aircraftId || "")}" />
+      <input name="currentPlanVersion" type="hidden" value="${escapeHtml(plan.planVersion || 1)}" />
+      <section class="plan-mod-column plan-mod-column--current">
+        <div class="command-panel-head">
+          <span>${bilingualLabel("Current 3001", "현재 비행계획")}</span>
+          <strong>${escapeHtml(plan.flightPlanNumber || "--")} / ${escapeHtml(plan.aircraftId || "--")}</strong>
+        </div>
+        ${planModificationSummaryMarkup(plan)}
+      </section>
+      <section class="plan-mod-column plan-mod-column--request">
+        <div class="option-group">
+          <span>${bilingualLabel("Modification Type", "수정 유형")}</span>
+          <div class="option-card-grid" data-plan-option-cards="modificationType">
+            ${planOptionCardMarkup("modificationType", STRATEGIC_MODIFICATION_TYPES, "routeUpdate", STRATEGIC_MODIFICATION_KO)}
+          </div>
+        </div>
+        <div class="option-group">
+          <span>${bilingualLabel("Reason Code", "사유 코드")}</span>
+          <div class="option-card-grid" data-plan-option-cards="reasonCode">
+            ${planOptionCardMarkup("reasonCode", STRATEGIC_REASONS, "VERTIPORT_CAPACITY", STRATEGIC_REASON_KO)}
+          </div>
+        </div>
+        <div class="option-group">
+          <span>${bilingualLabel("Modify Scope", "수정 범위")}</span>
+          <div class="option-card-grid" data-plan-option-cards="modifyScope">
+            ${planOptionCardMarkup("modifyScope", STRATEGIC_SCOPES, "enRouteOnly", STRATEGIC_SCOPE_KO)}
+          </div>
+        </div>
+        <label class="visually-hidden-field">
+          <span>Modification Type</span>
+          <select name="modificationType" tabindex="-1">${optionMarkup(STRATEGIC_MODIFICATION_TYPES, "routeUpdate")}</select>
+        </label>
+        <label class="visually-hidden-field">
+          <span>Reason Code</span>
+          <select name="reasonCode" tabindex="-1">${optionMarkup(STRATEGIC_REASONS, "VERTIPORT_CAPACITY")}</select>
+        </label>
+        <label class="visually-hidden-field">
+          <span>Modify Scope</span>
+          <select name="modifyScope" tabindex="-1">${optionMarkup(STRATEGIC_SCOPES, "enRouteOnly")}</select>
+        </label>
+      </section>
+      <section class="plan-mod-column plan-mod-column--draft">
+        <div class="command-panel-head">
+          <span>${bilingualLabel("3002 Request", "수정요청")}</span>
+          <strong>${escapeHtml(commandId)}</strong>
+        </div>
+        <div class="plan-command-meta">
+          <div>
+            <span>${bilingualLabel("Command ID", "명령 식별자")}</span>
+            <strong>${escapeHtml(commandId)}</strong>
+          </div>
+          <div>
+            <span>${bilingualLabel("Created UTC", "생성 시각")}</span>
+            <strong>${escapeHtml(timestamp)}</strong>
+          </div>
+        </div>
+        <label>
+          <span>${bilingualLabel("Target Version", "대상 버전")}</span>
+          <input name="planVersion" type="number" min="1" step="1" value="${escapeHtml(nextVersion)}" />
+        </label>
+        <div data-plan-draft-status></div>
+        <details class="technical-preview command-technical-preview" open>
+          <summary>Technical Payload</summary>
+          <pre class="payload-preview" data-plan-draft-preview>{}</pre>
+        </details>
+        <div class="command-footer">
+          <div></div>
+          <div>
+            <button class="chip" type="button" data-back-plan-detail>Back to Details</button>
+            <button class="chip command-button command-button--save" type="submit" data-stage-plan-request>Send Request</button>
+          </div>
+        </div>
+      </section>
+    </form>
+  `;
+}
+
+function openPlanModificationForm(plan = selectedPlan()) {
+  if (!plan) return;
+  state.planModificationCommandId = nextStrategicCommandId();
+  state.planModificationTimestamp = new Date().toISOString();
+  openInfoModal({
+    kicker: "Plan Modification",
+    title: `${plan.flightPlanNumber || "--"} Modification Request`,
+    body: planModificationWorkspaceMarkup(plan, state.planModificationCommandId, state.planModificationTimestamp),
+    panelClass: "app-modal__panel--command",
+  });
+  renderPlanModificationPreview();
+}
+
+async function savePlanModification(event) {
+  event.preventDefault();
+  await savePlanModificationForm(event.currentTarget);
+}
+
+async function savePlanModificationForm(form) {
+  const plan = selectedPlan() || planFromModificationForm(form);
+  const status = $("[data-plan-draft-status]");
+  if (!form || !plan) {
+    if (status) {
+      status.innerHTML = `
+        <div class="draft-status is-blocked">
+          <strong>Cannot send request.</strong>
+          <small>Flight plan context is missing. Close this modal and reopen the flight plan details.</small>
+        </div>
+      `;
+    }
+    return;
+  }
+  const payload = currentPlanModificationPayload(form, plan);
+  const preview = $("[data-plan-draft-preview]");
+  const submitButton = $("[data-stage-plan-request]", form);
+  if (status) {
+    status.innerHTML = `
+      <div class="draft-status">
+        <strong>Sending request...</strong>
+        <small>Submitting MSG 3002 to StateServer for VehicleModule dispatch.</small>
       </div>
     `;
   }
-  const title = link.serverReady
-    ? "4001 서버는 연결되어 있으나 수신된 실시간 비행체가 없습니다."
-    : "4001 서버 연결을 기다리는 중입니다.";
-  const detail = link.serverReady
-    ? (link.message || "OperationModule/StateServer에서 4001 비행체 데이터가 들어오면 자동으로 목록과 맵이 갱신됩니다.")
-    : "OperationModule 또는 StateServer 4001 스트림을 실행하면 비행체/충돌 패널이 자동으로 채워집니다.";
+  if (submitButton) submitButton.disabled = true;
+  try {
+    const result = await postJson("/api/strategic/modification/dispatch", payload);
+    state.savedPlanDrafts.unshift({ createdAt: new Date().toISOString(), result });
+    persistSavedPlanDrafts();
+    if (preview) preview.textContent = JSON.stringify(result?.payload || result, null, 2);
+    if (status) status.innerHTML = renderDraftStatus(result, "Plan modification request");
+    renderStrategic();
+    if (result?.ok) {
+      openPlanDraftModal(0);
+    }
+  } catch (error) {
+    if (status) status.innerHTML = `<div class="draft-status is-blocked"><strong>Failed to send request.</strong><small>${escapeHtml(error.message || error)}</small></div>`;
+  } finally {
+    if (submitButton) submitButton.disabled = false;
+  }
+}
+
+function renderPlanSummary(summary = {}) {
+  const container = $("[data-plan-summary]");
+  if (!container) return;
+  const items = [
+    ["Pending", summary.pending ?? 0],
+    ["Active", summary.active ?? 0],
+    ["Need Review", summary.need_review ?? 0],
+    ["Modification", (summary.modification ?? 0) + state.savedPlanDrafts.length],
+  ];
+  container.innerHTML = items
+    .map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`)
+    .join("");
+}
+
+function renderPlanGroups() {
+  const container = $("[data-plan-groups]");
+  if (!container) return;
+  const groups = state.strategic?.groups?.[state.planGroup] || [];
+  if (!groups.length) {
+    container.innerHTML = `<span class="empty-pill">No received flight plan data</span>`;
+    return;
+  }
+  container.innerHTML = groups
+    .slice(0, 12)
+    .map((item) => `<span><strong>${escapeHtml(item.key)}</strong>${escapeHtml(item.count)}</span>`)
+    .join("");
+}
+
+function validationBadge(plan) {
+  if (latestPlanDraft(plan)) return `<span class="status-badge status-badge--CAUTION">Request</span>`;
+  const issues = plan.validationIssues || [];
+  if (!issues.length) return `<span class="status-badge status-badge--NORMAL">OK</span>`;
+  return `<span class="status-badge status-badge--CAUTION">Review ${issues.length}</span>`;
+}
+
+function renderPlanTable() {
+  const tbody = $("[data-plan-table]");
+  if (!tbody) return;
+  const plans = state.strategic?.plans || [];
+  setText("[data-plan-count]", `${plans.length} Plans`);
+  if (!plans.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="10">
+          <div class="empty-state">
+            <strong>No scheduled flights received.</strong>
+            <small>Only received flight plan data from the StateServer is displayed.</small>
+          </div>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+  tbody.innerHTML = plans
+    .map((plan) => {
+      const selected = String(plan.key) === String(state.selectedPlanKey);
+      return `
+        <tr class="${selected ? "is-selected" : ""}" data-plan-key="${escapeHtml(plan.key)}" tabindex="0">
+          <td>${escapeHtml(plan.flightPlanNumber)}</td>
+          <td>v${escapeHtml(plan.planVersion)}</td>
+          <td>${escapeHtml(plan.aircraftId)}</td>
+          <td>${escapeHtml(plan.planStatus)}</td>
+          <td>${escapeHtml(plan.departureVertiport || "--")}</td>
+          <td>${escapeHtml(formatTime(plan.etot || plan.std))}</td>
+          <td>${escapeHtml(plan.arrivalVertiport || "--")}</td>
+          <td>${escapeHtml(formatTime(plan.eldt || plan.sta))}</td>
+          <td>${escapeHtml(plan.routeSeqCount ?? 0)}</td>
+          <td>${validationBadge(plan)}</td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+function renderPlanDetail() {
+  const container = $("[data-plan-detail]");
+  const plan = selectedPlan();
+  setText("[data-selected-plan-label]", plan ? `${plan.flightPlanNumber} / ${plan.aircraftId}` : "--");
+  if (!container) return;
+  if (!plan) {
+    container.innerHTML = "<p>Select a flight plan to inspect details.</p>";
+    return;
+  }
+  container.innerHTML = `${planDraftNoticeMarkup(plan)}${planDetailMarkup(plan)}`;
+}
+
+function renderStrategic() {
+  renderPlanSummary(state.strategic?.summary || {});
+  renderPlanGroups();
+  renderPlanTable();
+  renderPlanDetail();
+  renderModificationQueue();
+}
+
+async function refreshStrategic() {
+  try {
+    state.strategic = await fetchJson("/api/strategic/plans");
+    const plans = state.strategic.plans || [];
+    if (!plans.some((plan) => String(plan.key) === String(state.selectedPlanKey))) {
+      state.selectedPlanKey = plans[0]?.key || null;
+    }
+    renderStrategic();
+  } catch (error) {
+    const tbody = $("[data-plan-table]");
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="10">Failed to load flight plans: ${escapeHtml(error.message || error)}</td></tr>`;
+    }
+  }
+}
+
+function vehicleId(vehicle) {
+  return String(vehicle.aircraft_id || vehicle.aircraftId || vehicle.vehicle_id || vehicle.id || "");
+}
+
+function selectedVehicle() {
+  const vehicles = state.tactical?.vehicles || [];
+  return vehicles.find((vehicle) => vehicleId(vehicle) === state.selectedAircraftId) || null;
+}
+
+function vehicleDetailMarkup(vehicle, { modal = false } = {}) {
   return `
-    <div class="traffic-empty-state">
+    <dl class="detail-grid ${modal ? "detail-grid--wide" : ""}">
+      <div><dt>Aircraft</dt><dd>${escapeHtml(vehicleId(vehicle))}</dd></div>
+      <div><dt>Flight Plan</dt><dd>${escapeHtml(vehicle.flight_plan_id || vehicle.flightPlanNumber || "--")}</dd></div>
+      <div><dt>Position</dt><dd>${formatCoord(vehicle.latitude)}, ${formatCoord(vehicle.longitude)}</dd></div>
+      <div><dt>Altitude</dt><dd>${escapeHtml(vehicle.altitude ?? "--")} m</dd></div>
+      <div><dt>Speed</dt><dd>${escapeHtml(formatSpeed(vehicle.ground_speed_mps || vehicle.speed_mps))}</dd></div>
+      <div><dt>Heading</dt><dd>${escapeHtml(vehicle.heading_deg ?? vehicle.heading ?? "--")}</dd></div>
+      <div><dt>Waypoint</dt><dd>${escapeHtml(vehicle.currentWaypointId || vehicle.current_waypoint_id || "--")}</dd></div>
+      <div><dt>Age</dt><dd>${escapeHtml(vehicle.age_s ?? "--")} s</dd></div>
+      <div><dt>Source</dt><dd>${escapeHtml(displaySource(vehicle.source))}</dd></div>
+      <div><dt>Status</dt><dd>${vehicle.stale ? "STALE" : "LIVE"}</dd></div>
+    </dl>
+  `;
+}
+
+function vehicleCommandContextMarkup(vehicle) {
+  return `
+    <div class="command-context-bar">
+      <div>
+        <span>Aircraft</span>
+        <strong>${escapeHtml(vehicleId(vehicle))}</strong>
+      </div>
+      <div>
+        <span>Flight Plan</span>
+        <strong>${escapeHtml(vehicle.flight_plan_id || vehicle.flightPlanNumber || "--")}</strong>
+      </div>
+      <div>
+        <span>Position</span>
+        <strong>${formatCoord(vehicle.latitude)}, ${formatCoord(vehicle.longitude)}</strong>
+      </div>
+      <div>
+        <span>Status</span>
+        <strong>${vehicle.stale ? "STALE" : "LIVE"}</strong>
+      </div>
+    </div>
+  `;
+}
+
+function openAircraftModal(vehicle) {
+  if (!vehicle) return;
+  state.aircraftPanelOpen = true;
+  state.aircraftPanelMode = "status";
+  renderSelectedAircraftPanel();
+}
+
+function hydrateActionCommandPanel() {
+  renderModalActionFields();
+  applyActionDraftForm();
+  renderActionQuickSelectors();
+  renderModalActionPreview();
+}
+
+function renderSelectedAircraftPanel({ force = false } = {}) {
+  const panel = $("[data-selected-aircraft-panel]");
+  const title = $("[data-selected-aircraft-panel-title]");
+  const body = $("[data-selected-aircraft-panel-body]");
+  const vehicle = selectedVehicle();
+  if (!panel || !body) return;
+  const visible = Boolean(state.aircraftPanelOpen && vehicle);
+  panel.hidden = !visible;
+  if (!visible) return;
+  const commandMode = state.aircraftPanelMode === "command";
+  panel.classList.toggle("is-command-mode", commandMode);
+  body.classList.toggle("selected-aircraft-panel__body--command", commandMode);
+  if (title) title.textContent = commandMode ? `${vehicleId(vehicle)} Tactical Command` : vehicleId(vehicle);
+  const currentMode = body.dataset.panelMode || "";
+  const currentAircraftId = body.dataset.panelAircraftId || "";
+  const aircraftId = vehicleId(vehicle);
+  if (commandMode && !force && currentMode === "command" && currentAircraftId === aircraftId && $("[data-action-command-form]", body)) {
+    renderModalActionPreview();
+    return;
+  }
+  body.dataset.panelMode = commandMode ? "command" : "status";
+  body.dataset.panelAircraftId = aircraftId;
+  if (commandMode) {
+    body.innerHTML = actionCommandFormMarkup(vehicle);
+    hydrateActionCommandPanel();
+    return;
+  }
+  body.innerHTML = `
+      ${vehicleDetailMarkup(vehicle)}
+      <div class="selected-aircraft-panel__actions">
+        <button class="chip command-button command-button--traffic" type="button" data-open-action-command>Traffic Management Action</button>
+        <button class="chip" type="button" data-toggle-tactical-panel="aircraft">Aircraft List</button>
+      </div>
+    `;
+}
+
+function actionOptionsForReason(reason) {
+  const allowed = TACTICAL_REASON_ACTIONS[reason] || Object.keys(ACTION_LABELS);
+  return allowed.map((type) => [type, ACTION_LABELS[type] || type]);
+}
+
+function actionCommandFormMarkup(vehicle) {
+  const draft = state.actionDraftForm || {};
+  const reason = draft.reasonCode || "LOSS_OF_SEPARATION_RISK";
+  const actionType = draft.actionType || actionOptionsForReason(reason)[0]?.[0] || "directTo";
+  const commandId = state.actionCommandId || nextTacticalCommandId();
+  const timestamp = state.actionCommandTimestamp || new Date().toISOString();
+  return `
+    ${vehicleCommandContextMarkup(vehicle)}
+    <form class="command-form command-workspace modal-command-form" data-action-command-form>
+      <input name="timestamp" type="hidden" value="${escapeHtml(timestamp)}" />
+      <input name="commandId" type="hidden" value="${escapeHtml(commandId)}" />
+      <input name="aircraftId" type="hidden" value="${escapeHtml(vehicleId(vehicle))}" />
+      <section class="command-workspace__choices">
+        <div class="option-group">
+          <span>${bilingualLabel("Reason Code", "사유 코드")}</span>
+          <div class="option-card-grid option-card-grid--reasons" data-modal-reason-cards>
+            ${buttonCardMarkup(Object.entries(TACTICAL_REASON_LABELS), reason, "data-modal-reason-pick", TACTICAL_REASON_KO)}
+          </div>
+        </div>
+        <div class="option-group">
+          <span>${bilingualLabel("Action", "조치")}</span>
+          <div class="option-card-grid" data-modal-action-cards>
+            ${buttonCardMarkup(actionOptionsForReason(reason), actionType, "data-modal-action-pick", ACTION_KO)}
+          </div>
+        </div>
+      </section>
+      <label class="visually-hidden-field">
+        <span>Reason Code</span>
+        <select name="reasonCode" data-modal-reason-code tabindex="-1">
+          ${optionMarkup(Object.entries(TACTICAL_REASON_LABELS), reason)}
+        </select>
+      </label>
+      <label class="visually-hidden-field">
+        <span>Action Type</span>
+        <select name="actionType" data-modal-action-type tabindex="-1">
+          ${optionMarkup(actionOptionsForReason(reason), actionType)}
+        </select>
+      </label>
+      <section class="command-workspace__details">
+        <div class="command-panel-head">
+          <span>${bilingualLabel("Command Parameters", "명령 파라미터")}</span>
+          <strong data-command-action-title>${escapeHtml(ACTION_LABELS[actionType] || actionType)}</strong>
+        </div>
+        <p class="form-hint" data-modal-action-guidance>${escapeHtml(TACTICAL_REASON_HINTS[reason])}</p>
+        <div class="action-fields" data-modal-action-fields></div>
+        <div class="action-stack" data-modal-action-stack></div>
+        <div data-action-draft-status></div>
+      </section>
+      <div class="command-footer">
+        <div>
+          <button class="chip command-button command-button--traffic" type="button" data-modal-add-action>Queue Action</button>
+          <button class="chip command-button command-button--danger" type="button" data-modal-clear-actions>Clear Queue</button>
+        </div>
+        <div>
+          <button class="chip" type="button" data-back-aircraft-detail>Back to Status</button>
+          <button class="chip command-button command-button--save" type="submit" data-stage-action-command>Send Command</button>
+        </div>
+      </div>
+    </form>
+    <details class="technical-preview command-technical-preview">
+      <summary>Technical Payload</summary>
+      <pre class="payload-preview" data-action-draft-preview>{}</pre>
+    </details>
+  `;
+}
+
+function openActionCommandForm(vehicle = selectedVehicle(), { preserveDraft = false } = {}) {
+  vehicle = vehicle || selectedVehicle() || state.tactical?.vehicles?.[0] || null;
+  if (!vehicle) return;
+  const id = vehicleId(vehicle);
+  if (id) state.selectedAircraftId = id;
+  if (!preserveDraft) {
+    state.modalActions = [];
+    state.actionDraftForm = null;
+    state.actionCommandId = nextTacticalCommandId();
+    state.actionCommandTimestamp = new Date().toISOString();
+  } else {
+    state.actionCommandId = state.actionCommandId || nextTacticalCommandId();
+    state.actionCommandTimestamp = state.actionCommandTimestamp || new Date().toISOString();
+  }
+  state.aircraftPanelOpen = true;
+  state.aircraftPanelMode = "command";
+  renderSelectedAircraftPanel({ force: true });
+  ensureOperationalLayers()
+    .then(() => {
+      if (state.aircraftPanelOpen && state.aircraftPanelMode === "command" && selectedVehicle()) {
+        state.actionDraftForm = captureActionDraftForm();
+        renderSelectedAircraftPanel({ force: true });
+      }
+    })
+    .catch((error) => console.error("Failed to refresh operational layers", error));
+}
+
+function syncModalActionOptions({ preserveCurrent = true } = {}) {
+  const reasonSelect = $("[data-modal-reason-code]");
+  const actionSelect = $("[data-modal-action-type]");
+  const reason = reasonSelect?.value || "LOSS_OF_SEPARATION_RISK";
+  const options = actionOptionsForReason(reason);
+  if (actionSelect) {
+    const current = actionSelect.value;
+    actionSelect.innerHTML = optionMarkup(options, preserveCurrent ? current : options[0]?.[0]);
+    if (preserveCurrent && options.some(([type]) => type === current)) {
+      actionSelect.value = current;
+    } else if (options[0]) {
+      actionSelect.value = options[0][0];
+    }
+  }
+  setText("[data-modal-action-guidance]", TACTICAL_REASON_HINTS[reason] || "Select an action for the selected aircraft.");
+}
+
+function renderActionQuickSelectors() {
+  const reason = selectedReasonCode();
+  const action = selectedActionType();
+  const reasonCards = $("[data-modal-reason-cards]");
+  const actionCards = $("[data-modal-action-cards]");
+  if (reasonCards) {
+    reasonCards.innerHTML = buttonCardMarkup(Object.entries(TACTICAL_REASON_LABELS), reason, "data-modal-reason-pick", TACTICAL_REASON_KO);
+  }
+  if (actionCards) {
+    actionCards.innerHTML = buttonCardMarkup(actionOptionsForReason(reason), action, "data-modal-action-pick", ACTION_KO);
+  }
+  const reasonSelect = $("[data-modal-reason-code]");
+  const actionSelect = $("[data-modal-action-type]");
+  if (reasonSelect) reasonSelect.value = reason;
+  if (actionSelect) actionSelect.value = action;
+}
+
+function renderModalActionFields() {
+  syncModalActionOptions();
+  const type = $("[data-modal-action-type]")?.value || "directTo";
+  setText("[data-command-action-title]", ACTION_LABELS[type] || type);
+  const draft = state.actionDraftForm || {};
+  const vehicle = selectedVehicle();
+  const lat = vehicle?.latitude ?? "";
+  const lon = vehicle?.longitude ?? "";
+  const alt = vehicle?.altitude ?? "";
+  const container = $("[data-modal-action-fields]");
+  if (!container) return;
+  const llaFields = (prefix, defaultAlt = alt, title = "Target", pickLabel = "Pick on Map") => `
+    <div class="lla-tools form-wide">
       <strong>${escapeHtml(title)}</strong>
-      <small>${escapeHtml(detail)}</small>
-      <span>${escapeHtml(link.sourceLabel)} · fresh ${escapeHtml(link.freshCount)} / total ${escapeHtml(link.totalCount)}</span>
+      <button class="chip command-button command-button--map" type="button" data-map-pick="${escapeHtml(prefix)}">${escapeHtml(pickLabel)}</button>
+    </div>
+    <label><span>${title} Lat</span><input name="${prefix}Lat" type="number" step="0.000001" value="${escapeHtml(lat)}" /></label>
+    <label><span>${title} Lon</span><input name="${prefix}Lon" type="number" step="0.000001" value="${escapeHtml(lon)}" /></label>
+    <label><span>${title} Alt</span><input name="${prefix}Alt" type="number" step="1" value="${escapeHtml(defaultAlt)}" /></label>
+  `;
+  const routePointMarkup = (points) => `
+    <div class="route-point-list form-wide" data-route-point-list>
+      <div class="lla-tools route-point-toolbar">
+        <strong>Route Points <small>targetLLAs</small></strong>
+        <button class="chip command-button command-button--map" type="button" data-start-route-draw>Draw Route</button>
+        <button class="chip command-button command-button--danger" type="button" data-clear-route-points>Clear</button>
+      </div>
+      ${points.length ? `
+        <div class="route-point-table">
+          <div class="route-point-table__head">
+            <span>#</span>
+            <span>Lat</span>
+            <span>Lon</span>
+            <span>Alt</span>
+            <span>Speed</span>
+            <span></span>
+          </div>
+          ${points.map((point, index) => {
+        const prefix = routePointPrefix(index);
+        return `
+          <div class="route-point-row" data-route-point-row data-route-point-prefix="${escapeHtml(prefix)}">
+            <strong>${escapeHtml(index + 1)}</strong>
+            <input aria-label="Point ${escapeHtml(index + 1)} latitude" name="${prefix}Lat" type="number" step="0.000001" value="${escapeHtml(point.lat)}" />
+            <input aria-label="Point ${escapeHtml(index + 1)} longitude" name="${prefix}Lon" type="number" step="0.000001" value="${escapeHtml(point.lon)}" />
+            <input aria-label="Point ${escapeHtml(index + 1)} altitude" name="${prefix}Alt" type="number" step="1" value="${escapeHtml(point.alt)}" />
+            <input aria-label="Point ${escapeHtml(index + 1)} target speed" name="${prefix}Speed" type="number" min="0" max="200" step="0.1" value="${escapeHtml(point.targetSpeed)}" />
+            <button class="chip command-button command-button--danger route-point-remove" type="button" data-remove-route-point="${escapeHtml(index)}" ${points.length <= 1 ? "disabled" : ""}>Remove</button>
+          </div>
+        `;
+      }).join("")}
+        </div>
+      ` : `
+        <div class="route-point-empty">
+          <strong>No route points selected.</strong>
+          <span>Use Draw Route and click the map in flight order.</span>
+        </div>
+      `}
     </div>
   `;
-}
-
-function filteredFlights() {
-  const flights = trafficPayload?.flights || [];
-  const normalized = trafficFilter.toUpperCase();
-  const filtered = flights.filter((flight) => {
-    if (normalized === "ALL") return true;
-    if (normalized === "ACTIVE") return Boolean(flight.is_active);
-    return String(flight.severity || "").toUpperCase() === normalized;
-  });
-  return filtered.sort((a, b) => severityRank(b.severity) - severityRank(a.severity) || String(a.aircraft_id).localeCompare(String(b.aircraft_id)));
-}
-
-function filteredConflicts() {
-  const conflicts = trafficPayload?.timeline || [];
-  const normalized = trafficFilter.toUpperCase();
-  if (normalized === "ALL") return conflicts;
-  if (normalized === "ACTIVE") {
-    const activeAircraft = currentActiveAircraftSet();
-    return conflicts.filter((conflict) => (conflict.related_aircraft || []).some((aircraftId) => activeAircraft.has(String(aircraftId))));
-  }
-  return conflicts.filter((conflict) => String(conflict.severity || "").toUpperCase() === normalized);
-}
-
-function renderFlightList() {
-  const list = document.querySelector("[data-flight-list]");
-  const flights = filteredFlights();
-  const total = trafficPayload?.flights?.length || 0;
-  setText("[data-traffic-count]", `${flights.length}/${total} FLT`);
-  if (!list) return;
-  if (!flights.length) {
-    list.innerHTML = trafficEmptyStateMarkup("운항", { filtered: total > 0 });
-    return;
-  }
-  list.innerHTML = flights
-    .map((flight) => {
-      const track = flight.track || {};
-      const status = flight.is_active ? track.flight_status || "ACTIVE" : flight.status;
-      return `
-        <button type="button" class="flight-item ${String(flight.aircraft_id) === String(selectedAircraftId) ? "is-selected" : ""}" data-aircraft-id="${escapeHtml(flight.aircraft_id)}">
-          <span class="status-badge ${statusClass(flight.severity)}">${escapeHtml(flight.severity)}</span>
-          <strong>${escapeHtml(flight.aircraft_id)}</strong>
-          <span>${escapeHtml(flight.flight_plan_id)} · ${escapeHtml(status)}</span>
-          <span>${escapeHtml(flight.origin_vertiport)} → ${escapeHtml(flight.destination_vertiport)} · ${escapeHtml(flight.route_id)} / ${escapeHtml(flight.current_corridor_id || "--")}</span>
-          <small>ETA ${escapeHtml(formatTime(flight.eta))} · Delay ${escapeHtml(formatSignedDelay(flight.delay_sec))} · Alt ${escapeHtml(track.altitude ?? flight.planned_altitude)}m · GS ${escapeHtml(track.ground_speed ?? flight.planned_speed)}kt · CF ${escapeHtml(flight.conflict_count)}</small>
-        </button>
-      `;
-    })
-    .join("");
-}
-
-function renderConflictTimeline() {
-  const list = document.querySelector("[data-conflict-timeline]");
-  const conflicts = filteredConflicts();
-  const total = trafficPayload?.timeline?.length || 0;
-  setText("[data-conflict-count]", `${conflicts.length}/${total} CF`);
-  if (!conflicts.some((conflict) => String(conflict.conflict_id) === String(selectedConflictId))) {
-    const aircraftRelated = selectedAircraftId
-      ? conflicts.find((conflict) => (conflict.related_aircraft || []).some((aircraftId) => String(aircraftId) === String(selectedAircraftId)))
-      : null;
-    selectedConflictId = aircraftRelated?.conflict_id || (selectedAircraftId ? null : conflicts[0]?.conflict_id || null);
-  }
-  if (!list) return;
-  if (!conflicts.length) {
-    list.innerHTML = trafficEmptyStateMarkup("충돌", { filtered: total > 0 });
-    return;
-  }
-  list.innerHTML = conflicts
-    .map((conflict) => `
-      <button type="button" class="timeline-item ${String(conflict.conflict_id) === String(selectedConflictId) ? "is-selected" : ""}" data-conflict-id="${escapeHtml(conflict.conflict_id)}">
-        <span class="status-badge ${statusClass(conflict.severity)}">${escapeHtml(conflict.severity)}</span>
-        <strong>${escapeHtml(formatTime(conflict.predicted_time))}</strong>
-        <span>${escapeHtml(conflict.conflict_type)}</span>
-        <small>${escapeHtml(conflict.location_id)} · ${escapeHtml((conflict.related_aircraft || []).join(" / "))} · T-${escapeHtml(conflict.time_to_event_label)}</small>
-      </button>
-    `)
-    .join("");
-}
-
-function renderConflictDetail({ fly = false } = {}) {
-  const detail = document.querySelector("[data-conflict-detail]");
-  const actions = document.querySelector("[data-suggested-actions]");
-  const conflict = (trafficPayload?.conflicts || []).find((item) => String(item.conflict_id) === String(selectedConflictId));
-  const selectedFlight = selectedAircraftId ? findFlightByAircraftId(selectedAircraftId) : null;
-  setText("[data-conflict-selected]", conflict ? conflict.conflict_id : selectedFlight ? selectedFlight.aircraft_id : "--");
-  if (!detail || !actions) return;
-  if (!conflict) {
-    if (selectedFlight) {
-      const track = selectedFlight.track || {};
-      const liveAge = Number.isFinite(Number(track.age_s)) ? `${Number(track.age_s).toFixed(1)} sec` : "--";
-      detail.innerHTML = `
-        <div class="conflict-title-row">
-          <span class="status-badge ${statusClass(selectedFlight.severity || track.severity || "NORMAL")}">${escapeHtml(track.flight_status || selectedFlight.status || "ACTIVE")}</span>
-          <strong>${escapeHtml(selectedFlight.aircraft_id)}</strong>
-        </div>
-        <div class="detail-grid">
-          <div class="detail-metric"><span>Source</span><strong>${escapeHtml(selectedFlight.source || track.source || "ICD-4001")}</strong><small>4001 live vehicle stream</small></div>
-          <div class="detail-metric"><span>Flight Plan</span><strong>${escapeHtml(selectedFlight.flight_plan_id || "--")}</strong><small>${escapeHtml(selectedFlight.route_id || "route pending")}</small></div>
-          <div class="detail-metric"><span>Position</span><strong>${escapeHtml(formatCoordinate(track.latitude))}, ${escapeHtml(formatCoordinate(track.longitude))}</strong><small>lat / lon</small></div>
-          <div class="detail-metric"><span>Altitude / Speed</span><strong>${escapeHtml(track.altitude ?? selectedFlight.planned_altitude ?? "--")} m · ${escapeHtml(track.ground_speed ?? selectedFlight.planned_speed ?? "--")}</strong><small>ground speed m/s 또는 kt</small></div>
-          <div class="detail-metric detail-metric--wide"><span>Last Update</span><strong>${escapeHtml(formatTime(track.timestamp || track.received_at || selectedFlight.eta))}</strong><small>age ${escapeHtml(liveAge)} · 관련 충돌 ${escapeHtml(selectedFlight.conflict_count || 0)}건</small></div>
-        </div>
-      `;
-      actions.innerHTML = `
-        <h5>Live Data Link</h5>
-        <ol class="action-list">
-          <li>선택한 비행체는 4001 수신 데이터 기준으로 맵과 목록에 동시 반영됩니다.</li>
-          <li>관련 충돌 후보가 생기면 Conflict Timeline과 Detail Panel이 자동으로 전환됩니다.</li>
-        </ol>
-      `;
-      return;
+  if (type === "setSpeed") {
+    container.innerHTML = `<label><span>Target Speed m/s</span><input name="targetSpeed" type="number" min="0" max="200" step="0.1" value="20" /></label>`;
+  } else if (type === "directTo") {
+    let routePoints = routePointsFromDraft(draft, { lat: "", lon: "", alt, targetSpeed: draft.targetSpeed || "20" });
+    const hasDrawnPoints = routePoints.some((point) => String(point.lat || "").trim() && String(point.lon || "").trim());
+    if (hasDrawnPoints) {
+      routePoints = routePoints.filter((point) => String(point.lat || "").trim() && String(point.lon || "").trim());
     }
-    detail.innerHTML = "<p>충돌 이벤트 또는 실시간 비행체를 선택하면 상세 분석이 표시됩니다.</p>";
-    actions.innerHTML = trafficEmptyStateMarkup("상세 분석");
-    return;
-  }
-  const margin = Number(conflict.separation_margin_sec || 0);
-  detail.innerHTML = `
-    <div class="conflict-title-row">
-      <span class="status-badge ${statusClass(conflict.severity)}">${escapeHtml(conflict.severity)}</span>
-      <strong>${escapeHtml(conflict.conflict_type)}</strong>
-    </div>
-    <div class="detail-grid">
-      <div class="detail-metric"><span>Location</span><strong>${escapeHtml(conflict.location_id)}</strong><small>${escapeHtml(conflict.location_name || "--")}</small></div>
-      <div class="detail-metric"><span>Aircraft</span><strong>${escapeHtml((conflict.related_aircraft || []).join(" / "))}</strong><small>관련 UAM</small></div>
-      <div class="detail-metric"><span>Predicted</span><strong>${escapeHtml(formatTime(conflict.predicted_time))}</strong><small>T-${escapeHtml(conflict.time_to_event_label)}</small></div>
-      <div class="detail-metric"><span>ETA Gap</span><strong>${escapeHtml(conflict.eta_gap_sec)} sec</strong><small>Required ${escapeHtml(conflict.required_gap_sec)} sec</small></div>
-      <div class="detail-metric detail-metric--wide ${margin < 0 ? "margin-negative" : ""}"><span>Separation Margin</span><strong>${margin > 0 ? "+" : ""}${escapeHtml(margin)} sec</strong><small>음수이면 전략적 분리 기준 미달</small></div>
-    </div>
-  `;
-  actions.innerHTML = `
-    <h5>Suggested Actions</h5>
-    <ol class="action-list">
-      ${(conflict.suggested_actions || []).map((action) => `<li>${escapeHtml(action)}</li>`).join("") || "<li>등록된 조치 후보가 없습니다.</li>"}
-    </ol>
-  `;
-  if (mapReady) {
-    selectConflictOnMap(conflict.conflict_id, { fly });
-  }
-}
-
-function renderTrafficWorkspace({ preserveSelection = true } = {}) {
-  if (!trafficPayload) return;
-  const timeline = trafficPayload.timeline || [];
-  if (selectedAircraftId && !findFlightByAircraftId(selectedAircraftId)) {
-    selectedAircraftId = null;
-  }
-  if (!selectedAircraftId && (!preserveSelection || !timeline.some((conflict) => String(conflict.conflict_id) === String(selectedConflictId)))) {
-    selectedConflictId = timeline[0]?.conflict_id || null;
-  }
-  renderFlightList();
-  renderConflictTimeline();
-  renderConflictDetail({ fly: false });
-}
-
-function selectConflict(conflictId, { fly = true } = {}) {
-  selectedAircraftId = null;
-  selectedConflictId = conflictId;
-  renderFlightList();
-  renderConflictTimeline();
-  renderConflictDetail({ fly });
-}
-
-function selectAircraft(aircraftId, { fly = true } = {}) {
-  if (!aircraftId) return;
-  selectedAircraftId = String(aircraftId);
-  const related = (trafficPayload?.conflicts || []).find((conflict) =>
-    (conflict.related_aircraft || []).some((item) => String(item) === String(aircraftId)),
-  );
-  selectedConflictId = related?.conflict_id || null;
-  renderFlightList();
-  renderConflictTimeline();
-  renderConflictDetail({ fly: false });
-  if (fly) {
-    selectAircraftOnMap(aircraftId);
-  }
-}
-
-function selectRelatedConflictFromTargets(targets, { fly = true } = {}) {
-  if (!trafficPayload || !targets.length) return false;
-  const targetSet = new Set(targets.map(String));
-  const conflict = (trafficPayload.conflicts || []).find((item) => {
-    if (targetSet.has(String(item.location_id)) || targetSet.has(String(item.conflict_id))) return true;
-    return (item.related_aircraft || []).some((aircraftId) => targetSet.has(String(aircraftId)));
-  });
-  if (!conflict) return false;
-  selectConflict(conflict.conflict_id, { fly });
-  return true;
-}
-
-async function refreshTrafficData() {
-  try {
-    const response = await fetch("/api/traffic/conflict-view", { headers: { Accept: "application/json" } });
-    if (!response.ok) {
-      throw new Error(`Traffic API HTTP ${response.status}`);
-    }
-    trafficPayload = await response.json();
-    renderTrafficWorkspace({ preserveSelection: true });
-  } catch (error) {
-    console.error(error);
-    const list = document.querySelector("[data-flight-list]");
-    const timeline = document.querySelector("[data-conflict-timeline]");
-    if (list) list.innerHTML = "<p>운항 목록을 불러오지 못했습니다.</p>";
-    if (timeline) timeline.innerHTML = "<p>충돌 타임라인을 불러오지 못했습니다.</p>";
-  }
-}
-
-function renderFlowSummary(summary) {
-  setText("[data-flow-summary='network_utilization']", formatPercent(summary.network_utilization));
-  setText("[data-flow-summary='warning_count']", `${summary.warning_count ?? 0}`);
-  setText("[data-flow-summary='main_bottleneck']", summary.main_bottleneck_id || "--");
-  setText("[data-flow-summary='delay_event_count']", `${summary.delay_event_count ?? 0}`);
-}
-
-function renderFlowCondition(condition) {
-  const container = document.querySelector("[data-flow-condition]");
-  setText("[data-flow-generated]", formatTime(condition.generated_at));
-  if (!container) return;
-  container.innerHTML = `
-    <div><span>Time Window</span><strong>${escapeHtml(formatTime(condition.time_window_start))} - ${escapeHtml(formatTime(condition.time_window_end))}</strong></div>
-    <div><span>Interval</span><strong>${escapeHtml(condition.interval_min)} min</strong></div>
-    <div><span>Target</span><strong>${escapeHtml(condition.target_scope)}</strong></div>
-    <div><span>Scenario</span><strong>${escapeHtml(condition.scenario_mode)}</strong></div>
-  `;
-}
-
-function renderDcbChart(series) {
-  const container = document.querySelector("[data-dcb-chart]");
-  setText("[data-dcb-count]", `${series.length} Windows`);
-  if (!container) return;
-  if (!series.length) {
-    container.innerHTML = "<p>수요-수용량 분석 데이터가 없습니다.</p>";
-    return;
-  }
-  const maxValue = Math.max(...series.map((item) => Math.max(Number(item.demand || 0), Number(item.capacity || 0))), 1);
-  container.innerHTML = series
-    .map((item) => {
-      const demandPct = Math.min(100, (Number(item.demand || 0) / maxValue) * 100);
-      const capacityPct = Math.min(100, (Number(item.capacity || 0) / maxValue) * 100);
-      return `
-        <button type="button" class="dcb-row" data-capacity-target="${escapeHtml(item.target_id)}" data-capacity-type="${escapeHtml(item.target_type)}">
-          <div class="dcb-row__label">
-            <span class="status-badge ${statusClass(item.status)}">${escapeHtml(item.status)}</span>
-            <strong>${escapeHtml(item.target_id)}</strong>
-            <small>${escapeHtml(item.time_label)} · ${escapeHtml(item.target_type)}</small>
-          </div>
-          <div class="dcb-bars">
-            <div class="dcb-bar dcb-bar--demand"><span style="width:${demandPct.toFixed(0)}%"></span></div>
-            <div class="dcb-bar dcb-bar--capacity"><span style="width:${capacityPct.toFixed(0)}%"></span></div>
-          </div>
-          <div class="dcb-row__metric">
-            <strong>${escapeHtml(item.demand)} / ${escapeHtml(item.capacity)}</strong>
-            <small>Over ${escapeHtml(item.overload)} · ${formatPercent(item.utilization)}</small>
-          </div>
-        </button>
-      `;
-    })
-    .join("");
-}
-
-function renderCorridorDensity(items) {
-  const container = document.querySelector("[data-corridor-density]");
-  setText("[data-corridor-density-count]", `${items.length} COR`);
-  if (!container) return;
-  container.innerHTML = items
-    .slice()
-    .sort((a, b) => severityRank(b.status) - severityRank(a.status) || Number(b.utilization || 0) - Number(a.utilization || 0))
-    .map((item) => `
-      <button type="button" class="capacity-item ${String(selectedCapacityTarget?.id) === String(item.target_id) ? "is-selected" : ""}" data-capacity-target="${escapeHtml(item.target_id)}" data-capacity-type="CORRIDOR">
-        <div>
-          <span class="status-badge ${statusClass(item.status)}">${escapeHtml(item.status)}</span>
-          <strong>${escapeHtml(item.target_id)}</strong> · ${escapeHtml(item.name)}
-        </div>
-        <div class="capacity-meter capacity-meter--${escapeHtml(item.status)}"><span style="width:${Math.min(100, Number(item.utilization || 0) * 100).toFixed(0)}%"></span></div>
-        <small>Density ${formatPercent(item.density_ratio)} · Occupied ${escapeHtml(item.occupied_aircraft)}/${escapeHtml(item.capacity)} · Flights ${escapeHtml(item.flight_count)}</small>
-      </button>
-    `)
-    .join("");
-}
-
-function renderVertiportThroughput(items) {
-  const container = document.querySelector("[data-vertiport-throughput]");
-  setText("[data-vertiport-throughput-count]", `${items.length} VP`);
-  if (!container) return;
-  container.innerHTML = items
-    .slice()
-    .sort((a, b) => severityRank(b.status) - severityRank(a.status) || Number(b.utilization || 0) - Number(a.utilization || 0))
-    .map((item) => `
-      <button type="button" class="capacity-item ${String(selectedCapacityTarget?.id) === String(item.target_id) ? "is-selected" : ""}" data-capacity-target="${escapeHtml(item.target_id)}" data-capacity-type="VERTIPORT">
-        <div>
-          <span class="status-badge ${statusClass(item.status)}">${escapeHtml(item.status)}</span>
-          <strong>${escapeHtml(item.target_id)}</strong> · ${escapeHtml(item.name)}
-        </div>
-        <div class="throughput-grid">
-          <span>Arr ${escapeHtml(item.arrival_demand)}</span>
-          <span>Dep ${escapeHtml(item.departure_demand)}</span>
-          <span>Delay ${formatDelay(item.average_delay_sec)}</span>
-        </div>
-        <div class="capacity-meter"><span style="width:${Math.min(100, Number(item.fato_occupancy || 0) * 100).toFixed(0)}%"></span></div>
-        <small>FATO ${formatPercent(item.fato_occupancy)} · Gate ${formatPercent(item.gate_occupancy)} · ${escapeHtml(item.bottleneck_cause)}</small>
-      </button>
-    `)
-    .join("");
-}
-
-function renderDelayPropagation(items) {
-  const container = document.querySelector("[data-delay-propagation]");
-  setText("[data-delay-count]", `${items.length} Steps`);
-  if (!container) return;
-  container.innerHTML = items.length
-    ? items
-        .map((item) => `
-          <div class="delay-step">
-            <span class="delay-step__index">${escapeHtml(item.step)}</span>
-            <div>
-              <span class="status-badge ${statusClass(item.status)}">${escapeHtml(item.status)}</span>
-              <strong>${escapeHtml(item.time)} · ${escapeHtml(item.title)}</strong>
-              <small>${escapeHtml(item.description)} · Delay ${formatSignedDelay(item.delay_sec)}</small>
+    container.innerHTML = `
+      <label class="form-wide"><span>Route Objective</span><input name="routeObjective" type="text" placeholder="Avoid conflict, blocked corridor, or weather cell" /></label>
+      ${routePointMarkup(routePoints)}
+    `;
+  } else if (type === "hold") {
+    container.innerHTML = `
+      ${llaFields("hold", alt, "Hold Point", "Pick Hold Point")}
+      <label><span>Turn</span><select name="turnDirection"><option value="CW">CW</option><option value="CCW">CCW</option></select></label>
+      <label><span>Radius m</span><input name="holdingRadiusM" type="number" min="1" max="5000" step="1" value="120" /></label>
+      <label><span>Max Count</span><input name="maxHoldingCount" type="number" min="0" max="9999" step="1" value="1" /></label>
+    `;
+  } else if (type === "rejoinPlan") {
+    container.innerHTML = `<label><span>Route Sequence</span><input name="atSeq" type="number" min="1" max="9999" step="1" value="1" /></label>`;
+  } else {
+    const choices = vertiportChoices();
+    const landingMode = draft.landingMode || "alternateVertiport";
+    const selectedVertiport = draft.vertiport || choices[0]?.[0] || "";
+    const selectedVertiportCoords = vertiportCoords(selectedVertiport);
+    container.innerHTML = `
+      <label>
+        <span>${bilingualLabel("Landing Target", "착륙 대상")}</span>
+        <select name="landingMode" data-landing-mode>
+          <option value="alternateVertiport" ${landingMode === "alternateVertiport" ? "selected" : ""}>Alternate vertiport · 대체 버티포트</option>
+          <option value="emergencyPoint" ${landingMode === "emergencyPoint" ? "selected" : ""}>Emergency landing point · 비상 착륙 지점</option>
+        </select>
+      </label>
+      ${
+        landingMode === "alternateVertiport"
+          ? `
+            <label>
+              <span>${bilingualLabel("Alternate Vertiport", "대체 버티포트")}</span>
+              <select name="vertiport" data-vertiport-select>
+                <option value="">${choices.length ? "Select vertiport" : "No connected vertiports"}</option>
+                ${optionMarkup(choices, selectedVertiport)}
+              </select>
+            </label>
+            <label><span>${bilingualLabel("FATO", "착륙 FATO")}</span><select name="fatoNumber">${optionMarkup(FATO_OPTIONS, draft.fatoNumber || "FATO-1")}</select></label>
+            <div class="readonly-coordinate form-wide">
+              <span>Vertiport LLA <small>버티포트 좌표</small></span>
+              <strong>${formatCoordsText(selectedVertiportCoords)}</strong>
             </div>
-          </div>
-        `)
-        .join("")
-    : "<p>지연 전파 이벤트가 없습니다.</p>";
-}
-
-function renderBottleneckDiagnosis(diagnosis) {
-  const container = document.querySelector("[data-bottleneck-diagnosis]");
-  setText("[data-bottleneck-status]", diagnosis?.status || "--");
-  if (!container) return;
-  if (!diagnosis) {
-    container.innerHTML = "<p>병목 진단 데이터가 없습니다.</p>";
-    return;
+          `
+          : llaFields("land", "", "Emergency Landing Point", "Pick Emergency Point")
+      }
+    `;
   }
-  container.innerHTML = `
-    <div class="bottleneck-head">
-      <span class="status-badge ${statusClass(diagnosis.status)}">${escapeHtml(diagnosis.status)}</span>
-      <strong>${escapeHtml(diagnosis.target_id)} · ${escapeHtml(diagnosis.cause)}</strong>
-      <small>${escapeHtml(diagnosis.impact)} · ${escapeHtml(diagnosis.expected_duration_min)} min</small>
-    </div>
-    <div class="bottleneck-columns">
-      <div>
-        <h5>Root Causes</h5>
-        <ul>${(diagnosis.root_causes || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
-      </div>
-      <div>
-        <h5>Mitigation</h5>
-        <ul>${(diagnosis.mitigations || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
-      </div>
-    </div>
-  `;
+  applyActionDraftForm();
 }
 
-function findCapacityTarget(targetId, targetType) {
-  if (!flowPayload) return null;
-  const lists = [
-    ...(flowPayload.corridor_density || []),
-    ...(flowPayload.vertiport_throughput || []),
-  ];
-  return lists.find(
-    (item) =>
-      String(item.target_id) === String(targetId) &&
-      (!targetType || String(item.target_type).toUpperCase() === String(targetType).toUpperCase()),
-  );
-}
-
-function renderCapacityDetail() {
-  const container = document.querySelector("[data-capacity-detail]");
-  const target = selectedCapacityTarget ? findCapacityTarget(selectedCapacityTarget.id, selectedCapacityTarget.type) : null;
-  setText("[data-capacity-selected]", target ? `${target.target_type} ${target.target_id}` : "--");
-  if (!container) return;
-  if (!target) {
-    container.innerHTML = "<p>회랑 또는 버티포트를 선택하면 상세 분석이 표시됩니다.</p>";
-    return;
+function modalActionFromForm() {
+  const form = $("[data-action-command-form]");
+  if (!form) return null;
+  const data = new FormData(form);
+  const type = String(data.get("actionType") || "directTo");
+  if (type === "setSpeed") {
+    return { type, targetSpeed: asNumber(data.get("targetSpeed"), 0) };
   }
-  const aircraft = target.affected_aircraft || [];
-  const isVertiport = String(target.target_type).toUpperCase() === "VERTIPORT";
-  container.innerHTML = `
-    <div class="capacity-detail-grid">
-      <div class="detail-metric"><span>Target</span><strong>${escapeHtml(target.target_id)}</strong><small>${escapeHtml(target.name || target.target_type)}</small></div>
-      <div class="detail-metric"><span>Status</span><strong>${escapeHtml(target.status)}</strong><small>${formatPercent(target.utilization)} utilization</small></div>
-      <div class="detail-metric"><span>Demand / Capacity</span><strong>${escapeHtml(target.demand)} / ${escapeHtml(target.capacity)}</strong><small>Overload ${escapeHtml(target.overload || 0)}</small></div>
-      <div class="detail-metric"><span>Affected UAM</span><strong>${escapeHtml(aircraft.length)}</strong><small>${escapeHtml(aircraft.join(" / ") || "--")}</small></div>
-      <div class="detail-metric detail-metric--wide"><span>Diagnosis</span><strong>${escapeHtml(isVertiport ? target.bottleneck_cause : target.diagnosis)}</strong><small>${escapeHtml(target.time_window || "--")}</small></div>
-    </div>
-  `;
-}
-
-function renderFlowCapacity() {
-  if (!flowPayload) return;
-  const summary = flowPayload.summary || {};
-  if (!selectedCapacityTarget && summary.main_bottleneck_id) {
-    selectedCapacityTarget = { id: summary.main_bottleneck_id, type: summary.main_bottleneck_type };
+  if (type === "directTo") {
+    const routePoints = collectRoutePointsFromForm(form);
+    const targetLLAs = (routePoints.length ? routePoints : routePointsFromDraft(state.actionDraftForm || {}))
+      .map((point) => ({
+        lat: asNumber(point.lat),
+        lon: asNumber(point.lon),
+        alt: asNumber(point.alt),
+        targetSpeed: asNumber(point.targetSpeed),
+      }))
+      .filter((point) => [point.lat, point.lon, point.alt, point.targetSpeed].every((value) => value !== null));
+    return {
+      type,
+      routeObjective: String(data.get("routeObjective") || "").trim(),
+      targetLLAs,
+    };
   }
-  renderFlowSummary(summary);
-  renderFlowCondition(flowPayload.analysis_condition || {});
-  renderDcbChart(flowPayload.demand_capacity_series || []);
-  renderCorridorDensity(flowPayload.corridor_density || []);
-  renderVertiportThroughput(flowPayload.vertiport_throughput || []);
-  renderDelayPropagation(flowPayload.delay_propagation || []);
-  renderBottleneckDiagnosis(flowPayload.bottleneck_diagnosis);
-  renderCapacityDetail();
-}
-
-function selectCapacityTarget(targetId, targetType) {
-  selectedCapacityTarget = { id: targetId, type: targetType };
-  renderFlowCapacity();
-}
-
-async function refreshFlowCapacityData() {
-  try {
-    const response = await fetch("/api/capacity/flow-view", { headers: { Accept: "application/json" } });
-    if (!response.ok) {
-      throw new Error(`Flow Capacity API HTTP ${response.status}`);
+  if (type === "hold") {
+    return {
+      type,
+      holdLLA: {
+        lat: asNumber(data.get("holdLat"), 0),
+        lon: asNumber(data.get("holdLon"), 0),
+        alt: asNumber(data.get("holdAlt"), 0),
+      },
+      turnDirection: String(data.get("turnDirection") || "CW"),
+      holdingRadiusM: asNumber(data.get("holdingRadiusM"), 120),
+      maxHoldingCount: asNumber(data.get("maxHoldingCount"), 1),
+    };
+  }
+  if (type === "rejoinPlan") {
+    return { type, atSeq: asNumber(data.get("atSeq"), 1) };
+  }
+  const action = {
+    type,
+    landingMode: String(data.get("landingMode") || "alternateVertiport"),
+  };
+  if (action.landingMode === "emergencyPoint") {
+    const lat = asNumber(data.get("landLat"));
+    const lon = asNumber(data.get("landLon"));
+    const alt = asNumber(data.get("landAlt"));
+    if (lat !== null && lon !== null && alt !== null) {
+      action.targetLLA = { lat, lon, alt };
     }
-    flowPayload = await response.json();
-    renderFlowCapacity();
-  } catch (error) {
-    console.error(error);
-    const container = document.querySelector("[data-capacity-detail]");
-    if (container) container.innerHTML = "<p>Flow & Capacity 데이터를 불러오지 못했습니다.</p>";
+  } else {
+    action.vertiport = String(data.get("vertiport") || "").trim();
+    action.fatoNumber = String(data.get("fatoNumber") || "").trim();
+  }
+  return action;
+}
+
+function vehicleFromActionForm(form) {
+  if (!form) return null;
+  const data = new FormData(form);
+  const aircraftId = String(data.get("aircraftId") || "").trim();
+  return aircraftId ? { aircraft_id: aircraftId } : null;
+}
+
+function currentActionCommandPayload(form = $("[data-action-command-form]")) {
+  const data = form ? new FormData(form) : new FormData();
+  const currentAction = modalActionFromForm();
+  const actions = state.modalActions.length ? state.modalActions : currentAction ? [currentAction] : [];
+  return {
+    timestamp: String(data.get("timestamp") || state.actionCommandTimestamp || new Date().toISOString()),
+    commandId: String(data.get("commandId") || state.actionCommandId || nextTacticalCommandId()),
+    aircraftId: String(data.get("aircraftId") || state.selectedAircraftId || ""),
+    reasonCode: data.get("reasonCode") || "LOSS_OF_SEPARATION_RISK",
+    actions,
+  };
+}
+
+function renderModalActionStack() {
+  const container = $("[data-modal-action-stack]");
+  if (!container) return;
+  if (!state.modalActions.length) {
+    container.innerHTML = `<span class="empty-pill">Current form selection will be saved as one action.</span>`;
+    return;
+  }
+  container.innerHTML = state.modalActions
+    .map((action, index) => `
+      <span class="action-pill">
+        ${escapeHtml(index + 1)}. ${escapeHtml(ACTION_LABELS[action.type] || action.type)}
+        <button type="button" data-modal-remove-action="${index}" aria-label="Remove action">x</button>
+      </span>
+    `)
+    .join("");
+}
+
+function renderModalActionPreview(result = null) {
+  renderModalActionStack();
+  const preview = $("[data-action-draft-preview]");
+  if (preview) preview.textContent = JSON.stringify(result || currentActionCommandPayload(), null, 2);
+  if (selectedActionType() === "directTo") {
+    syncDraftRouteVisualization(collectRoutePointsFromForm());
+  } else {
+    setDraftRouteOnMap([]);
   }
 }
 
-function findRecommendation(recommendationId) {
-  if (!decisionPayload) return null;
-  return (decisionPayload.recommendations || []).find(
-    (item) => String(item.recommendation_id) === String(recommendationId),
+function vehicleBatteryPct(vehicle = {}) {
+  const energy = vehicle.energy && typeof vehicle.energy === "object" ? vehicle.energy : {};
+  return asNumber(
+    vehicle.batteryPct ??
+      vehicle.battery_pct ??
+      vehicle.batteryRemainingPct ??
+      energy.batteryRemainingPct ??
+      energy.batteryPct ??
+      energy.battery_pct ??
+      energy.state_of_charge_pct,
   );
 }
 
-function renderDecisionSummary() {
-  if (!decisionPayload) return;
-  const baseline = decisionPayload.baseline || {};
-  const recommended = (decisionPayload.comparison || []).find((item) => item.recommended) || {};
-  const recommendedMetrics = recommended.metrics || {};
-  const handoff = decisionPayload.operation_handoff || {};
-  setText("[data-decision-summary='candidate_count']", `${decisionPayload.recommendations?.length || 0}`);
-  setText("[data-decision-summary='baseline_conflict']", `${baseline.conflict_count ?? "--"} CF`);
-  setText("[data-decision-summary='recommended_conflict']", `${recommendedMetrics.conflict_count ?? "--"} CF`);
-  setText("[data-decision-summary='handoff_status']", handoff.handoff_status || "--");
+function vehicleCollisionActive(vehicle = {}) {
+  const collision = vehicle.collision && typeof vehicle.collision === "object" ? vehicle.collision : {};
+  return Boolean(vehicle.collisionActive || collision.active || collision.hasCollision);
 }
 
-function renderRecommendationList() {
-  const list = document.querySelector("[data-recommendation-list]");
-  const recommendations = decisionPayload?.recommendations || [];
-  setText("[data-recommendation-count]", `${recommendations.length} Actions`);
-  if (!recommendations.some((item) => String(item.recommendation_id) === String(selectedRecommendationId))) {
-    selectedRecommendationId = recommendations[0]?.recommendation_id || null;
+function tacticalEvents() {
+  const events = [];
+  for (const vehicle of state.tactical?.vehicles || []) {
+    const id = vehicleId(vehicle);
+    const battery = vehicleBatteryPct(vehicle);
+    if (vehicle.stale) {
+      events.push({
+        severity: "CAUTION",
+        title: "Track stale",
+        aircraftId: id,
+        detail: `Last update age ${vehicle.age_s ?? "--"} s`,
+      });
+    }
+    if (battery !== null && battery <= 20) {
+      events.push({
+        severity: "WARNING",
+        title: "Low battery",
+        aircraftId: id,
+        detail: `${battery.toFixed(1)}% remaining`,
+      });
+    }
+    if (vehicleCollisionActive(vehicle)) {
+      events.push({
+        severity: "WARNING",
+        title: "Collision event",
+        aircraftId: id,
+        detail: "Collision flag is active in live status.",
+      });
+    }
   }
-  if (!list) return;
-  if (!recommendations.length) {
-    list.innerHTML = "<p>생성된 조치 후보가 없습니다.</p>";
+  return events;
+}
+
+function renderTacticalEvents() {
+  const container = $("[data-tactical-event-list]");
+  const events = tacticalEvents();
+  for (const countEl of $$('[data-tactical-count="events"]')) {
+    countEl.textContent = String(events.length);
+  }
+  if (!container) return;
+  if (!events.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <strong>No tactical events detected.</strong>
+        <small>This panel is reserved for live event sources. Current temporary detection uses stale, low-battery, and collision flags from 4001.</small>
+      </div>
+    `;
     return;
   }
-  list.innerHTML = recommendations
-    .map((item) => {
-      const effect = item.expected_effect || {};
+  container.innerHTML = events
+    .map((event) => `
+      <button class="tactical-event ${event.severity === "WARNING" ? "is-warning" : ""}" type="button" data-aircraft-id="${escapeHtml(event.aircraftId)}">
+        <span>
+          <strong>${escapeHtml(event.title)}</strong>
+          <small>${escapeHtml(event.aircraftId)}</small>
+        </span>
+        <span>
+          <strong>${escapeHtml(event.severity)}</strong>
+          <small>${escapeHtml(event.detail)}</small>
+        </span>
+      </button>
+    `)
+    .join("");
+}
+
+async function saveActionCommand(event) {
+  event.preventDefault();
+  await saveActionCommandForm(event.currentTarget);
+}
+
+async function saveActionCommandForm(form) {
+  const vehicle = selectedVehicle() || vehicleFromActionForm(form);
+  const status = $("[data-action-draft-status]");
+  if (!form || !vehicle) {
+    if (status) {
+      status.innerHTML = `
+        <div class="draft-status is-blocked">
+          <strong>Cannot send command.</strong>
+          <small>Aircraft context is missing. Close this modal and reopen the aircraft status.</small>
+        </div>
+      `;
+    }
+    return;
+  }
+  if (!state.modalActions.length) {
+    const action = modalActionFromForm();
+    if (action) state.modalActions.push(action);
+  }
+  const submitButton = $("[data-stage-action-command]", form);
+  if (status) {
+    status.innerHTML = `
+      <div class="draft-status">
+        <strong>Sending command...</strong>
+        <small>Submitting MSG 3003 to StateServer for VehicleModule dispatch.</small>
+      </div>
+    `;
+  }
+  if (submitButton) submitButton.disabled = true;
+  try {
+    const result = await postJson("/api/tactical/command/dispatch", currentActionCommandPayload(form));
+    state.savedActionDrafts.unshift({ createdAt: new Date().toISOString(), result });
+    persistSavedActionDrafts();
+    renderModalActionPreview(result?.payload || result);
+    if (status) status.innerHTML = renderDraftStatus(result, "Traffic management command");
+    renderActionRequestQueue();
+    if (result?.ok) {
+      setTacticalPanelOpen("actions", true);
+    }
+  } catch (error) {
+    if (status) status.innerHTML = `<div class="draft-status is-blocked"><strong>Failed to send command.</strong><small>${escapeHtml(error.message || error)}</small></div>`;
+  } finally {
+    if (submitButton) submitButton.disabled = false;
+  }
+}
+
+function renderVehicleSummary(summary = {}) {
+  const container = $("[data-vehicle-summary]");
+  if (!container) return;
+  const items = [
+    ["Live", summary.live ?? 0],
+    ["Stale", summary.stale ?? 0],
+    ["Low Battery", summary.low_battery ?? 0],
+    ["Collision", summary.collision ?? 0],
+  ];
+  container.innerHTML = items
+    .map(([label, value]) => `<span><strong>${escapeHtml(value)}</strong> ${escapeHtml(label)}</span>`)
+    .join("");
+}
+
+function renderVehicleList() {
+  const container = $("[data-vehicle-list]");
+  const vehicles = state.tactical?.vehicles || [];
+  setText("[data-vehicle-count]", `${vehicles.length} Vehicles`);
+  for (const countEl of $$('[data-tactical-count="aircraft"]')) {
+    countEl.textContent = String(vehicles.length);
+  }
+  if (!container) return;
+  if (!vehicles.length) {
+    const link = state.tactical?.data_link || {};
+    container.innerHTML = `
+      <div class="empty-state">
+        <strong>No live aircraft status is available.</strong>
+        <small>${escapeHtml(link.message_en || link.message || "Waiting for OperationModule or StateServer live track data.")}</small>
+      </div>
+    `;
+    return;
+  }
+  container.innerHTML = vehicles
+    .map((vehicle) => {
+      const id = vehicleId(vehicle);
+      const selected = id === state.selectedAircraftId;
       return `
-        <button type="button" class="recommendation-item ${String(item.recommendation_id) === String(selectedRecommendationId) ? "is-selected" : ""}" data-recommendation-id="${escapeHtml(item.recommendation_id)}">
-          <span class="status-badge ${statusClass(item.severity)}">${escapeHtml(item.severity)}</span>
-          <strong>${escapeHtml(item.title)}</strong>
-          <span>${escapeHtml(item.category)} · ${escapeHtml(item.target_type)} ${escapeHtml(item.target_id)}</span>
-          <small>${escapeHtml(effect.summary || "--")} · Score ${escapeHtml(effect.priority_score ?? "--")} · T-${escapeHtml(item.time_to_event_label || "--")}</small>
+        <button class="vehicle-row ${selected ? "is-selected" : ""}" type="button" data-aircraft-id="${escapeHtml(id)}">
+          <span>
+            <strong>${escapeHtml(id)}</strong>
+            <small>${escapeHtml(vehicle.currentWaypointId || vehicle.current_waypoint_id || "no waypoint")}</small>
+          </span>
+          <span>
+            <strong>${escapeHtml(formatSpeed(vehicle.ground_speed_mps || vehicle.speed_mps))}</strong>
+            <small>${vehicle.stale ? "STALE" : "LIVE"} / ${escapeHtml(displaySource(vehicle.source))}</small>
+          </span>
         </button>
       `;
     })
     .join("");
 }
 
-function renderEffectComparison() {
-  const container = document.querySelector("[data-effect-comparison]");
-  const scenarios = decisionPayload?.comparison || [];
-  setText("[data-comparison-count]", `${scenarios.length} Scenarios`);
-  if (!container) return;
-  if (!scenarios.length) {
-    container.innerHTML = "<p>비교 가능한 완화 시나리오가 없습니다.</p>";
-    return;
-  }
-  const maxConflict = Math.max(...scenarios.map((item) => Number(item.metrics?.conflict_count || 0)), 1);
-  const maxCapacity = Math.max(...scenarios.map((item) => Number(item.metrics?.capacity_warning_count || 0)), 1);
-  const maxDelay = Math.max(...scenarios.map((item) => Number(item.metrics?.average_delay_sec || 0)), 1);
-  container.innerHTML = scenarios
-    .map((item) => {
-      const metrics = item.metrics || {};
-      const conflictPct = Math.min(100, (Number(metrics.conflict_count || 0) / maxConflict) * 100);
-      const capacityPct = Math.min(100, (Number(metrics.capacity_warning_count || 0) / maxCapacity) * 100);
-      const delayPct = Math.min(100, (Number(metrics.average_delay_sec || 0) / maxDelay) * 100);
-      return `
-        <div class="comparison-row ${item.recommended ? "is-recommended" : ""}" data-comparison-scenario="${escapeHtml(item.scenario_id)}">
-          <div class="comparison-row__label">
-            <strong>${escapeHtml(item.label)}</strong>
-            <small>${escapeHtml(item.description)}</small>
-          </div>
-          <div class="comparison-bars" aria-label="Conflict Capacity Delay bars">
-            <div class="comparison-bar comparison-bar--conflict"><span style="width:${conflictPct.toFixed(0)}%"></span></div>
-            <div class="comparison-bar comparison-bar--capacity"><span style="width:${capacityPct.toFixed(0)}%"></span></div>
-            <div class="comparison-bar comparison-bar--delay"><span style="width:${delayPct.toFixed(0)}%"></span></div>
-          </div>
-          <div class="comparison-row__metrics">
-            <span>CF ${escapeHtml(metrics.conflict_count ?? "--")}</span>
-            <span>CAP-W ${escapeHtml(metrics.capacity_warning_count ?? "--")}</span>
-            <span>Avg ${formatDelay(metrics.average_delay_sec)}</span>
-            <span>Over ${escapeHtml(metrics.over_capacity_minutes ?? "--")}m</span>
-          </div>
-        </div>
-      `;
-    })
-    .join("");
+function renderTactical() {
+  renderVehicleSummary(state.tactical?.summary || {});
+  renderVehicleList();
+  renderTacticalEvents();
+  renderActionRequestQueue();
+  renderSelectedAircraftPanel();
+  updateTacticalDrawers();
 }
 
-function renderRecommendationDetail() {
-  const container = document.querySelector("[data-recommendation-detail]");
-  const item = findRecommendation(selectedRecommendationId);
-  setText("[data-recommendation-selected]", item ? item.recommendation_id : "--");
-  if (!container) return;
-  if (!item) {
-    container.innerHTML = "<p>조치 후보를 선택하면 예상 효과와 실행 단계가 표시됩니다.</p>";
-    return;
-  }
-  const before = item.before || {};
-  const after = item.after || {};
-  const effect = item.expected_effect || {};
-  const metricCards = [
-    ["Conflict", before.conflict_count, after.conflict_count, ""],
-    ["Capacity W", before.capacity_warning_count, after.capacity_warning_count, ""],
-    ["Avg Delay", formatDelay(before.average_delay_sec), formatDelay(after.average_delay_sec), formatSignedDelay(effect.average_delay_delta_sec)],
-    ["Max Delay", formatDelay(before.max_delay_sec), formatDelay(after.max_delay_sec), formatSignedDelay(effect.max_delay_delta_sec)],
-    ["Over Cap", `${before.over_capacity_minutes ?? "--"}m`, `${after.over_capacity_minutes ?? "--"}m`, `${effect.over_capacity_minutes_delta > 0 ? "+" : ""}${effect.over_capacity_minutes_delta ?? 0}m`],
-    ["Network D/C", formatPercent(before.network_utilization), formatPercent(after.network_utilization), `${effect.network_utilization_delta > 0 ? "+" : ""}${formatPercent(effect.network_utilization_delta)}`],
-  ];
-  container.innerHTML = `
-    <div class="recommendation-head">
-      <span class="status-badge ${statusClass(item.severity)}">${escapeHtml(item.severity)}</span>
-      <strong>${escapeHtml(item.title)}</strong>
-      <small>${escapeHtml(item.rationale)}</small>
-    </div>
-    <div class="effect-grid">
-      ${metricCards
-        .map(
-          ([label, beforeValue, afterValue, deltaValue]) => `
-            <div class="effect-metric">
-              <span>${escapeHtml(label)}</span>
-              <strong>${escapeHtml(beforeValue)} → ${escapeHtml(afterValue)}</strong>
-              <small>${escapeHtml(deltaValue || "change included")}</small>
-            </div>
-          `,
-        )
-        .join("")}
-    </div>
-    <div class="decision-columns">
-      <div>
-        <h5>Action Steps</h5>
-        <ol>${(item.action_steps || []).map((step) => `<li>${escapeHtml(step)}</li>`).join("")}</ol>
-      </div>
-      <div>
-        <h5>Risk Notes</h5>
-        <ul>${(item.risk_notes || []).map((note) => `<li>${escapeHtml(note)}</li>`).join("")}</ul>
-      </div>
-    </div>
-    <div class="intent-preview">
-      <h5>Operation Intent Preview</h5>
-      <pre>${escapeHtml(JSON.stringify(item.operation_intent || {}, null, 2))}</pre>
-    </div>
-  `;
-}
-
-function renderOperationHandoff() {
-  const container = document.querySelector("[data-operation-handoff]");
-  const handoff = decisionPayload?.operation_handoff;
-  setText("[data-operation-handoff-status]", handoff?.handoff_status || "--");
-  if (!container) return;
-  if (!handoff) {
-    container.innerHTML = "<p>OperationModule preview 정보를 불러오지 못했습니다.</p>";
-    return;
-  }
-  const actions = handoff.command_package?.actions || [];
-  container.innerHTML = `
-    <div class="handoff-status">
-      <span class="status-badge ${handoff.available ? "status-badge--NORMAL" : "status-badge--CAUTION"}">${escapeHtml(handoff.handoff_status)}</span>
-      <strong>${escapeHtml(handoff.package_id)}</strong>
-      <small>${escapeHtml(handoff.handoff_mode)} · operator confirmation required</small>
-    </div>
-    <div class="operation-package">
-      <div><span>Target</span><strong>${escapeHtml(handoff.target_module)}</strong></div>
-      <div><span>Available</span><strong>${handoff.available ? "YES" : "NO"}</strong></div>
-      <div><span>Actions</span><strong>${escapeHtml(actions.length)}</strong></div>
-      <div><span>Recommended</span><strong>${escapeHtml(handoff.recommended_scenario_id || "--")}</strong></div>
-    </div>
-    <p class="handoff-path">${escapeHtml(handoff.module_root)}</p>
-    <ul class="handoff-notes">
-      ${(handoff.notes || []).map((note) => `<li>${escapeHtml(note)}</li>`).join("")}
-    </ul>
-  `;
-}
-
-function renderReportPreview() {
-  const container = document.querySelector("[data-report-preview]");
-  const report = decisionPayload?.report;
-  setText("[data-report-id]", report?.report_id || "--");
-  if (!container) return;
-  if (!report) {
-    container.innerHTML = "<p>시나리오 결과 리포트가 없습니다.</p>";
-    return;
-  }
-  container.innerHTML = `
-    <div class="report-head">
-      <strong>${escapeHtml(report.title)}</strong>
-      <small>${escapeHtml(report.report_id)} · ${escapeHtml(formatTime(report.generated_at))}</small>
-    </div>
-    <p>${escapeHtml(report.summary)}</p>
-    <div class="report-sections">
-      ${(report.sections || [])
-        .map(
-          (section) => `
-            <section>
-              <h5>${escapeHtml(section.heading)}</h5>
-              <ul>${(section.items || []).map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>
-            </section>
-          `,
-        )
-        .join("")}
-    </div>
-  `;
-}
-
-function syncRecommendationRelatedTargets(item, { fly = true } = {}) {
-  if (!item) return;
-  if (item.related_conflict_id && trafficPayload) {
-    selectConflict(item.related_conflict_id, { fly });
-  } else if (String(item.target_type || "").toUpperCase() === "AIRCRAFT" && item.target_id) {
-    selectAircraftOnMap(item.target_id);
-  }
-  if ((item.target_type === "CORRIDOR" || item.target_type === "VERTIPORT") && flowPayload) {
-    const target = findCapacityTarget(item.target_id, item.target_type);
-    if (target) {
-      selectCapacityTarget(target.target_id, target.target_type);
-    }
+function updateTacticalDrawers() {
+  for (const drawer of $$("[data-tactical-drawer]")) {
+    const hasOpenPanel = Boolean($(".tactical-fold:not(.is-collapsed)", drawer));
+    drawer.classList.toggle("is-empty", !hasOpenPanel);
+    drawer.setAttribute("aria-hidden", hasOpenPanel ? "false" : "true");
   }
 }
 
-function selectRelatedRecommendationFromTargets(targets, { syncRelated = false } = {}) {
-  if (!decisionPayload || !targets.length) return false;
-  const targetSet = new Set(targets.map(String));
-  const recommendation = (decisionPayload.recommendations || []).find((item) => {
-    if (targetSet.has(String(item.target_id)) || targetSet.has(String(item.related_conflict_id))) return true;
-    return (item.affected_aircraft || []).some((aircraftId) => targetSet.has(String(aircraftId)));
-  });
-  if (!recommendation) return false;
-  selectRecommendation(recommendation.recommendation_id, { syncRelated });
-  return true;
-}
-
-function renderDecisionSupport({ syncRelated = false } = {}) {
-  if (!decisionPayload) return;
-  renderDecisionSummary();
-  renderRecommendationList();
-  renderEffectComparison();
-  renderRecommendationDetail();
-  renderOperationHandoff();
-  renderReportPreview();
-  if (syncRelated) {
-    syncRecommendationRelatedTargets(findRecommendation(selectedRecommendationId), { fly: true });
+function setTacticalPanelOpen(name, open) {
+  const section = $(`[data-tactical-fold="${name}"]`);
+  if (!section) return;
+  section.classList.toggle("is-collapsed", !open);
+  section.classList.toggle("is-open", open);
+  for (const button of $$(`[data-toggle-tactical-panel="${name}"]`)) {
+    button.classList.toggle("is-active", open);
+    button.setAttribute("aria-expanded", open ? "true" : "false");
   }
+  updateTacticalDrawers();
+  window.setTimeout(() => window.__PSU_MAP__?.resize?.(), 90);
 }
 
-function selectRecommendation(recommendationId, { syncRelated = true } = {}) {
-  selectedRecommendationId = recommendationId;
-  renderDecisionSupport({ syncRelated });
+function toggleTacticalPanel(name) {
+  const section = $(`[data-tactical-fold="${name}"]`);
+  if (!section) return;
+  const willOpen = section.classList.contains("is-collapsed");
+  setTacticalPanelOpen(name, willOpen);
 }
 
-async function refreshDecisionSupportData() {
+async function refreshTactical() {
   try {
-    const response = await fetch("/api/decision-support", { headers: { Accept: "application/json" } });
-    if (!response.ok) {
-      throw new Error(`Decision Support API HTTP ${response.status}`);
+    state.tactical = await fetchJson("/api/tactical/vehicles");
+    const vehicles = state.tactical.vehicles || [];
+    if (!vehicles.some((vehicle) => vehicleId(vehicle) === state.selectedAircraftId)) {
+      state.selectedAircraftId = vehicleId(vehicles[0] || {}) || null;
     }
-    decisionPayload = await response.json();
-    if (!selectedRecommendationId) {
-      selectedRecommendationId = decisionPayload.recommendations?.[0]?.recommendation_id || null;
-    }
-    renderDecisionSupport({ syncRelated: false });
+    renderTactical();
   } catch (error) {
-    console.error(error);
-    const list = document.querySelector("[data-recommendation-list]");
-    if (list) list.innerHTML = "<p>Decision Support 데이터를 불러오지 못했습니다.</p>";
+    const container = $("[data-vehicle-list]");
+    if (container) {
+      container.innerHTML = `<div class="empty-state"><strong>Failed to load live aircraft status</strong><small>${escapeHtml(error.message || error)}</small></div>`;
+    }
   }
 }
 
 function replayFrames() {
-  return replayPayload?.frames || [];
+  return state.replay?.frames || [];
 }
 
 function findReplayFrame(step) {
-  return replayFrames().find((frame) => Number(frame.step) === Number(step));
+  return replayFrames().find((frame) => Number(frame.step) === Number(step)) || null;
 }
 
 function replayProgressPct() {
   const frames = replayFrames();
   if (!frames.length) return 0;
-  const index = frames.findIndex((frame) => Number(frame.step) === Number(selectedReplayStep));
+  const index = frames.findIndex((frame) => Number(frame.step) === Number(state.selectedReplayStep));
   if (frames.length === 1) return 100;
   return Math.max(0, Math.min(100, (index / (frames.length - 1)) * 100));
 }
 
+function removedReplayNotice() {
+  return (state.replay?.removed_demo || state.report?.removed_demo || state.validation?.removed_demo || [])[0] || null;
+}
+
+function demoRemovedBox(notice, fallback) {
+  const message = notice?.message || fallback || "The previous static demo content was removed.";
+  const replacement = notice?.replacement || "This view waits for real execution logs or analysis output.";
+  return `
+    <div class="demo-removed-box">
+      <strong>${escapeHtml(message)}</strong>
+      <small>${escapeHtml(replacement)}</small>
+    </div>
+  `;
+}
+
 function renderReplaySummary() {
-  const summary = replayPayload?.summary || {};
-  const playback = replayPayload?.playback || {};
-  const validation = validationPayload?.completion || {};
-  setText("[data-replay-summary='frame_count']", `${playback.frame_count ?? replayFrames().length}`);
-  setText("[data-replay-summary='candidate_count']", `${summary.decision_candidates ?? "--"}`);
-  setText("[data-replay-summary='report_id']", summary.report_id || "--");
-  setText("[data-replay-summary='validation']", validation.percentage != null ? `${validation.percentage}%` : "--");
-  const progress = document.querySelector("[data-replay-progress]");
-  if (progress) {
-    progress.style.width = `${replayProgressPct().toFixed(0)}%`;
-  }
+  const summary = state.replay?.summary || {};
+  const playback = state.replay?.playback || {};
+  const completion = state.validation?.completion || {};
+  setText("[data-replay-summary='frame_count']", playback.frame_count ?? replayFrames().length ?? 0);
+  setText("[data-replay-summary='candidate_count']", summary.decision_candidates ?? 0);
+  setText("[data-replay-summary='report_id']", summary.report_id || "REMOVED");
+  setText("[data-replay-summary='validation']", completion.percentage != null ? `${completion.percentage}%` : "REMOVED");
+  const progress = $("[data-replay-progress]");
+  if (progress) progress.style.width = `${replayProgressPct().toFixed(0)}%`;
 }
 
 function renderReplayTimeline() {
-  const container = document.querySelector("[data-replay-timeline]");
+  const container = $("[data-replay-timeline]");
   const frames = replayFrames();
   setText("[data-replay-count]", `${frames.length} Frames`);
   if (!container) return;
   if (!frames.length) {
-    container.innerHTML = "<p>리플레이 프레임이 없습니다.</p>";
+    container.innerHTML = demoRemovedBox(removedReplayNotice(), "The previous replay timeline demo was removed.");
     return;
   }
   container.innerHTML = frames
-    .map(
-      (frame) => `
-        <button type="button" class="replay-step ${Number(frame.step) === Number(selectedReplayStep) ? "is-selected" : ""}" data-replay-step="${escapeHtml(frame.step)}">
-          <span class="replay-step__index">${escapeHtml(frame.step)}</span>
-          <span class="status-badge ${statusClass(frame.severity)}">${escapeHtml(frame.severity)}</span>
-          <strong>${escapeHtml(frame.time_label)} · ${escapeHtml(frame.title)}</strong>
-          <small>${escapeHtml(frame.screen)} · ${escapeHtml(frame.operator_focus)}</small>
-        </button>
-      `,
-    )
+    .map((frame) => `
+      <button type="button" class="replay-step ${Number(frame.step) === Number(state.selectedReplayStep) ? "is-selected" : ""}" data-replay-step="${escapeHtml(frame.step)}">
+        <span class="replay-step__index">${escapeHtml(frame.step)}</span>
+        <span class="status-badge status-badge--${escapeHtml(frame.severity || "NORMAL")}">${escapeHtml(frame.severity || "NORMAL")}</span>
+        <strong>${escapeHtml(frame.time_label || formatTime(frame.timestamp))} / ${escapeHtml(frame.title || "Replay frame")}</strong>
+        <small>${escapeHtml(frame.screen || "--")} / ${escapeHtml(frame.operator_focus || "--")}</small>
+      </button>
+    `)
     .join("");
 }
 
 function renderReplayDetail() {
-  const container = document.querySelector("[data-replay-detail]");
-  const frame = findReplayFrame(selectedReplayStep);
-  setText("[data-replay-selected]", frame ? `Step ${frame.step} / ${frame.screen}` : "--");
+  const container = $("[data-replay-detail]");
+  const frame = findReplayFrame(state.selectedReplayStep);
+  setText("[data-replay-selected]", frame ? `Step ${frame.step}` : "--");
   if (!container) return;
   if (!frame) {
-    container.innerHTML = "<p>리플레이 프레임을 선택하거나 Play를 누르면 상세 설명이 표시됩니다.</p>";
+    container.innerHTML = demoRemovedBox(removedReplayNotice(), "The previous current-frame demo was removed.");
     return;
   }
-  const metrics = frame.metrics || {};
-  const targets = frame.related_targets || [];
   container.innerHTML = `
     <div class="replay-frame-head">
-      <span class="status-badge ${statusClass(frame.severity)}">${escapeHtml(frame.severity)}</span>
-      <strong>${escapeHtml(frame.title)}</strong>
-      <small>${escapeHtml(formatTime(frame.timestamp))} · ${escapeHtml(frame.screen)} · ${escapeHtml(frame.operator_focus)}</small>
+      <span class="status-badge status-badge--${escapeHtml(frame.severity || "NORMAL")}">${escapeHtml(frame.severity || "NORMAL")}</span>
+      <strong>${escapeHtml(frame.title || "Replay frame")}</strong>
+      <small>${escapeHtml(formatTime(frame.timestamp))} / ${escapeHtml(frame.screen || "--")} / ${escapeHtml(frame.operator_focus || "--")}</small>
     </div>
-    <p>${escapeHtml(frame.description)}</p>
-    <div class="replay-metric-grid">
-      <div><span>Active</span><strong>${escapeHtml(metrics.active_flights ?? "--")}</strong></div>
-      <div><span>Conflict</span><strong>${escapeHtml(metrics.conflict_count ?? "--")}</strong></div>
-      <div><span>Avg Delay</span><strong>${formatDelay(metrics.average_delay_sec)}</strong></div>
-      <div><span>Capacity W</span><strong>${escapeHtml(metrics.capacity_warning_count ?? "--")}</strong></div>
-      <div><span>Network D/C</span><strong>${metrics.network_utilization != null ? formatPercent(metrics.network_utilization) : "--"}</strong></div>
-      <div><span>Over Cap</span><strong>${metrics.over_capacity_minutes != null ? `${escapeHtml(metrics.over_capacity_minutes)}m` : "--"}</strong></div>
-    </div>
-    <div class="replay-targets">
-      <h5>Related Targets</h5>
-      <p>${targets.map((target) => `<span>${escapeHtml(target)}</span>`).join("") || "<span>--</span>"}</p>
-    </div>
+    <p>${escapeHtml(frame.description || "")}</p>
   `;
 }
 
 function renderReportExport() {
-  const container = document.querySelector("[data-report-export]");
-  const report = reportPayload || decisionPayload?.report || {};
-  setText("[data-report-export-status]", report.report_id || replayPayload?.summary?.report_id || "--");
+  const container = $("[data-report-export]");
+  setText("[data-report-export-status]", state.report?.report_id || "REMOVED");
   if (!container) return;
-  const exports = {
-    json: "/api/reports/scenario-result",
-    markdown: "/api/reports/scenario-result.md",
-    html: "/api/reports/scenario-result.html",
-  };
   container.innerHTML = `
     <div class="report-export-head">
-      <strong>${escapeHtml(report.title || "PSU Scenario Result Report")}</strong>
-      <small>${escapeHtml(report.report_id || replayPayload?.summary?.report_id || "--")}</small>
+      <strong>${escapeHtml(state.report?.title || "PSU Scenario Result Report")}</strong>
+      <small>${escapeHtml(state.report?.report_id || "removed-demo-data")}</small>
     </div>
     <div class="report-links">
-      <a href="${exports.json}" target="_blank" rel="noreferrer">JSON</a>
-      <a href="${exports.markdown}" target="_blank" rel="noreferrer">Markdown</a>
-      <a href="${exports.html}" target="_blank" rel="noreferrer">HTML</a>
+      <a href="/api/reports/scenario-result" target="_blank" rel="noreferrer">JSON</a>
+      <a href="/api/reports/scenario-result.md" target="_blank" rel="noreferrer">Markdown</a>
+      <a href="/api/reports/scenario-result.html" target="_blank" rel="noreferrer">HTML</a>
     </div>
-    <p>운영자 승인 전 자동 실행 없이 시나리오 결과와 Decision Support 비교를 출력합니다.</p>
+    ${state.report?.removed ? demoRemovedBox(removedReplayNotice(), "The previous report export demo was removed.") : ""}
   `;
 }
 
 function renderValidationBoard() {
-  const container = document.querySelector("[data-validation-board]");
-  const sections = validationPayload?.checks || [];
-  const completion = validationPayload?.completion || {};
+  const container = $("[data-validation-board]");
+  const completion = state.validation?.completion || {};
+  const checks = state.validation?.checks || [];
   setText("[data-validation-count]", `${completion.passed ?? 0}/${completion.total ?? 0} PASS`);
   if (!container) return;
-  if (!sections.length) {
-    container.innerHTML = "<p>최종 검증 결과가 없습니다.</p>";
+  if (!checks.length) {
+    container.innerHTML = demoRemovedBox(removedReplayNotice(), "The previous final validation demo was removed.");
     return;
   }
-  container.innerHTML = `
-    <div class="validation-summary">
-      <strong>${escapeHtml(completion.percentage ?? 0)}%</strong>
-      <span>PASS ${escapeHtml(completion.passed ?? 0)} · WARN ${escapeHtml(completion.warnings ?? 0)} · TOTAL ${escapeHtml(completion.total ?? 0)}</span>
-    </div>
-    <div class="validation-sections">
-      ${sections
-        .map(
-          (section) => `
-            <section>
-              <h5>${escapeHtml(section.section)}</h5>
-              <ul>
-                ${(section.items || [])
-                  .map(
-                    (item) => `
-                      <li>
-                        <span class="status-badge ${item.status === "PASS" ? "status-badge--NORMAL" : "status-badge--CAUTION"}">${escapeHtml(item.status)}</span>
-                        <strong>${escapeHtml(item.name)}</strong>
-                        <small>${escapeHtml(item.detail)}</small>
-                      </li>
-                    `,
-                  )
-                  .join("")}
-              </ul>
-            </section>
-          `,
-        )
-        .join("")}
-    </div>
-    <div class="known-limits">
-      <h5>Known Limits</h5>
-      <ul>${(validationPayload.known_limits || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
-    </div>
-  `;
+  container.innerHTML = checks
+    .map((section) => `
+      <section>
+        <h5>${escapeHtml(section.section || "Validation")}</h5>
+        <ul>
+          ${(section.items || []).map((item) => `<li>${escapeHtml(item.name || "")} / ${escapeHtml(item.status || "")}</li>`).join("")}
+        </ul>
+      </section>
+    `)
+    .join("");
 }
 
 function renderReplayReport() {
@@ -1273,302 +2198,412 @@ function renderReplayReport() {
   renderValidationBoard();
 }
 
-function applyReplayFrameNavigation(frame) {
-  if (!frame) return;
-  const tabId = frame.recommended_tab || screenToTabId(frame.screen);
-  setActiveTab(tabId, true);
-  if (tabId === "traffic-map" && frame.conflict_id) {
-    selectConflict(frame.conflict_id, { fly: true });
-    window.setTimeout(() => window.__PSU_MAP__?.resize?.(), 80);
-  }
-  if (tabId === "flow-capacity") {
-    const focus = frame.map_focus || {};
-    const target = findCapacityTarget(focus.id) || (frame.related_targets || []).map((target) => findCapacityTarget(target)).find(Boolean);
-    if (target) {
-      selectCapacityTarget(target.target_id, target.target_type);
+async function refreshReplay() {
+  try {
+    const [replay, validation, report] = await Promise.all([
+      fetchJson("/api/replay"),
+      fetchJson("/api/final-validation"),
+      fetchJson("/api/reports/scenario-result"),
+    ]);
+    state.replay = replay;
+    state.validation = validation;
+    state.report = report;
+    if (!findReplayFrame(state.selectedReplayStep)) {
+      state.selectedReplayStep = replayFrames()[0]?.step || 1;
     }
-  }
-  if (tabId === "decision-support") {
-    const recommendationId = (frame.related_targets || []).find((target) => String(target).startsWith("DS-"));
-    if (recommendationId) {
-      selectRecommendation(recommendationId, { syncRelated: false });
-    }
-  }
-}
-
-function selectReplayStep(step, { navigate = false } = {}) {
-  const frames = replayFrames();
-  if (!frames.length) return;
-  const first = frames[0].step;
-  const last = frames[frames.length - 1].step;
-  selectedReplayStep = Math.max(Number(first), Math.min(Number(last), Number(step)));
-  renderReplayReport();
-  if (navigate) {
-    applyReplayFrameNavigation(findReplayFrame(selectedReplayStep));
+    renderReplayReport();
+  } catch (error) {
+    setText("[data-replay-count]", "API error");
+    const container = $("[data-replay-timeline]");
+    if (container) container.innerHTML = `<p>Failed to load post-operation review data: ${escapeHtml(error.message || error)}</p>`;
   }
 }
 
 function stopReplay() {
-  if (replayTimer) {
-    window.clearInterval(replayTimer);
-    replayTimer = null;
+  if (state.replayTimer) {
+    window.clearInterval(state.replayTimer);
+    state.replayTimer = null;
   }
 }
 
-function startReplay() {
-  stopReplay();
+function selectReplayStep(step) {
   const frames = replayFrames();
   if (!frames.length) return;
-  applyReplayFrameNavigation(findReplayFrame(selectedReplayStep));
-  replayTimer = window.setInterval(() => {
-    const currentIndex = frames.findIndex((frame) => Number(frame.step) === Number(selectedReplayStep));
-    if (currentIndex >= frames.length - 1) {
-      stopReplay();
-      setActiveTab("replay-report", true);
-      return;
-    }
-    selectReplayStep(frames[currentIndex + 1].step, { navigate: true });
-  }, replayIntervalMs);
+  const first = Number(frames[0].step);
+  const last = Number(frames[frames.length - 1].step);
+  state.selectedReplayStep = Math.max(first, Math.min(last, Number(step)));
+  renderReplayReport();
 }
 
 function handleReplayControl(control) {
   const frames = replayFrames();
   if (!frames.length) return;
-  const currentIndex = frames.findIndex((frame) => Number(frame.step) === Number(selectedReplayStep));
+  const currentIndex = frames.findIndex((frame) => Number(frame.step) === Number(state.selectedReplayStep));
   if (control === "play") {
-    startReplay();
-    return;
-  }
-  if (control === "pause") {
     stopReplay();
+    state.replayTimer = window.setInterval(() => {
+      const index = frames.findIndex((frame) => Number(frame.step) === Number(state.selectedReplayStep));
+      if (index >= frames.length - 1) {
+        stopReplay();
+        return;
+      }
+      selectReplayStep(frames[index + 1].step);
+    }, state.replayIntervalMs);
     return;
   }
+  stopReplay();
+  if (control === "pause") return;
   if (control === "reset") {
-    stopReplay();
-    selectedReplayStep = frames[0].step;
-    renderReplayReport();
-    setActiveTab("replay-report", true);
-    return;
+    state.selectedReplayStep = frames[0].step;
+  } else if (control === "next") {
+    state.selectedReplayStep = (frames[Math.min(frames.length - 1, currentIndex + 1)] || frames[0]).step;
+  } else if (control === "prev") {
+    state.selectedReplayStep = (frames[Math.max(0, currentIndex - 1)] || frames[0]).step;
   }
-  if (control === "next") {
-    stopReplay();
-    const next = frames[Math.min(frames.length - 1, currentIndex + 1)] || frames[0];
-    selectReplayStep(next.step, { navigate: true });
-    return;
-  }
-  if (control === "prev") {
-    stopReplay();
-    const prev = frames[Math.max(0, currentIndex - 1)] || frames[0];
-    selectReplayStep(prev.step, { navigate: true });
-  }
-}
-
-async function refreshReplayReportData() {
-  try {
-    const [replayResponse, validationResponse, reportResponse] = await Promise.all([
-      fetch("/api/replay", { headers: { Accept: "application/json" } }),
-      fetch("/api/final-validation", { headers: { Accept: "application/json" } }),
-      fetch("/api/reports/scenario-result", { headers: { Accept: "application/json" } }),
-    ]);
-    if (!replayResponse.ok || !validationResponse.ok || !reportResponse.ok) {
-      throw new Error("Replay/Validation API 응답 실패");
-    }
-    replayPayload = await replayResponse.json();
-    validationPayload = await validationResponse.json();
-    reportPayload = await reportResponse.json();
-    if (!findReplayFrame(selectedReplayStep)) {
-      selectedReplayStep = replayFrames()[0]?.step || 1;
-    }
-    renderReplayReport();
-  } catch (error) {
-    console.error(error);
-    const timeline = document.querySelector("[data-replay-timeline]");
-    if (timeline) timeline.innerHTML = "<p>Replay / Report 데이터를 불러오지 못했습니다.</p>";
-  }
-}
-
-async function refreshScenarioData() {
-  try {
-    const overviewResponse = await fetch("/api/overview/dashboard", { headers: { Accept: "application/json" } });
-    if (!overviewResponse.ok) {
-      throw new Error("시나리오 데이터 API 응답 실패");
-    }
-    const overview = await overviewResponse.json();
-    const kpis = overview.kpis || {};
-
-    setText("[data-scenario-name]", overview.scenario?.name || "--");
-    setText("[data-scenario-time]", formatTime(overview.generated_at));
-    setText("[data-top-priority]", overview.top_priority_event?.title || "--");
-    updateKpiCards(kpis);
-    renderPriorityEvents(overview.priority_events || []);
-    renderVertiports(overview.vertiport_summary || []);
-    renderTrafficTrend(overview.traffic_trend || [], overview.traffic_summary || {});
-    renderOperationalSnapshot(overview);
-    renderMiniMapSummary(overview.map_summary || {});
-  } catch (error) {
-    console.error(error);
-  }
+  renderReplayReport();
 }
 
 async function bootMap() {
-  if (mapReady) {
+  if (state.mapReady) {
+    window.__PSU_MAP__?.resize?.();
     return;
   }
+  const statusEl = $("[data-map-status]");
   try {
-    const map = await initPsuMap({ statusEl: mapStatus });
-    mapReady = Boolean(map);
-    if (document.querySelector('[data-panel="traffic-map"]:not([hidden])')) {
-      window.setTimeout(() => window.__PSU_MAP__?.resize?.(), 80);
-    }
-    window.setTimeout(() => {
-      if (selectedConflictId) {
-        selectConflictOnMap(selectedConflictId, { fly: false });
-      }
-    }, 1200);
+    const map = await initPsuMap({ statusEl });
+    state.mapReady = Boolean(map);
+    window.setTimeout(() => window.__PSU_MAP__?.resize?.(), 160);
   } catch (error) {
-    if (mapStatus) {
-      mapStatus.textContent = error instanceof Error ? error.message : String(error);
-    }
+    if (statusEl) statusEl.textContent = error instanceof Error ? error.message : String(error);
   }
 }
 
-for (const tab of tabs) {
-  tab.addEventListener("click", () => {
-    const tabId = tab.dataset.tab || "overview";
-    setActiveTab(tabId, true);
-    if (window.location.hash !== `#${tabId}`) {
-      window.history.replaceState(null, "", `#${tabId}`);
+function bindEvents() {
+  for (const tab of $$("[data-tab]")) {
+    tab.addEventListener("click", () => setActiveTab(tab.dataset.tab || "strategic-plans"));
+  }
+  window.addEventListener("hashchange", () => setActiveTab(tabIdFromHash(), false));
+
+  $("[data-theme-toggle]")?.addEventListener("click", () => {
+    applyTheme(normalizedTheme(document.documentElement.dataset.theme) === "light" ? "dark" : "light", { persist: true });
+  });
+
+  $("[data-refresh-strategic]")?.addEventListener("click", refreshStrategic);
+  $("[data-refresh-tactical]")?.addEventListener("click", refreshTactical);
+
+  for (const button of $$("[data-plan-group]")) {
+    button.addEventListener("click", () => {
+      state.planGroup = button.dataset.planGroup || "byDestination";
+      for (const item of $$("[data-plan-group]")) item.classList.toggle("is-active", item === button);
+      renderPlanGroups();
+    });
+  }
+
+  document.addEventListener("click", (event) => {
+    if (event.target.closest("[data-modal-close]")) {
+      closeInfoModal();
+      return;
     }
-    if (tabId === "traffic-map") {
-      window.setTimeout(() => window.__PSU_MAP__?.resize?.(), 50);
+    const planRow = event.target.closest("[data-plan-key]");
+    if (planRow) {
+      state.selectedPlanKey = planRow.dataset.planKey;
+      renderStrategic();
+      openPlanModal(selectedPlan());
+      return;
+    }
+    if (event.target.closest("[data-open-plan-modification]")) {
+      openPlanModificationForm();
+      return;
+    }
+    if (event.target.closest("[data-back-plan-detail]")) {
+      openPlanModal(selectedPlan());
+      return;
+    }
+    const stagePlanButton = event.target.closest("[data-stage-plan-request]");
+    if (stagePlanButton) {
+      event.preventDefault();
+      const form = stagePlanButton.closest("[data-plan-modification-form]");
+      if (form) savePlanModificationForm(form);
+      return;
+    }
+    const tacticalPanelToggle = event.target.closest("[data-toggle-tactical-panel]");
+    if (tacticalPanelToggle) {
+      toggleTacticalPanel(tacticalPanelToggle.dataset.toggleTacticalPanel || "");
+      return;
+    }
+    const planOption = event.target.closest("[data-plan-option-value]");
+    if (planOption) {
+      const name = planOption.dataset.planOptionName || "";
+      const value = planOption.dataset.planOptionValue || "";
+      const form = planOption.closest("[data-plan-modification-form]");
+      const field = form?.elements?.namedItem(name);
+      if (field && "value" in field) field.value = value;
+      for (const card of $$(`[data-plan-option-name="${name}"]`, form || document)) {
+        card.classList.toggle("is-selected", card === planOption);
+      }
+      renderPlanModificationPreview();
+      return;
+    }
+    const planDraftItem = event.target.closest("[data-plan-draft-index]");
+    if (planDraftItem) {
+      openPlanDraftModal(planDraftItem.dataset.planDraftIndex);
+      return;
+    }
+    const actionRequestItem = event.target.closest("[data-action-request-index]");
+    if (actionRequestItem) {
+      openActionRequestModal(actionRequestItem.dataset.actionRequestIndex);
+      return;
+    }
+    if (event.target.closest("[data-open-action-command]")) {
+      openActionCommandForm();
+      return;
+    }
+    const vehicleRow = event.target.closest(".vehicle-row[data-aircraft-id], .tactical-event[data-aircraft-id]");
+    if (vehicleRow) {
+      state.selectedAircraftId = vehicleRow.dataset.aircraftId;
+      state.aircraftPanelOpen = true;
+      state.aircraftPanelMode = "status";
+      renderTactical();
+      selectAircraftOnMap(state.selectedAircraftId, { fly: false });
+      return;
+    }
+    if (event.target.closest("[data-back-aircraft-detail]")) {
+      finishMapPick();
+      setDraftRouteOnMap([]);
+      state.aircraftPanelOpen = true;
+      state.aircraftPanelMode = "status";
+      renderSelectedAircraftPanel();
+      return;
+    }
+    if (event.target.closest("[data-close-aircraft-panel]")) {
+      finishMapPick();
+      setDraftRouteOnMap([]);
+      state.aircraftPanelOpen = false;
+      state.aircraftPanelMode = "status";
+      renderSelectedAircraftPanel();
+      return;
+    }
+    const reasonCard = event.target.closest("[data-modal-reason-pick]");
+    if (reasonCard) {
+      const reason = reasonCard.dataset.modalReasonPick || "LOSS_OF_SEPARATION_RISK";
+      const firstAction = actionOptionsForReason(reason)[0]?.[0] || "directTo";
+      state.actionDraftForm = { ...captureActionDraftForm(), reasonCode: reason, actionType: firstAction };
+      const reasonSelect = $("[data-modal-reason-code]");
+      const actionSelect = $("[data-modal-action-type]");
+      if (reasonSelect) reasonSelect.value = reason;
+      if (actionSelect) actionSelect.value = firstAction;
+      syncModalActionOptions({ preserveCurrent: false });
+      renderModalActionFields();
+      applyActionDraftForm();
+      renderActionQuickSelectors();
+      renderModalActionPreview();
+      return;
+    }
+    const actionCard = event.target.closest("[data-modal-action-pick]");
+    if (actionCard) {
+      const actionType = actionCard.dataset.modalActionPick || "directTo";
+      state.actionDraftForm = { ...captureActionDraftForm(), actionType };
+      const actionSelect = $("[data-modal-action-type]");
+      if (actionSelect) actionSelect.value = actionType;
+      renderModalActionFields();
+      applyActionDraftForm();
+      renderActionQuickSelectors();
+      renderModalActionPreview();
+      return;
+    }
+    if (event.target.closest("[data-start-route-draw]")) {
+      startRouteDraw();
+      return;
+    }
+    if (event.target.closest("[data-clear-route-points]")) {
+      clearRoutePoints();
+      return;
+    }
+    const removeRoutePoint = event.target.closest("[data-remove-route-point]");
+    if (removeRoutePoint) {
+      state.actionDraftForm = captureActionDraftForm();
+      const removeIndex = Number(removeRoutePoint.dataset.removeRoutePoint);
+      const points = routePointsFromDraft(state.actionDraftForm);
+      if (points.length > 1 && Number.isInteger(removeIndex)) {
+        points.splice(removeIndex, 1);
+        state.actionDraftForm = { ...state.actionDraftForm, routePoints: points };
+        renderModalActionFields();
+        applyActionDraftForm();
+        renderModalActionPreview();
+      }
+      return;
+    }
+    const mapPickButton = event.target.closest("[data-map-pick]");
+    if (mapPickButton) {
+      startMapPick(mapPickButton.dataset.mapPick || "target");
+      return;
+    }
+    if (event.target.closest("[data-map-pick-cancel]")) {
+      cancelMapPick();
+      return;
+    }
+    if (event.target.closest("[data-map-pick-finish]")) {
+      finishMapPick();
+      return;
+    }
+    const modalRemoveAction = event.target.closest("[data-modal-remove-action]");
+    if (modalRemoveAction) {
+      state.modalActions.splice(Number(modalRemoveAction.dataset.modalRemoveAction), 1);
+      renderModalActionPreview();
+      return;
+    }
+    if (event.target.closest("[data-modal-add-action]")) {
+      const action = modalActionFromForm();
+      if (action) state.modalActions.push(action);
+      renderModalActionPreview();
+      return;
+    }
+    if (event.target.closest("[data-modal-clear-actions]")) {
+      state.modalActions = [];
+      renderModalActionPreview();
+      return;
+    }
+    const stageActionButton = event.target.closest("[data-stage-action-command]");
+    if (stageActionButton) {
+      event.preventDefault();
+      const form = stageActionButton.closest("[data-action-command-form]");
+      if (form) saveActionCommandForm(form);
+      return;
+    }
+    const replayStep = event.target.closest("[data-replay-step]");
+    if (replayStep) {
+      stopReplay();
+      selectReplayStep(replayStep.dataset.replayStep);
+      return;
+    }
+    const replayControl = event.target.closest("[data-replay-control]");
+    if (replayControl) {
+      handleReplayControl(replayControl.dataset.replayControl);
     }
   });
-}
 
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      if (state.mapPick) {
+        cancelMapPick();
+        return;
+      }
+      closeInfoModal();
+      return;
+    }
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const item = event.target.closest("[data-plan-key], [data-aircraft-id], [data-replay-step], [data-replay-control]");
+    if (!item) return;
+    event.preventDefault();
+    item.click();
+  });
 
-if (themeToggle) {
-  themeToggle.addEventListener("click", () => {
-    const currentTheme = normalizedTheme(document.documentElement.dataset.theme);
-    applyTheme(currentTheme === "light" ? "dark" : "light", { persist: true });
+  document.addEventListener("change", (event) => {
+    const landingModeSelect = event.target.closest("[data-landing-mode]");
+    if (landingModeSelect) {
+      state.actionDraftForm = {
+        ...captureActionDraftForm(),
+        landingMode: landingModeSelect.value || "alternateVertiport",
+      };
+      renderModalActionFields();
+      renderModalActionPreview();
+      return;
+    }
+    const vertiportSelect = event.target.closest("[data-vertiport-select]");
+    if (vertiportSelect) {
+      state.actionDraftForm = {
+        ...captureActionDraftForm(),
+        landingMode: "alternateVertiport",
+        vertiport: vertiportSelect.value,
+      };
+      renderModalActionFields();
+      renderModalActionPreview();
+      return;
+    }
+    if (event.target.closest("[data-modal-reason-code]")) {
+      state.actionDraftForm = captureActionDraftForm();
+      syncModalActionOptions({ preserveCurrent: false });
+      renderModalActionFields();
+      renderActionQuickSelectors();
+      renderModalActionPreview();
+      return;
+    }
+    if (event.target.closest("[data-modal-action-type]")) {
+      state.actionDraftForm = captureActionDraftForm();
+      renderModalActionFields();
+      renderActionQuickSelectors();
+      renderModalActionPreview();
+    }
+  });
+
+  document.addEventListener("input", (event) => {
+    if (event.target.closest("[data-plan-modification-form]")) {
+      renderPlanModificationPreview();
+      return;
+    }
+    if (event.target.closest("[data-action-command-form]")) {
+      state.actionDraftForm = captureActionDraftForm();
+      renderModalActionPreview();
+    }
+  });
+
+  document.addEventListener("submit", (event) => {
+    if (event.target.matches("[data-plan-modification-form]")) {
+      savePlanModification(event);
+      return;
+    }
+    if (event.target.matches("[data-action-command-form]")) {
+      saveActionCommand(event);
+    }
+  });
+
+  $("[data-replay-speed]")?.addEventListener("change", (event) => {
+    state.replayIntervalMs = Number(event.target.value || 1600);
+    if (state.replayTimer) {
+      handleReplayControl("play");
+    }
+  });
+
+  window.addEventListener("psu:aircraft-selected", (event) => {
+    if (state.mapPick) return;
+    const aircraftId = event.detail?.aircraftId;
+    if (!aircraftId) return;
+    state.selectedAircraftId = String(aircraftId);
+    state.aircraftPanelOpen = true;
+    state.aircraftPanelMode = "status";
+    renderTactical();
+  });
+
+  window.addEventListener("psu:map-click", (event) => {
+    if (!state.mapPick) return;
+    const lat = Number(event.detail?.lat);
+    const lon = Number(event.detail?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    completeMapPick({ lat, lon, alt: selectedVehicle()?.altitude ?? 0 });
+  });
+
+  window.addEventListener("psu:vertiport-selected", (event) => {
+    if (!state.mapPick || state.mapPick.prefix !== "land") return;
+    const vertiport = String(event.detail?.vertiportId || event.detail?.name || "").trim();
+    const coords = vertiportCoords(vertiport);
+    if (!coords) return;
+    completeMapPick(coords, {
+      landingMode: "alternateVertiport",
+      vertiport,
+    });
   });
 }
-
-document.addEventListener("click", (event) => {
-  const filter = event.target.closest("[data-traffic-filter]");
-  if (filter) {
-    trafficFilter = filter.dataset.trafficFilter || "ALL";
-    for (const chip of document.querySelectorAll("[data-traffic-filter]")) {
-      chip.classList.toggle("is-active", chip === filter);
-    }
-    setTrafficMapFilter(trafficFilter);
-    renderTrafficWorkspace({ preserveSelection: true });
-    return;
-  }
-
-  const flightItem = event.target.closest("[data-aircraft-id]");
-  if (flightItem) {
-    selectAircraft(flightItem.dataset.aircraftId, { fly: true });
-    return;
-  }
-
-  const timelineItem = event.target.closest("[data-conflict-id]");
-  if (timelineItem) {
-    selectConflict(timelineItem.dataset.conflictId, { fly: true });
-    return;
-  }
-
-  const capacityItem = event.target.closest("[data-capacity-target]");
-  if (capacityItem) {
-    selectCapacityTarget(capacityItem.dataset.capacityTarget, capacityItem.dataset.capacityType);
-    return;
-  }
-
-  const recommendationItem = event.target.closest("[data-recommendation-id]");
-  if (recommendationItem) {
-    selectRecommendation(recommendationItem.dataset.recommendationId, { syncRelated: true });
-    return;
-  }
-
-  const replayStep = event.target.closest("[data-replay-step]");
-  if (replayStep) {
-    stopReplay();
-    selectReplayStep(replayStep.dataset.replayStep, { navigate: false });
-    return;
-  }
-
-  const replayControl = event.target.closest("[data-replay-control]");
-  if (replayControl) {
-    handleReplayControl(replayControl.dataset.replayControl);
-    return;
-  }
-
-  const item = event.target.closest("[data-recommended-screen]");
-  if (!item) return;
-  const tabId = screenToTabId(item.dataset.recommendedScreen);
-  setActiveTab(tabId, true);
-  if (tabId === "traffic-map") {
-    const targets = String(item.dataset.relatedTargets || "").split(",").filter(Boolean);
-    selectRelatedConflictFromTargets(targets, { fly: true });
-    window.setTimeout(() => window.__PSU_MAP__?.resize?.(), 80);
-  }
-  if (tabId === "flow-capacity") {
-    const targets = String(item.dataset.relatedTargets || "").split(",").filter(Boolean);
-    const selected = targets.find((target) => findCapacityTarget(target));
-    if (selected) {
-      const target = findCapacityTarget(selected);
-      selectCapacityTarget(target.target_id, target.target_type);
-    }
-  }
-  if (tabId === "decision-support") {
-    const targets = String(item.dataset.relatedTargets || "").split(",").filter(Boolean);
-    selectRelatedRecommendationFromTargets(targets, { syncRelated: true });
-  }
-});
-
-document.addEventListener("keydown", (event) => {
-  if (event.key !== "Enter" && event.key !== " ") return;
-  const item = event.target.closest("[data-recommended-screen], [data-conflict-id], [data-aircraft-id], [data-traffic-filter], [data-capacity-target], [data-recommendation-id], [data-replay-step], [data-replay-control]");
-  if (!item) return;
-  event.preventDefault();
-  item.click();
-});
-
-document.addEventListener("change", (event) => {
-  const speed = event.target.closest("[data-replay-speed]");
-  if (!speed) return;
-  replayIntervalMs = Number(speed.value || 1600);
-  if (replayTimer) {
-    startReplay();
-  }
-});
-
-window.addEventListener("psu:conflict-selected", (event) => {
-  const conflictId = event.detail?.conflictId;
-  if (conflictId) {
-    selectConflict(conflictId, { fly: false });
-  }
-});
-
-window.addEventListener("psu:aircraft-selected", (event) => {
-  const aircraftId = event.detail?.aircraftId;
-  if (aircraftId) {
-    selectAircraft(aircraftId, { fly: false });
-  }
-});
 
 initTheme();
-setActiveTab(tabIdFromHash());
-window.addEventListener("hashchange", () => setActiveTab(tabIdFromHash()));
+loadSavedPlanDrafts();
+loadSavedActionDrafts();
+bindEvents();
+setActiveTab(tabIdFromHash(), false);
 refreshStatus();
-refreshScenarioData();
-refreshTrafficData();
-refreshFlowCapacityData();
-refreshDecisionSupportData();
-refreshReplayReportData();
-bootMap();
+refreshStrategic();
+refreshTactical();
+refreshReplay();
+
 window.setInterval(refreshStatus, 10_000);
-window.setInterval(refreshScenarioData, 10_000);
-window.setInterval(refreshTrafficData, 10_000);
-window.setInterval(refreshFlowCapacityData, 10_000);
-window.setInterval(refreshDecisionSupportData, 10_000);
-window.setInterval(refreshReplayReportData, 10_000);
+window.setInterval(refreshStrategic, 10_000);
+window.setInterval(refreshTactical, 3_000);

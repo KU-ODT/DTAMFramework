@@ -1,0 +1,159 @@
+{
+  "flightPlanNumber": 501003,
+  "planVersion": 1,
+  "planStatus": "active",
+  "aircraftId": "UAM0006",
+  "departure": {
+    "vertiport": "목동",
+    "std": "20:37:18",
+    "depGateNumber": "G1",
+    "eobt": "20:37:18",
+    "depFatoNumber": "F1",
+    "etot": "20:43:24"
+  },
+  "enRoute": [
+    {
+      "seq": 1,
+      "phase": "A",
+      "startLLA": {
+        "lat": 37.526343,
+        "lon": 126.876243,
+        "alt": 0.0
+      },
+      "endLLA": {
+        "lat": 37.526343,
+        "lon": 126.876243,
+        "alt": 0.0
+      },
+      "targetSpeed": 3.0
+    },
+    {
+      "seq": 2,
+      "phase": "B",
+      "startLLA": {
+        "lat": 37.526343,
+        "lon": 126.876243,
+        "alt": 0.0
+      },
+      "endLLA": {
+        "lat": 37.526343,
+        "lon": 126.876243,
+        "alt": 15.0
+      },
+      "targetSpeed": 10.0
+    },
+    {
+      "seq": 3,
+      "phase": "C",
+      "startLLA": {
+        "lat": 37.526343,
+        "lon": 126.876243,
+        "alt": 15.0
+      },
+      "endLLA": {
+        "lat": 37.524198,
+        "lon": 126.882758,
+        "alt": 100.0
+      },
+      "targetSpeed": 36.0
+    },
+    {
+      "seq": 4,
+      "phase": "E",
+      "startLLA": {
+        "lat": 37.524198,
+        "lon": 126.882758,
+        "alt": 100.0
+      },
+      "endLLA": {
+        "lat": 37.517916,
+        "lon": 126.90183,
+        "alt": 305.0
+      },
+      "targetSpeed": 43.96
+    },
+    {
+      "seq": 5,
+      "phase": "G",
+      "startLLA": {
+        "lat": 37.517916,
+        "lon": 126.90183,
+        "alt": 305.0
+      },
+      "endLLA": {
+        "lat": 37.515965,
+        "lon": 126.907756,
+        "alt": 241.31
+      },
+      "targetSpeed": 36.0
+    },
+    {
+      "seq": 6,
+      "phase": "G",
+      "startLLA": {
+        "lat": 37.515965,
+        "lon": 126.907756,
+        "alt": 241.31
+      },
+      "endLLA": {
+        "lat": 37.52343,
+        "lon": 126.918435,
+        "alt": 100.0
+      },
+      "targetSpeed": 36.0
+    },
+    {
+      "seq": 7,
+      "phase": "I",
+      "startLLA": {
+        "lat": 37.52343,
+        "lon": 126.918435,
+        "alt": 100.0
+      },
+      "endLLA": {
+        "lat": 37.526513,
+        "lon": 126.922845,
+        "alt": 15.0
+      },
+      "targetSpeed": 30.0
+    },
+    {
+      "seq": 8,
+      "phase": "J",
+      "startLLA": {
+        "lat": 37.526513,
+        "lon": 126.922845,
+        "alt": 15.0
+      },
+      "endLLA": {
+        "lat": 37.526513,
+        "lon": 126.922845,
+        "alt": 0.0
+      },
+      "targetSpeed": 10.0
+    },
+    {
+      "seq": 9,
+      "phase": "K",
+      "startLLA": {
+        "lat": 37.526513,
+        "lon": 126.922845,
+        "alt": 0.0
+      },
+      "endLLA": {
+        "lat": 37.526513,
+        "lon": 126.922845,
+        "alt": 0.0
+      },
+      "targetSpeed": 3.0
+    }
+  ],
+  "arrival": {
+    "vertiport": "여의도",
+    "sta": "20:51:59",
+    "arrGateNumber": "G2",
+    "eibt": "20:51:59",
+    "arrFatoNumber": "F1",
+    "eldt": "20:45:31"
+  }
+}

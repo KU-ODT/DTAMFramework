@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parent
 EXTENSION_ROOT = ROOT.parent
 FRAMEWORK_ROOT = EXTENSION_ROOT.parent
 DTAMSDK_ROOT = FRAMEWORK_ROOT / "DTAMSDK"
+WEB_ASSET_VERSION = "psu-console-v39"
 
 for extra in (str(FRAMEWORK_ROOT), str(DTAMSDK_ROOT)):
     if extra not in sys.path:
@@ -91,11 +92,12 @@ def main() -> None:
         print(f"[PSU] port {requested_port} is busy; using {args.port}.")
 
     url = f"http://{args.host}:{args.port}"
+    browser_url = f"{url}/?v={WEB_ASSET_VERSION}"
     print(f"[PSU] GUI  : {url}")
     print(f"[PSU] root : {ROOT}")
 
     if not args.no_browser:
-        threading.Timer(1.0, lambda: open_browser(url, fullscreen=args.fullscreen)).start()
+        threading.Timer(1.0, lambda: open_browser(browser_url, fullscreen=args.fullscreen)).start()
 
     import uvicorn
 

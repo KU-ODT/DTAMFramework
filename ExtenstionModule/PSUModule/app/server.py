@@ -15,7 +15,7 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 
@@ -25,21 +25,14 @@ from .services.operational_environment import (
     load_operational_environment,
     operational_environment_map_layers,
 )
-from .services.scenario_data import (
-    capacity_summary,
-    decision_support_payload,
-    flow_capacity_payload,
-    list_scenarios,
-    load_scenario,
-    overview_payload,
-    priority_events,
-    final_validation_payload,
-    replay_payload,
-    scenario_result_report_payload,
-    scenario_metadata,
-    traffic_conflict_payload,
+from .services.psu_icd_gateway import (
+    build_3002_draft,
+    build_3003_draft,
+    dispatch_3002_command,
+    dispatch_3003_command,
+    load_scheduled_flights,
+    summarize_vehicle_snapshot,
 )
-
 
 APP_DIR = Path(__file__).resolve().parent
 MODULE_ROOT = APP_DIR.parent
@@ -57,6 +50,59 @@ DEFAULT_CENTER_LAT = 37.5665
 DEFAULT_START_ZOOM = 10.85
 KST = ZoneInfo("Asia/Seoul")
 
+REMOVED_DEMO_SECTIONS: dict[str, dict[str, str]] = {
+    "scenario": {
+        "title": "Scenario demo dataset removed",
+        "previous": "static waypoints, corridors, vertiports, flight plans, tracks, conflicts, capacity metrics, events, and trend demo data",
+        "replacement": "Only live integrated data and real map/environment resources are displayed.",
+    },
+    "flight_plans": {
+        "title": "Flight plan demo removed",
+        "previous": "static sample flight plans from the demo JSON",
+        "replacement": "The console displays only received flight plan data from the StateServer.",
+    },
+    "vertiport_status": {
+        "title": "Vertiport status demo removed",
+        "previous": "static FATO, gate, queue, delay, and status values from the demo JSON",
+        "replacement": "Dedicated live vertiport state is not generated until a real source is connected.",
+    },
+    "corridor_status": {
+        "title": "Corridor status demo removed",
+        "previous": "static corridor capacity, occupancy, density, and status values from the demo JSON",
+        "replacement": "Only node and link geometry from the operational environment is displayed.",
+    },
+    "conflicts": {
+        "title": "Conflict demo removed",
+        "previous": "static predicted conflict, severity, and suggested action demo values",
+        "replacement": "Live collision/event consumption is not generated until a real event source is connected.",
+    },
+    "capacity": {
+        "title": "Capacity analysis demo removed",
+        "previous": "static demand-capacity, bottleneck, and delay propagation demo analysis",
+        "replacement": "Capacity analysis results are hidden until a real analysis engine is connected.",
+    },
+    "decision": {
+        "title": "Decision support demo removed",
+        "previous": "static rulebook recommendations, before/after comparison, and preview package",
+        "replacement": "Recommended actions are not generated until a real decision engine and dispatch path are connected.",
+    },
+    "replay_report": {
+        "title": "Replay and report demo removed",
+        "previous": "stored scenario timeline, replay frames, report, and final validation demo output",
+        "replacement": "Replay and reports are not generated until real execution logs or analysis output are connected.",
+    },
+    "events": {
+        "title": "Priority event demo removed",
+        "previous": "static priority event and operator focus values from the demo JSON",
+        "replacement": "Event lists stay empty until a real event stream is connected.",
+    },
+    "traffic_trend": {
+        "title": "Traffic trend demo removed",
+        "previous": "static active, delay, and conflict trend values from the demo JSON",
+        "replacement": "Trend charts stay empty until real-time trend aggregation is connected.",
+    },
+}
+
 
 def _server_time() -> dict[str, str]:
     now = datetime.now(tz=KST)
@@ -67,77 +113,330 @@ def _server_time() -> dict[str, str]:
     }
 
 
-def _scenario_with_live_tracks() -> dict[str, object]:
-    """Return scenario context with live ICD 4001 tracks only.
-
-    Static demo track positions are intentionally removed so the PSU console does
-    not display fake aircraft when DT World/StateServer has not delivered fresh
-    4001 data.  Scenario analytics can still use their static datasets through
-    routes that call ``load_scenario()`` directly.
-    """
-    scenario = load_scenario()
-    live_tracks = get_live_gateway().live_tracks(include_stale=False)
-
-    flight_plans = scenario.get("flight_plans", [])
-    plan_by_aircraft = {
-        str(item.get("aircraft_id") or item.get("aircraftId") or ""): item
-        for item in flight_plans
-        if isinstance(item, dict)
+def _removed_notice(section_id: str) -> dict[str, str]:
+    section = REMOVED_DEMO_SECTIONS[section_id]
+    previous = section["previous"]
+    return {
+        "id": section_id,
+        "status": "removed",
+        "title": section["title"],
+        "previous": previous,
+        "message": f"Previously this used {previous}; it has been removed.",
+        "replacement": section["replacement"],
     }
 
-    merged_tracks: list[dict[str, object]] = []
-    for live in live_tracks:
-        aircraft_id = str(live.get("aircraft_id") or live.get("aircraftId") or "")
+
+def _removed_not_found(section_id: str, item_id: str) -> HTTPException:
+    notice = _removed_notice(section_id)
+    return HTTPException(
+        status_code=404,
+        detail={
+            "id": item_id,
+            "message": notice["message"],
+            "replacement": notice["replacement"],
+        },
+    )
+
+
+def _live_tracks() -> list[dict[str, object]]:
+    return get_live_gateway().live_tracks(include_stale=False)
+
+
+def _removed_sections(*section_ids: str) -> list[dict[str, str]]:
+    return [_removed_notice(section_id) for section_id in section_ids]
+
+
+def _live_metadata() -> dict[str, object]:
+    tracks = _live_tracks()
+    return {
+        "scenario_id": "LIVE-DTAM-PSU",
+        "name": "Live DTAM PSU Console",
+        "description": "Demo scenario data removed. PSU displays only live tracks and real map/environment resources.",
+        "schema_version": "live-only",
+        "created_at": "",
+        "current_time": _server_time()["iso"],
+        "counts": {
+            "waypoints": 0,
+            "corridors": 0,
+            "vertiports": 0,
+            "flight_plans": 0,
+            "track_states": len(tracks),
+            "conflict_events": 0,
+            "capacity_metrics": 0,
+            "event_logs": 0,
+            "traffic_trend": 0,
+        },
+        "removed_demo": _removed_sections("scenario"),
+    }
+
+
+def _live_flights() -> list[dict[str, object]]:
+    flights: list[dict[str, object]] = []
+    for track in _live_tracks():
+        aircraft_id = str(track.get("aircraft_id") or track.get("aircraftId") or "").strip()
         if not aircraft_id:
             continue
-        base = dict(live)
-        plan = plan_by_aircraft.get(aircraft_id) or {}
-        base.setdefault("aircraft_id", aircraft_id)
-        base.setdefault("flight_status", "ACTIVE")
-        base.setdefault("status", "ACTIVE")
-        base.setdefault("severity", "NORMAL")
-        if not base.get("flight_plan_id") and plan:
-            base["flight_plan_id"] = plan.get("flight_plan_id")
-        if not base.get("route_id") and plan:
-            base["route_id"] = plan.get("route_id")
-        if not base.get("origin_vertiport") and plan:
-            base["origin_vertiport"] = plan.get("origin_vertiport")
-        if not base.get("destination_vertiport") and plan:
-            base["destination_vertiport"] = plan.get("destination_vertiport")
-        merged_tracks.append(base)
+        flights.append(
+            {
+                "flight_plan_id": track.get("flight_plan_id") or f"LIVE-{aircraft_id}",
+                "aircraft_id": aircraft_id,
+                "operator_id": track.get("operator_id") or "DTAM",
+                "route_id": track.get("route_id") or "",
+                "current_corridor_id": track.get("current_corridor_id") or "",
+                "current_corridor_name": track.get("current_corridor_name") or "Live track",
+                "origin_vertiport": track.get("origin_vertiport") or "",
+                "origin_name": None,
+                "destination_vertiport": track.get("destination_vertiport") or "",
+                "destination_name": None,
+                "waypoints": [],
+                "planned_departure_time": None,
+                "planned_arrival_time": None,
+                "eta": track.get("timestamp") or track.get("received_at"),
+                "delay_sec": 0,
+                "planned_altitude": track.get("altitude"),
+                "planned_speed": track.get("ground_speed"),
+                "status": track.get("flight_status") or track.get("status") or "ACTIVE",
+                "track": track,
+                "is_active": str(track.get("flight_status") or track.get("status") or "").upper() in {"ACTIVE", "CONNECTED"},
+                "conflict_count": 0,
+                "severity": "NORMAL",
+                "related_conflicts": [],
+                "source": track.get("source") or "Live Feed",
+            }
+        )
+    return flights
 
-    scenario["track_states"] = merged_tracks
-    scenario["live_4001"] = get_live_gateway().vehicle_snapshot(include_stale=True)
-    notes = list(scenario.get("source_notes") or [])
-    if merged_tracks:
-        notes.append("Live ICD 4001 vehicle positions merged from DTAM StateServer/OperationModule cache.")
-    else:
-        notes.append("No fresh ICD 4001 vehicle positions; static demo aircraft suppressed on PSU map.")
-    scenario["source_notes"] = notes
-    return scenario
+
+def _overview_payload() -> dict[str, object]:
+    env = load_operational_environment()
+    tracks = _live_tracks()
+    return {
+        "scenario": _live_metadata(),
+        "kpis": {
+            "active_uam": len(tracks),
+            "pending_intent": 0,
+            "conflict_alert": 0,
+            "capacity_alert": 0,
+            "average_delay_sec": 0,
+            "max_delay_sec": 0,
+            "off_nominal_event": 0,
+            "data_link_health": _live_data_link_label(),
+        },
+        "status_summary": {
+            "event_severity": {},
+            "vertiport_status": {},
+            "corridor_status": {},
+            "flight_plan_status": {},
+            "track_status": {"ACTIVE": len(tracks)} if tracks else {},
+        },
+        "traffic_summary": {
+            "peak_active_flights": len(tracks),
+            "peak_conflict_count": 0,
+            "peak_average_delay_sec": 0,
+            "trend_points": 0,
+        },
+        "map_summary": {
+            "track_count": len(tracks),
+            "route_count": 0,
+            "vertiport_count": len(env.get("vertiports") or []),
+            "corridor_count": len(env.get("corridors") or []),
+            "conflict_count": 0,
+            "actual_track_count": len(tracks),
+            "warning_corridors": 0,
+        },
+        "top_priority_event": None,
+        "capacity_hotspots": [],
+        "critical_vertiports": [],
+        "priority_events": [],
+        "vertiport_summary": [],
+        "traffic_trend": [],
+        "removed_demo": _removed_sections(
+            "events",
+            "vertiport_status",
+            "traffic_trend",
+            "flight_plans",
+            "conflicts",
+            "capacity",
+        ),
+        "generated_at": _server_time()["iso"],
+    }
 
 
+def _traffic_payload() -> dict[str, object]:
+    flights = _live_flights()
+    tracks = [flight["track"] for flight in flights]
+    return {
+        "scenario": _live_metadata(),
+        "flights": flights,
+        "tracks": tracks,
+        "conflicts": [],
+        "timeline": [],
+        "summary": {
+            "flight_count": len(flights),
+            "active_track_count": len(tracks),
+            "active_flight_count": sum(1 for item in flights if item.get("is_active")),
+            "conflict_count": 0,
+            "warning_count": 0,
+            "caution_count": 0,
+        },
+        "data_link": get_live_gateway().status(),
+        "live_mode": "icd-4001",
+        "removed_demo": _removed_sections("flight_plans", "conflicts"),
+        "generated_at": _server_time()["iso"],
+    }
 
 
-def _traffic_live_scenario() -> dict[str, object]:
-    """Traffic Map tab payload: live aircraft/conflicts only.
+def _tactical_vehicle_payload() -> dict[str, object]:
+    snapshot = get_live_gateway().vehicle_snapshot(include_stale=True)
+    vehicles = snapshot.get("vehicles") if isinstance(snapshot.get("vehicles"), list) else []
+    return {
+        "message_id": "4001",
+        "vehicles": vehicles,
+        "tracks": _live_tracks(),
+        "summary": summarize_vehicle_snapshot(snapshot),
+        "data_link": get_live_gateway().status(),
+        "snapshot": {
+            "source": snapshot.get("source"),
+            "transport": snapshot.get("transport"),
+            "last_received_at": snapshot.get("last_received_at"),
+            "state_server": snapshot.get("state_server"),
+            "operation_status": snapshot.get("operation_status"),
+        },
+        "generated_at": _server_time()["iso"],
+    }
 
-    If no fresh 4001 aircraft exists, suppress demo flight plans and demo
-    conflicts so the traffic tab does not imply real-time data is present.
-    """
-    scenario = _scenario_with_live_tracks()
-    if not scenario.get("track_states"):
-        scenario["flight_plans"] = []
-        scenario["conflict_events"] = []
-    return scenario
+
+def _capacity_removed_payload() -> dict[str, object]:
+    return {
+        "removed": True,
+        "scenario": _live_metadata(),
+        "analysis_condition": {
+            "time_window_start": "",
+            "time_window_end": "",
+            "interval_min": 0,
+            "target_scope": "Removed demo data",
+            "scenario_mode": "removed-demo-data",
+            "generated_at": _server_time()["iso"],
+        },
+        "summary": {
+            "total_demand": 0,
+            "total_capacity": 0,
+            "network_utilization": 0,
+            "warning_count": 0,
+            "caution_count": 0,
+            "max_utilization": 0,
+            "main_bottleneck_id": None,
+            "main_bottleneck_type": None,
+            "main_bottleneck_cause": None,
+            "delay_event_count": 0,
+        },
+        "demand_capacity_series": [],
+        "corridor_density": [],
+        "vertiport_throughput": [],
+        "delay_propagation": [],
+        "bottleneck_diagnosis": None,
+        "capacity_events": [],
+        "removed_demo": _removed_sections("capacity", "corridor_status", "vertiport_status"),
+        "generated_at": _server_time()["iso"],
+    }
+
+
+def _decision_removed_payload() -> dict[str, object]:
+    return {
+        "removed": True,
+        "scenario": _live_metadata(),
+        "analysis_mode": {
+            "phase": "live-only",
+            "layer": "decision-support",
+            "automation_level": "removed-demo-data",
+            "operator_authority": "not-generated",
+            "optimization_engine": "not-connected",
+            "generated_at": _server_time()["iso"],
+        },
+        "baseline": {},
+        "recommendations": [],
+        "comparison": [],
+        "operation_handoff": None,
+        "report": None,
+        "removed_demo": _removed_sections("decision"),
+        "generated_at": _server_time()["iso"],
+    }
+
+
+def _replay_removed_payload() -> dict[str, object]:
+    return {
+        "removed": True,
+        "scenario": _live_metadata(),
+        "playback": {
+            "mode": "removed-demo-data",
+            "start_time": "",
+            "end_time": "",
+            "frame_count": 0,
+            "default_interval_ms": 1600,
+            "speed_options": [],
+            "operator_controls": [],
+        },
+        "summary": {
+            "initial_active_flights": len(_live_tracks()),
+            "conflict_events": 0,
+            "capacity_events": 0,
+            "decision_candidates": 0,
+            "recommended_scenario": None,
+            "report_id": None,
+        },
+        "frames": [],
+        "removed_demo": _removed_sections("replay_report"),
+        "generated_at": _server_time()["iso"],
+    }
+
+
+def _validation_removed_payload() -> dict[str, object]:
+    return {
+        "removed": True,
+        "scenario": _live_metadata(),
+        "phase": "live-only",
+        "completion": {
+            "passed": 0,
+            "warnings": 0,
+            "total": 0,
+            "percentage": 0,
+        },
+        "checks": [],
+        "known_limits": [notice["message"] for notice in _removed_sections("replay_report", "decision", "capacity")],
+        "removed_demo": _removed_sections("replay_report"),
+        "generated_at": _server_time()["iso"],
+    }
+
+
+def _report_removed_payload() -> dict[str, object]:
+    notice = _removed_notice("replay_report")
+    markdown = f"# PSU Report Removed\n\n{notice['message']}\n\n{notice['replacement']}\n"
+    html = (
+        "<!doctype html><html lang=\"ko\"><head><meta charset=\"utf-8\"><title>PSU Report Removed</title></head>"
+        f"<body><h1>PSU Report Removed</h1><p>{notice['message']}</p><p>{notice['replacement']}</p></body></html>"
+    )
+    return {
+        "removed": True,
+        "report_id": None,
+        "title": "PSU Report Removed",
+        "summary": notice["message"],
+        "format": "removed-demo-data",
+        "exports": {},
+        "replay_summary": _replay_removed_payload()["summary"],
+        "validation_summary": _validation_removed_payload()["completion"],
+        "markdown": markdown,
+        "html": html,
+        "removed_demo": [notice],
+        "generated_at": _server_time()["iso"],
+    }
 
 def _live_data_link_label() -> str:
     status = get_live_gateway().status()
     stream = status.get("vehicle_stream") if isinstance(status.get("vehicle_stream"), dict) else {}
     if stream.get("fresh_vehicle_count"):
-        return "LIVE 4001"
+        return "LIVE"
     if status.get("state_server", {}).get("connected"):
-        return "WAIT 4001"
+        return "WAITING"
     return "OFFLINE"
 
 
@@ -203,9 +502,26 @@ def create_app() -> FastAPI:
     if WEB_DIR.is_dir():
         app.mount("/static", StaticFiles(directory=str(WEB_DIR)), name="static")
 
+    @app.middleware("http")
+    async def no_cache_web_assets(request: Request, call_next):
+        response = await call_next(request)
+        path = request.url.path
+        if path == "/" or path.startswith("/static/"):
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        return response
+
     @app.get("/", include_in_schema=False)
     async def index() -> FileResponse:
-        return FileResponse(WEB_DIR / "index.html")
+        return FileResponse(
+            WEB_DIR / "index.html",
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )
 
     @app.get("/favicon.ico", include_in_schema=False)
     async def favicon() -> Response:
@@ -218,7 +534,7 @@ def create_app() -> FastAPI:
             "status": "ok",
             "module": "PSU",
             "name": "PSU Monitoring SW",
-            "phase": "8/8 final replay report integration",
+            "phase": "live-only demo-data-removed",
             "time": _server_time(),
         }
 
@@ -231,7 +547,8 @@ def create_app() -> FastAPI:
             "default_port": 8120,
             "static_root": str(WEB_DIR),
             "map": _map_config_payload(app),
-            "scenario": scenario_metadata(load_scenario()),
+            "scenario": _live_metadata(),
+            "removed_demo": _removed_sections("scenario"),
         }
 
     @app.get("/api/map/config")
@@ -265,7 +582,7 @@ def create_app() -> FastAPI:
                 "name": "PSU Monitoring SW",
                 "role": "Provider of Services for UAM",
                 "version": "0.1.0",
-                "phase": "8/8 final replay report integration",
+                "phase": "live-only demo-data-removed",
             },
             "paths": {
                 "module_root": str(MODULE_ROOT),
@@ -278,28 +595,31 @@ def create_app() -> FastAPI:
                 "mbtiles_exists": MBTILES_PATH.is_file(),
             },
             "capabilities": {
-                "overview_shell": False,
-                "overview_view_integrated": True,
-                "traffic_map_shell": False,
-                "traffic_conflict_view_integrated": True,
-                "flow_capacity_shell": False,
-                "flow_capacity_view_integrated": True,
-                "decision_support_integrated": True,
-                "mitigation_evaluation_integrated": True,
-                "operation_module_preview_integrated": True,
-                "scenario_report_integrated": True,
-                "replay_report_view_integrated": True,
-                "report_export_integrated": True,
-                "final_validation_integrated": True,
+                "overview_shell": True,
+                "overview_view_integrated": False,
+                "traffic_map_shell": True,
+                "traffic_conflict_view_integrated": False,
+                "flow_capacity_shell": True,
+                "flow_capacity_view_integrated": False,
+                "decision_support_integrated": False,
+                "mitigation_evaluation_integrated": False,
+                "operation_module_preview_integrated": False,
+                "scenario_report_integrated": False,
+                "replay_report_view_integrated": False,
+                "report_export_integrated": False,
+                "final_validation_integrated": False,
                 "mission_map_assets_integrated": True,
                 "analysis_engine_integrated": False,
-                "scenario_data_integrated": True,
-                "operation_module_launch_integrated": True,
+                "scenario_data_integrated": False,
+                "operation_module_launch_integrated": False,
+                "strategic_3001_view_integrated": True,
+                "strategic_3002_dispatch_integrated": True,
                 "live_4001_data_integrated": True,
+                "tactical_3003_dispatch_integrated": True,
                 "dt_world_status_integrated": True,
             },
             "map": _map_config_payload(app),
-            "scenario": scenario_metadata(_scenario_with_live_tracks()),
+            "scenario": _live_metadata(),
             "connected": live_status.get("connected"),
             "dt_world": live_status.get("dt_world"),
             "state_server": live_status.get("state_server"),
@@ -307,6 +627,7 @@ def create_app() -> FastAPI:
             "vehicle_stream": live_status.get("vehicle_stream"),
             "data_link_health": live_status.get("data_link_health"),
             "message": live_status.get("message"),
+            "removed_demo": list(_removed_sections(*REMOVED_DEMO_SECTIONS.keys())),
             "time": _server_time(),
         }
 
@@ -323,248 +644,271 @@ def create_app() -> FastAPI:
         return {
             "tabs": [
                 {
-                    "id": "overview",
-                    "label": "Overview",
-                    "status": "integrated",
-                    "description": "전체 운항 상황, KPI, 우선 이벤트를 표시하는 메인 화면",
+                    "id": "strategic-plans",
+                    "label": "Strategic Planning",
+                    "status": "flight-planning",
+                    "description_live": "Received flight plans and strategic modification command dispatch.",
                 },
                 {
-                    "id": "traffic-map",
-                    "label": "Traffic Map / Conflict",
-                    "status": "integrated",
-                    "description": "지도 기반 실시간 위치, 경로, 전략적 예측 충돌 분석 화면",
-                },
-                {
-                    "id": "flow-capacity",
-                    "label": "Flow & Capacity",
-                    "status": "integrated",
-                    "description": "수요-수용량, 회랑 밀도, 버티포트 병목 분석 화면",
-                },
-                {
-                    "id": "decision-support",
-                    "label": "Decision Support",
-                    "status": "integrated",
-                    "description": "조치 후보 생성, 전후 효과 비교, 리포트 및 OperationModule preview",
+                    "id": "tactical-monitoring",
+                    "label": "Operations Monitoring",
+                    "status": "live-operations",
+                    "description_live": "Live aircraft status and tactical command dispatch.",
                 },
                 {
                     "id": "replay-report",
                     "label": "Replay / Report",
-                    "status": "integrated",
-                    "description": "시연용 시나리오 리플레이, 최종 리포트 출력, 통합 검증 결과",
+                    "status": "removed-demo",
+                    "description_live": "Static replay, report, and validation demo removed. Placeholder retained.",
                 },
             ]
         }
 
+    @app.get("/api/psu/console-flow")
+    async def psu_console_flow() -> dict[str, object]:
+        return {
+            "flow": [
+                "Scheduled flight plan",
+                "receive/store/validate/display",
+                "strategic conflict or capacity issue",
+                "strategic modification command dispatch",
+                "new flight plan version updates active plan",
+                "live aircraft status",
+                "live position/status/conformance/event detection",
+                "tactical event",
+                "action command dispatch",
+                "execution monitoring/log",
+            ],
+            "dispatch": {"strategic_modification": "StateServer /api/msg/3002 accept/store", "action_command": "StateServer /api/msg/3003 -> vehicle"},
+        }
+
+    @app.get("/api/strategic/plans")
+    async def strategic_plans() -> dict[str, object]:
+        return load_scheduled_flights()
+
+    @app.post("/api/strategic/modification/draft")
+    async def strategic_modification_draft(request: Request) -> dict[str, object]:
+        payload = await request.json()
+        return build_3002_draft(payload if isinstance(payload, dict) else {})
+
+    @app.post("/api/strategic/modification/dispatch")
+    async def strategic_modification_dispatch(request: Request) -> dict[str, object]:
+        payload = await request.json()
+        return dispatch_3002_command(payload if isinstance(payload, dict) else {})
+
+    @app.get("/api/tactical/vehicles")
+    async def tactical_vehicles() -> dict[str, object]:
+        return _tactical_vehicle_payload()
+
+    @app.post("/api/test/4001")
+    async def test_4001_live_track(request: Request) -> dict[str, object]:
+        body = await request.json()
+        payload = body.get("payload") if isinstance(body, dict) and isinstance(body.get("payload"), dict) else body
+        if not isinstance(payload, dict):
+            raise HTTPException(status_code=422, detail="payload must be a MSG 4001 JSON object")
+        source = str(body.get("source") or "PSUTestEmulator/4001") if isinstance(body, dict) else "PSUTestEmulator/4001"
+        result = get_live_gateway().inject_4001_payload(payload, source=source)
+        if not result.get("ok"):
+            raise HTTPException(status_code=422, detail="No valid aircraft found in MSG 4001 payload")
+        return {
+            "ok": True,
+            "message_id": "4001",
+            "mode": "psu-local-test",
+            **result,
+        }
+
+    @app.post("/api/tactical/command/draft")
+    async def tactical_command_draft(request: Request) -> dict[str, object]:
+        payload = await request.json()
+        return build_3003_draft(payload if isinstance(payload, dict) else {})
+
+    @app.post("/api/tactical/command/dispatch")
+    async def tactical_command_dispatch(request: Request) -> dict[str, object]:
+        payload = await request.json()
+        return dispatch_3003_command(payload if isinstance(payload, dict) else {})
+
     @app.get("/api/scenarios")
     async def scenarios() -> dict[str, object]:
-        return {"scenarios": list_scenarios()}
+        return {"scenarios": [], "removed_demo": _removed_sections("scenario")}
 
     @app.get("/api/scenario")
     async def scenario() -> dict[str, object]:
-        return load_scenario()
+        return {
+            "removed": True,
+            "scenario": _live_metadata(),
+            "removed_demo": list(_removed_sections(*REMOVED_DEMO_SECTIONS.keys())),
+        }
 
     @app.get("/api/scenario/metadata")
     async def scenario_meta() -> dict[str, object]:
-        return scenario_metadata(_scenario_with_live_tracks())
+        return _live_metadata()
 
     @app.get("/api/overview")
     async def overview() -> dict[str, object]:
-        payload = overview_payload(_scenario_with_live_tracks())
-        payload.setdefault("kpis", {})["data_link_health"] = _live_data_link_label()
-        return payload
+        return _overview_payload()
 
     @app.get("/api/overview/dashboard")
     async def overview_dashboard() -> dict[str, object]:
-        payload = overview_payload(_scenario_with_live_tracks())
-        payload.setdefault("kpis", {})["data_link_health"] = _live_data_link_label()
-        return payload
+        return _overview_payload()
 
     @app.get("/api/flight-plans")
     async def flight_plans() -> list[dict[str, object]]:
-        return load_scenario().get("flight_plans", [])
+        return list(load_scheduled_flights().get("plans") or [])
 
     @app.get("/api/flight-plans/{flight_plan_id}")
     async def flight_plan_detail(flight_plan_id: str) -> dict[str, object]:
-        for item in load_scenario().get("flight_plans", []):
-            if item.get("flight_plan_id") == flight_plan_id:
-                return item
+        for plan in load_scheduled_flights().get("plans") or []:
+            if str(plan.get("key")) == flight_plan_id or str(plan.get("flightPlanNumber")) == flight_plan_id:
+                return plan
         raise HTTPException(status_code=404, detail=f"Unknown flight_plan_id: {flight_plan_id}")
 
     @app.get("/api/tracks/current")
     async def current_tracks() -> list[dict[str, object]]:
-        return _scenario_with_live_tracks().get("track_states", [])
+        return _live_tracks()
 
     @app.get("/api/tracks/{aircraft_id}")
     async def track_detail(aircraft_id: str) -> dict[str, object]:
-        for item in _scenario_with_live_tracks().get("track_states", []):
+        for item in _live_tracks():
             if item.get("aircraft_id") == aircraft_id:
                 return item
         raise HTTPException(status_code=404, detail=f"Unknown aircraft_id: {aircraft_id}")
 
     @app.get("/api/vertiports")
     async def vertiports() -> list[dict[str, object]]:
-        return load_scenario().get("vertiports", [])
+        return []
 
     @app.get("/api/vertiports/state")
     async def vertiport_state() -> list[dict[str, object]]:
-        return load_scenario().get("vertiports", [])
+        return []
 
     @app.get("/api/vertiports/{vertiport_id}")
     async def vertiport_detail(vertiport_id: str) -> dict[str, object]:
-        for item in load_scenario().get("vertiports", []):
-            if item.get("vertiport_id") == vertiport_id:
-                return item
-        raise HTTPException(status_code=404, detail=f"Unknown vertiport_id: {vertiport_id}")
+        raise _removed_not_found("vertiport_status", vertiport_id)
 
     @app.get("/api/corridors")
     async def corridors() -> list[dict[str, object]]:
-        return load_scenario().get("corridors", [])
+        return []
 
     @app.get("/api/conflicts")
     async def conflicts() -> list[dict[str, object]]:
-        return load_scenario().get("conflict_events", [])
+        return []
 
     @app.get("/api/conflicts/{conflict_id}")
     async def conflict_detail(conflict_id: str) -> dict[str, object]:
-        for item in load_scenario().get("conflict_events", []):
-            if item.get("conflict_id") == conflict_id:
-                return item
-        raise HTTPException(status_code=404, detail=f"Unknown conflict_id: {conflict_id}")
+        raise _removed_not_found("conflicts", conflict_id)
 
     @app.get("/api/traffic/conflict-view")
     async def traffic_conflict_view() -> dict[str, object]:
-        payload = traffic_conflict_payload(_traffic_live_scenario())
-        payload["data_link"] = get_live_gateway().status()
-        payload["live_mode"] = "icd-4001"
-        return payload
+        return _traffic_payload()
 
     @app.get("/api/traffic-map/summary")
     async def traffic_map_summary() -> dict[str, object]:
-        payload = traffic_conflict_payload(_traffic_live_scenario())
-        payload["data_link"] = get_live_gateway().status()
-        payload["live_mode"] = "icd-4001"
-        return payload
+        return _traffic_payload()
 
     @app.get("/api/capacity/summary")
     async def capacity() -> dict[str, object]:
-        return capacity_summary(load_scenario())
+        return _capacity_removed_payload()
 
     @app.get("/api/capacity/flow-view")
     async def capacity_flow_view() -> dict[str, object]:
-        return flow_capacity_payload(load_scenario())
+        return _capacity_removed_payload()
 
     @app.get("/api/flow-capacity/summary")
     async def flow_capacity_summary() -> dict[str, object]:
-        return flow_capacity_payload(load_scenario())
+        return _capacity_removed_payload()
 
     @app.get("/api/capacity/bottlenecks")
     async def capacity_bottlenecks() -> dict[str, object]:
-        payload = flow_capacity_payload(load_scenario())
-        return payload.get("bottleneck_diagnosis", {})
+        return {"removed": True, "removed_demo": _removed_sections("capacity")}
 
     @app.get("/api/capacity/delay-propagation")
     async def capacity_delay_propagation() -> list[dict[str, object]]:
-        payload = flow_capacity_payload(load_scenario())
-        return payload.get("delay_propagation", [])
+        return []
 
     @app.post("/api/capacity/run")
     async def capacity_run() -> dict[str, object]:
-        payload = flow_capacity_payload(load_scenario())
-        payload["run_mode"] = "static-demo"
+        payload = _capacity_removed_payload()
+        payload["run_mode"] = "removed-demo-data"
         return payload
 
     @app.get("/api/decision-support")
     async def decision_support() -> dict[str, object]:
-        return decision_support_payload(load_scenario())
+        return _decision_removed_payload()
 
     @app.get("/api/decision-support/summary")
     async def decision_support_summary() -> dict[str, object]:
-        payload = decision_support_payload(load_scenario())
+        payload = _decision_removed_payload()
         return {
             "scenario": payload.get("scenario"),
             "analysis_mode": payload.get("analysis_mode"),
             "baseline": payload.get("baseline"),
             "recommendation_count": len(payload.get("recommendations", [])),
-            "recommended_scenario": next(
-                (item for item in payload.get("comparison", []) if item.get("recommended")),
-                None,
-            ),
+            "recommended_scenario": None,
+            "removed_demo": payload.get("removed_demo"),
             "generated_at": payload.get("generated_at"),
         }
 
     @app.get("/api/decision-support/actions")
     async def decision_support_actions() -> list[dict[str, object]]:
-        return decision_support_payload(load_scenario()).get("recommendations", [])
+        return []
 
     @app.get("/api/decision-support/actions/{recommendation_id}")
     async def decision_support_action_detail(recommendation_id: str) -> dict[str, object]:
-        for item in decision_support_payload(load_scenario()).get("recommendations", []):
-            if str(item.get("recommendation_id")) == recommendation_id:
-                return item
-        raise HTTPException(status_code=404, detail=f"Unknown recommendation_id: {recommendation_id}")
+        raise _removed_not_found("decision", recommendation_id)
 
     @app.post("/api/decision-support/actions/{recommendation_id}/evaluate")
     async def decision_support_action_evaluate(recommendation_id: str) -> dict[str, object]:
-        payload = decision_support_payload(load_scenario())
-        for item in payload.get("recommendations", []):
-            if str(item.get("recommendation_id")) == recommendation_id:
-                return {
-                    "run_mode": "static-demo-dry-run",
-                    "recommendation": item,
-                    "comparison": {
-                        "before": item.get("before"),
-                        "after": item.get("after"),
-                        "expected_effect": item.get("expected_effect"),
-                    },
-                    "operation_handoff": payload.get("operation_handoff"),
-                }
-        raise HTTPException(status_code=404, detail=f"Unknown recommendation_id: {recommendation_id}")
+        return {
+            "run_mode": "removed-demo-data",
+            "recommendation_id": recommendation_id,
+            "removed_demo": _removed_sections("decision"),
+        }
 
     @app.get("/api/decision-support/comparison")
     async def decision_support_comparison() -> list[dict[str, object]]:
-        return decision_support_payload(load_scenario()).get("comparison", [])
+        return []
 
     @app.post("/api/operation-module/replan/preview")
     async def operation_module_replan_preview() -> dict[str, object]:
-        payload = decision_support_payload(load_scenario())
+        notice = _removed_notice("decision")
         return {
-            "run_mode": "dry-run",
+            "run_mode": "removed-demo-data",
             "execution": "not-dispatched",
-            "operation_handoff": payload.get("operation_handoff"),
+            "reason": notice["message"],
+            "operation_handoff": None,
+            "removed_demo": [notice],
         }
 
     @app.post("/api/operation-module/replan/dispatch")
     async def operation_module_replan_dispatch() -> dict[str, object]:
-        payload = decision_support_payload(load_scenario())
+        notice = _removed_notice("decision")
         return {
-            "run_mode": "dry-run-disabled-dispatch",
+            "run_mode": "removed-demo-data",
             "execution": "blocked-by-design",
-            "reason": "초기 연구용 PSU 콘솔은 자동 운항 재계획 실행을 하지 않고 preview 패키지만 제공합니다.",
-            "operation_handoff": payload.get("operation_handoff"),
+            "reason": notice["message"],
+            "operation_handoff": None,
+            "removed_demo": [notice],
         }
 
     @app.get("/api/replay")
     async def replay() -> dict[str, object]:
-        return replay_payload(load_scenario())
+        return _replay_removed_payload()
 
     @app.get("/api/replay/timeline")
     async def replay_timeline() -> list[dict[str, object]]:
-        return replay_payload(load_scenario()).get("frames", [])
+        return []
 
     @app.get("/api/replay/frame/{step}")
     async def replay_frame(step: int) -> dict[str, object]:
-        for item in replay_payload(load_scenario()).get("frames", []):
-            if int(item.get("step") or 0) == step:
-                return item
-        raise HTTPException(status_code=404, detail=f"Unknown replay step: {step}")
+        raise _removed_not_found("replay_report", str(step))
 
     @app.get("/api/reports/scenario-result")
     async def scenario_result_report() -> dict[str, object]:
-        return scenario_result_report_payload(load_scenario())
+        return _report_removed_payload()
 
     @app.get("/api/reports/scenario-result.md")
     async def scenario_result_report_markdown() -> Response:
-        report = scenario_result_report_payload(load_scenario())
+        report = _report_removed_payload()
         return Response(
             content=str(report.get("markdown") or ""),
             media_type="text/markdown; charset=utf-8",
@@ -573,52 +917,36 @@ def create_app() -> FastAPI:
 
     @app.get("/api/reports/scenario-result.html")
     async def scenario_result_report_html() -> HTMLResponse:
-        report = scenario_result_report_payload(load_scenario())
+        report = _report_removed_payload()
         return HTMLResponse(content=str(report.get("html") or ""))
 
     @app.get("/api/final-validation")
     async def final_validation() -> dict[str, object]:
-        return final_validation_payload(load_scenario())
+        return _validation_removed_payload()
 
     @app.get("/api/capacity/vertiports")
     async def capacity_vertiports() -> list[dict[str, object]]:
-        return [
-            item
-            for item in load_scenario().get("capacity_metrics", [])
-            if str(item.get("target_type", "")).upper() == "VERTIPORT"
-        ]
+        return []
 
     @app.get("/api/capacity/corridors")
     async def capacity_corridors() -> list[dict[str, object]]:
-        return [
-            item
-            for item in load_scenario().get("capacity_metrics", [])
-            if str(item.get("target_type", "")).upper() == "CORRIDOR"
-        ]
+        return []
 
     @app.get("/api/capacity/corridors/{corridor_id}")
     async def capacity_corridor_detail(corridor_id: str) -> dict[str, object]:
-        payload = flow_capacity_payload(load_scenario())
-        for item in payload.get("corridor_density", []):
-            if str(item.get("target_id")) == corridor_id:
-                return item
-        raise HTTPException(status_code=404, detail=f"Unknown corridor_id: {corridor_id}")
+        raise _removed_not_found("corridor_status", corridor_id)
 
     @app.get("/api/capacity/vertiports/{vertiport_id}")
     async def capacity_vertiport_detail(vertiport_id: str) -> dict[str, object]:
-        payload = flow_capacity_payload(load_scenario())
-        for item in payload.get("vertiport_throughput", []):
-            if str(item.get("target_id")) == vertiport_id:
-                return item
-        raise HTTPException(status_code=404, detail=f"Unknown vertiport_id: {vertiport_id}")
+        raise _removed_not_found("vertiport_status", vertiport_id)
 
     @app.get("/api/events")
     async def events() -> list[dict[str, object]]:
-        return load_scenario().get("event_logs", [])
+        return []
 
     @app.get("/api/events/priority")
     async def events_priority() -> list[dict[str, object]]:
-        return priority_events(load_scenario())
+        return []
 
     @app.get("/api/map/operational-environment")
     async def map_operational_environment() -> dict[str, object]:
@@ -626,10 +954,9 @@ def create_app() -> FastAPI:
 
     @app.get("/api/map/layers")
     async def scenario_map_layers() -> dict[str, object]:
-        scenario = _scenario_with_live_tracks()
         return operational_environment_map_layers(
-            live_tracks=scenario.get("track_states", []),
-            generated_at=str(scenario.get("current_time") or ""),
+            live_tracks=_live_tracks(),
+            generated_at=_server_time()["iso"],
         )
 
     return app

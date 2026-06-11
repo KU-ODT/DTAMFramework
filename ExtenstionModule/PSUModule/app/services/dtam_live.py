@@ -272,6 +272,33 @@ class DtamLiveGateway:
                 if source:
                     self._last_source = source
 
+    def inject_4001_payload(self, payload: dict[str, Any], *, source: str = "PSUTestEmulator/4001") -> dict[str, Any]:
+        """Inject one temporary 4001 payload directly into the PSU live cache.
+
+        This is for running the PSU module without the full DTAM stack. The
+        payload still uses the normal MSG 4001 wire shape, then passes through
+        the same normalizer used for StateServer DB/REST data.
+        """
+        now = time.time()
+        updates = self._vehicles_from_4001_payload(payload, source=source, received_epoch=now)
+        with self._lock:
+            for vehicle_id, vehicle in updates.items():
+                self._vehicles[vehicle_id] = vehicle
+            if updates:
+                self._rx_count += 1
+                self._last_message_ts = max(
+                    [str(v.get("messageTimestamp") or "") for v in updates.values()] + [self._last_message_ts]
+                )
+                self._last_received_epoch = now
+                self._last_error = ""
+                self._last_source = source
+        return {
+            "ok": bool(updates),
+            "source": source,
+            "vehicle_count": len(updates),
+            "vehicles": sorted(updates.keys()),
+        }
+
     def _refresh_state_status(self) -> None:
         try:
             state = self._fetch_json(f"{self.state_base_url}/api/state", timeout_s=0.45)

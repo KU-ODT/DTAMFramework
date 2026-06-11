@@ -44,6 +44,9 @@ const ODT_WAYPOINT_LABEL = "#fbbf24";
 
 let psuMapInstance = null;
 let latestScenarioLayers = null;
+let selectedAircraftId = null;
+let draftRoutePoints = [];
+let draftRouteOrigin = null;
 
 function normalizeMapTheme(theme) {
   return theme === "light" ? "light" : "dark";
@@ -300,8 +303,8 @@ function createResetControl(map, initialView) {
       container.className = "maplibregl-ctrl maplibregl-ctrl-group";
       const button = document.createElement("button");
       button.type = "button";
-      button.title = "초기 지도 위치로 이동";
-      button.setAttribute("aria-label", "초기 지도 위치로 이동");
+      button.title = "Reset map view";
+      button.setAttribute("aria-label", "Reset map view");
       button.textContent = "⌂";
       button.addEventListener("click", () => {
         map.flyTo({ ...initialView, duration: 900 });
@@ -347,6 +350,61 @@ function addLayerIfMissing(map, layer) {
     return;
   }
   map.addLayer(layer);
+}
+
+function bringDraftRouteLayersToFront(map) {
+  for (const layerId of [
+    "psu-draft-route-line-halo",
+    "psu-draft-route-line",
+    "psu-draft-route-point-halo",
+    "psu-draft-route-points",
+    "psu-draft-route-labels",
+  ]) {
+    if (map.getLayer(layerId)) {
+      try {
+        map.moveLayer(layerId);
+      } catch (_) {
+        // Keep rendering even if the map style is mid-update.
+      }
+    }
+  }
+}
+
+function draftRouteFeatureCollection(points = draftRoutePoints, origin = draftRouteOrigin) {
+  const validPoints = (points || [])
+    .map((point, index) => ({
+      index,
+      lat: Number(point?.lat),
+      lon: Number(point?.lon),
+      alt: Number(point?.alt),
+      targetSpeed: Number(point?.targetSpeed),
+    }))
+    .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lon));
+  const features = validPoints.map((point, index) => ({
+    type: "Feature",
+    properties: {
+      draftKind: "point",
+      pointIndex: index + 1,
+      label: String(index + 1),
+      alt: Number.isFinite(point.alt) ? point.alt : null,
+      targetSpeed: Number.isFinite(point.targetSpeed) ? point.targetSpeed : null,
+    },
+    geometry: { type: "Point", coordinates: [point.lon, point.lat] },
+  }));
+  const originLon = Number(origin?.lon);
+  const originLat = Number(origin?.lat);
+  const lineCoordinates = [
+    ...(Number.isFinite(originLon) && Number.isFinite(originLat) ? [[originLon, originLat]] : []),
+    ...validPoints.map((point) => [point.lon, point.lat]),
+  ];
+  if (lineCoordinates.length >= 2) {
+    features.unshift({
+      type: "Feature",
+      properties: { draftKind: "line" },
+      geometry: { type: "LineString", coordinates: lineCoordinates },
+    });
+  }
+  return { type: "FeatureCollection", features };
 }
 
 function loadMapImage(map, id, url) {
@@ -396,7 +454,7 @@ async function loadPsuMapIcons(map) {
 async function addScenarioLayers(map, statusEl) {
   const response = await fetch("/api/map/layers", { headers: { Accept: "application/json" } });
   if (!response.ok) {
-    throw new Error(`시나리오 지도 레이어 로드 실패: HTTP ${response.status}`);
+    throw new Error(`Map layer load failed: HTTP ${response.status}`);
   }
   const layers = await response.json();
   latestScenarioLayers = layers;
@@ -411,6 +469,7 @@ async function addScenarioLayers(map, statusEl) {
   addOrUpdateSource(map, "psu-vertiports", layers.vertiports || emptyFeatureCollection());
   addOrUpdateSource(map, "psu-tracks", layers.tracks || emptyFeatureCollection());
   addOrUpdateSource(map, "psu-conflicts", layers.conflicts || emptyFeatureCollection());
+  addOrUpdateSource(map, "psu-draft-route", draftRouteFeatureCollection());
   if (!map.getSource("psu-selected-conflict")) {
     addOrUpdateSource(map, "psu-selected-conflict", emptyFeatureCollection());
   }
@@ -481,6 +540,77 @@ async function addScenarioLayers(map, statusEl) {
       "line-color": "#f8fafc",
       "line-width": ["interpolate", ["linear"], ["zoom"], 9, 1.6, 12, 3.2, 15, 5],
       "line-opacity": 0.76,
+    },
+  });
+  addLayerIfMissing(map, {
+    id: "psu-draft-route-line-halo",
+    type: "line",
+    source: "psu-draft-route",
+    filter: ["==", ["get", "draftKind"], "line"],
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: {
+      "line-color": "#f8fafc",
+      "line-width": ["interpolate", ["linear"], ["zoom"], 9, 5.5, 13, 8, 16, 10],
+      "line-opacity": 0.5,
+    },
+  });
+  addLayerIfMissing(map, {
+    id: "psu-draft-route-line",
+    type: "line",
+    source: "psu-draft-route",
+    filter: ["==", ["get", "draftKind"], "line"],
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: {
+      "line-color": "#f472b6",
+      "line-width": ["interpolate", ["linear"], ["zoom"], 9, 3, 13, 5, 16, 7],
+      "line-dasharray": [1.2, 0.72],
+      "line-opacity": 0.98,
+    },
+  });
+  addLayerIfMissing(map, {
+    id: "psu-draft-route-point-halo",
+    type: "circle",
+    source: "psu-draft-route",
+    filter: ["==", ["get", "draftKind"], "point"],
+    paint: {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 11, 13, 15, 16, 20],
+      "circle-color": "#f8fafc",
+      "circle-opacity": 0.34,
+      "circle-stroke-color": "#f472b6",
+      "circle-stroke-opacity": 0.9,
+      "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 9, 1.6, 13, 2.2, 16, 3],
+    },
+  });
+  addLayerIfMissing(map, {
+    id: "psu-draft-route-points",
+    type: "circle",
+    source: "psu-draft-route",
+    filter: ["==", ["get", "draftKind"], "point"],
+    paint: {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 8, 13, 12, 16, 16],
+      "circle-color": "#f472b6",
+      "circle-stroke-color": "#111827",
+      "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 9, 1.8, 13, 2.4, 16, 3],
+      "circle-opacity": 0.98,
+    },
+  });
+  addLayerIfMissing(map, {
+    id: "psu-draft-route-labels",
+    type: "symbol",
+    source: "psu-draft-route",
+    filter: ["==", ["get", "draftKind"], "point"],
+    layout: {
+      "text-field": ["get", "label"],
+      "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+      "text-size": ["interpolate", ["linear"], ["zoom"], 9, 11, 13, 13, 16, 15],
+      "text-anchor": "center",
+      "text-allow-overlap": true,
+      "text-ignore-placement": true,
+    },
+    paint: {
+      "text-color": "#ffffff",
+      "text-halo-color": "rgba(17, 24, 39, 0.78)",
+      "text-halo-width": 2.2,
     },
   });
   addLayerIfMissing(map, {
@@ -674,14 +804,49 @@ async function addScenarioLayers(map, statusEl) {
     type: "circle",
     source: "psu-selected-track",
     paint: {
-      "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 14, 13, 24, 16, 32],
-      "circle-color": "#22d3ee",
-      "circle-opacity": 0.18,
-      "circle-blur": 0.58,
-      "circle-stroke-color": "#22d3ee",
-      "circle-stroke-width": 0,
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 16, 13, 28, 16, 38],
+      "circle-color": "#38bdf8",
+      "circle-opacity": 0.24,
+      "circle-blur": 0.48,
+      "circle-stroke-color": "#f0f9ff",
+      "circle-stroke-width": 1.4,
+      "circle-stroke-opacity": 0.72,
     },
   });
+  addLayerIfMissing(map, {
+    id: "psu-selected-track-ring",
+    type: "circle",
+    source: "psu-selected-track",
+    paint: {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 8, 13, 14, 16, 20],
+      "circle-color": "rgba(8, 12, 20, 0.16)",
+      "circle-stroke-color": "#e0f2fe",
+      "circle-stroke-width": 2.4,
+      "circle-stroke-opacity": 0.96,
+      "circle-opacity": 0.52,
+    },
+  });
+  addLayerIfMissing(map, {
+    id: "psu-selected-track-label",
+    type: "symbol",
+    source: "psu-selected-track",
+    layout: {
+      "text-field": ["coalesce", ["get", "aircraft_id"], ["get", "aircraftId"], ""],
+      "text-font": ["Open Sans Semibold", "Arial Unicode MS Bold"],
+      "text-size": ["interpolate", ["linear"], ["zoom"], 9, 10, 13, 12, 16, 14],
+      "text-offset": [0, -2.1],
+      "text-anchor": "bottom",
+      "text-allow-overlap": true,
+      "text-ignore-placement": true,
+    },
+    paint: {
+      "text-color": "#e0f2fe",
+      "text-halo-color": "rgba(2, 6, 23, 0.92)",
+      "text-halo-width": 2.2,
+    },
+  });
+  syncSelectedAircraftLayer(map);
+  bringDraftRouteLayersToFront(map);
 
   attachScenarioInteractions(map);
 
@@ -691,7 +856,7 @@ async function addScenarioLayers(map, statusEl) {
       (layers.vertiports?.features?.length || 0) +
       (layers.corridors?.features?.length || 0) +
       (layers.conflicts?.features?.length || 0);
-    statusEl.textContent = `MissionModule 지도 + PSU Traffic/Conflict 레이어 연결 완료 · ${count}개 객체`;
+    statusEl.textContent = `MissionModule map and PSU traffic layers connected - ${count} objects`;
   }
 }
 
@@ -706,6 +871,18 @@ function updateGeoJsonSource(map, sourceId, feature) {
   }
   source.setData(feature ? { type: "FeatureCollection", features: [feature] } : emptyFeatureCollection());
   return Boolean(feature);
+}
+
+function findTrackFeature(aircraftId) {
+  return findFeature(
+    latestScenarioLayers?.tracks,
+    (item) => String(item?.properties?.aircraft_id || item?.properties?.aircraftId || item?.id) === String(aircraftId),
+  );
+}
+
+function syncSelectedAircraftLayer(map = psuMapInstance) {
+  if (!map || !selectedAircraftId) return false;
+  return updateGeoJsonSource(map, "psu-selected-track", findTrackFeature(selectedAircraftId));
 }
 
 function attachScenarioInteractions(map) {
@@ -743,10 +920,37 @@ function attachScenarioInteractions(map) {
       if (!aircraftId) {
         return;
       }
-      selectAircraftOnMap(aircraftId);
+      selectAircraftOnMap(aircraftId, { fly: false });
       window.dispatchEvent(new CustomEvent("psu:aircraft-selected", { detail: { aircraftId } }));
     });
   }
+
+  if (map.getLayer("psu-vertiports-circle")) {
+    map.on("click", "psu-vertiports-circle", (event) => {
+      const feature = event.features?.[0];
+      const props = feature?.properties || {};
+      const coordinates = feature?.geometry?.coordinates || [];
+      const vertiportId = props.vertiport_id || props.id || props.name || feature?.id;
+      if (!vertiportId) return;
+      window.dispatchEvent(new CustomEvent("psu:vertiport-selected", {
+        detail: {
+          vertiportId,
+          name: props.name,
+          lon: Number(coordinates[0]),
+          lat: Number(coordinates[1]),
+        },
+      }));
+    });
+  }
+
+  map.on("click", (event) => {
+    window.dispatchEvent(new CustomEvent("psu:map-click", {
+      detail: {
+        lon: event.lngLat?.lng,
+        lat: event.lngLat?.lat,
+      },
+    }));
+  });
 }
 
 export function selectConflictOnMap(conflictId, { fly = true } = {}) {
@@ -773,10 +977,8 @@ export function selectAircraftOnMap(aircraftId, { fly = true } = {}) {
   if (!psuMapInstance || !latestScenarioLayers) {
     return false;
   }
-  const feature = findFeature(
-    latestScenarioLayers.tracks,
-    (item) => String(item?.properties?.aircraft_id || item?.id) === String(aircraftId),
-  );
+  selectedAircraftId = aircraftId ? String(aircraftId) : null;
+  const feature = findTrackFeature(selectedAircraftId);
   updateGeoJsonSource(psuMapInstance, "psu-selected-track", feature);
   if (feature && fly) {
     psuMapInstance.flyTo({
@@ -787,6 +989,17 @@ export function selectAircraftOnMap(aircraftId, { fly = true } = {}) {
     });
   }
   return Boolean(feature);
+}
+
+export function setDraftRouteOnMap(points = [], origin = null) {
+  draftRoutePoints = Array.isArray(points) ? points : [];
+  draftRouteOrigin = origin || null;
+  if (!psuMapInstance) return false;
+  const source = psuMapInstance.getSource?.("psu-draft-route");
+  if (!source?.setData) return false;
+  source.setData(draftRouteFeatureCollection());
+  bringDraftRouteLayersToFront(psuMapInstance);
+  return true;
 }
 
 export function setTrafficMapFilter(filter) {
@@ -832,14 +1045,14 @@ export async function initPsuMap({ containerId = "psu-map", statusEl } = {}) {
   }
   if (!window.maplibregl) {
     if (statusEl) {
-      statusEl.textContent = "MapLibre 라이브러리를 찾을 수 없습니다.";
+      statusEl.textContent = "MapLibre library is not available.";
     }
     return null;
   }
 
   const response = await fetch("/api/map/config", { headers: { Accept: "application/json" } });
   if (!response.ok) {
-    throw new Error(`지도 설정 로드 실패: HTTP ${response.status}`);
+    throw new Error(`Map configuration load failed: HTTP ${response.status}`);
   }
   const config = await response.json();
   const center = Array.isArray(config.center) ? config.center : [126.978, 37.5665];
@@ -867,8 +1080,8 @@ export async function initPsuMap({ containerId = "psu-map", statusEl } = {}) {
     if (statusEl) {
       const name = config?.metadata?.name || "korea.mbtiles";
       statusEl.textContent = config.available
-        ? `MissionModule 지도 연결 완료 · ${name} · z${config.minZoom}-${config.maxZoom}`
-        : "MissionModule 지도 파일 없음 · OSM fallback";
+        ? `MissionModule map connected - ${name} - z${config.minZoom}-${config.maxZoom}`
+        : "MissionModule map file unavailable - OSM fallback";
     }
     try {
       applyBaseMapPalette(map, currentMapTheme());
@@ -892,7 +1105,7 @@ export async function initPsuMap({ containerId = "psu-map", statusEl } = {}) {
   });
 
   map.on("error", (event) => {
-    const message = event?.error?.message || "지도 렌더링 경고";
+    const message = event?.error?.message || "Map rendering warning";
     if (statusEl) {
       statusEl.textContent = message;
     }

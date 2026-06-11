@@ -194,8 +194,40 @@ class MissionService(MissionModule):
                     )
             return
 
-        # FPL pack branch: PlugIn/FlightScheduler/FPL/<scenario_key>/FPL_all.csv.
-        # Demo plan packs take precedence; legacy pipeline remains the fallback.
+        # FPL prebuilt branch: PlugIn/FlightScheduler/FPL/<scenario_key>/ScheduledFlight/
+        # contains exact 3001 wire payloads exported by the FlightScheduler.
+        # Records are complete, so no route planner/resource CSV is required.
+        prebuilt_records = self._load_fpl_prebuilt_records(scenario_file_name)
+        if prebuilt_records is not None:
+            scenario_key = Path(scenario_file_name).stem
+            send_result = self.send_scheduled_flights(prebuilt_records)
+            ok = bool(send_result.get("ok"))
+            count = int(send_result.get("count") or 0)
+            with self._mc_lock:
+                if ok:
+                    self._auto_3001_count += count
+                    self._last_auto_3001 = (
+                        f"FPL prebuilt: {scenario_key}, sent {count} scheduled flight(s)"
+                    )
+                    self._last_auto_3001_error = ""
+                    logger.info(
+                        "auto_3001 FPL prebuilt sent: scenario=%s count=%d",
+                        scenario_key, count,
+                    )
+                else:
+                    errors_out: List[str] = []
+                    for item in send_result.get("results", []) or []:
+                        if isinstance(item, dict):
+                            errors_out.extend(str(e) for e in (item.get("errors") or []))
+                    self._last_auto_3001_error = "; ".join(errors_out) or "send failed"
+                    logger.warning(
+                        "auto_3001 FPL prebuilt failed: %s", self._last_auto_3001_error
+                    )
+            return
+
+        # FPL CSV branch: PlugIn/FlightScheduler/FPL/<scenario_key>/FPL_all.csv.
+        # Demo plan packs and prebuilt ScheduledFlight JSONs take precedence;
+        # the legacy pipeline remains the fallback.
         fpl_rows = self._load_fpl_csv_rows(scenario_file_name)
         if fpl_rows:
             if self.route_planner is None or self._resource_csv is None:
@@ -291,6 +323,31 @@ class MissionService(MissionModule):
                 continue
             if not self.looks_like_icd_record(payload):
                 logger.warning("demo plan skipped (%s): not a valid ICD record", path.name)
+                continue
+            records.append(payload)
+        return records or None
+
+    def _load_fpl_prebuilt_records(self, scenario_file_name: str) -> Optional[List[Dict[str, Any]]]:
+        """Load prebuilt 3001 records exported by the FlightScheduler, or ``None``.
+
+        ``FPL_DIR/<scenario_key>/ScheduledFlight/*.json`` files are exact Msg3001
+        wire payloads; invalid files are skipped with a warning.
+        """
+        scenario_key = Path(str(scenario_file_name or "")).stem
+        if not scenario_key:
+            return None
+        prebuilt_dir = FPL_DIR / scenario_key / "ScheduledFlight"
+        if not prebuilt_dir.is_dir():
+            return None
+        records: List[Dict[str, Any]] = []
+        for path in sorted(prebuilt_dir.glob("*.json")):
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError) as exc:
+                logger.warning("FPL prebuilt skipped (%s): %s", path.name, exc)
+                continue
+            if not self.looks_like_icd_record(payload):
+                logger.warning("FPL prebuilt skipped (%s): not a valid ICD record", path.name)
                 continue
             records.append(payload)
         return records or None

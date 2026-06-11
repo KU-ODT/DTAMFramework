@@ -33,18 +33,19 @@
 
 ---
 
-## 🩷 PSU 모듈 — 4건 (가장 큼)
+## 🩷 PSU 모듈 — 신모듈 반입 후 잔여 (2026-06-11 개선판 기준)
 
-| # | 작업 | 구현 위치 | 내용 |
+> **2026-06-11 개선판 PSU 반입됨** (`psu_icd_gateway.py` 신설). 코드 검토 결과:
+> 3002/3003 draft→dispatch (운영자 UI 주도) 가 **허브 `POST /api/msg/{mid}` 와 정확히 호환** (SDK round-trip 검증 통과),
+> 4001/3001 수신 (DB/REST 폴링) 정상. **REST 경로가 검증되어 SDK 전환 (구 P-0) 은 필수→선택으로 격하.**
+
+| # | 작업 | 상태 | 내용 |
 |---|---|---|---|
-| **P-0** | **★ 전제: SDK 전환** | `ExtenstionModule/PSUModule/app/services/dtam_live.py` 재작성 | 현재 REST/DB 폴링 (송신 불가) → `from dtam_client import PSUModule` 상속 + WS 연결 (`ws://허브:8096/ws/dtam`). Role.PSU 정식 등록돼 있어 socket 충돌 없음. **이거 없이는 3003 발행 자체가 불가** |
-| **P-1** | 4001 수신 → 시계열 추적 | `on_vehicle_status(msg)` override | 기체별 position/속도 10Hz 누적 (S2 외삽의 입력). 주의: 4001 wire 는 `{vehicleId: {...}}` 다중 기체 형태 |
-| **P-3** | **S2: 궤적 외삽 + 3003 setSpeed 발행** | 내부 로직 + `self.send(parse_payload("3003", {...}))` | 4001 스트림만으로 90s lookahead 외삽 → 수평 분리 <300m 수렴 예측 → **3003**: `actions=[{type:"setSpeed", targetSpeed:40.0}]`, `reasonCode="LOSS_OF_SEPARATION_RISK"`, `commandId="TMP-PSU-{aircraftId}-{YYYYMMDD}-{seq}"`, **`scenarioId:"S2"` 동봉** (Vehicle 세부 세팅 분기용). 분리 ≥300m 회복 후 (선택) setSpeed 복원 또는 rejoinPlan(atSeq) |
-| **P-4** | **S3: 4002 critical → 3003 land 발행** | `on_vehicle_warning_event(msg)` override | severity=critical & energy 계열만: 후보 [VP_KU, VP_JAMSIL, VP_YEOUIDO] 중 nearest_available → **3003**: `actions=[{type:"land", vertiport:"VP_KU", fatoNumber:"FATO_A"}]`, `reasonCode="LOW_BATTERY"`, **`scenarioId:"S3"` 동봉**. **warning 은 관찰만 (개입 금지)** |
-
-**PSU 는 1002 도 수신** (FORWARD_RULES 전체 개방) — 궤적 예측 시 바람 파라미터 참고 가능 (선택, 외삽은 4001 만으로도 충분).
-
-(P-2 는 존재하지 않음 — 5004 폐기됨 (1002 wind.weather 로 대체). P-5 선택: 기존 PSU UI 의 Priority Event List 에 4002 수신·3003 개입 이력 표시)
+| ~~P-0~~ | ~~SDK 전환~~ | **해소** | REST dispatch (`/api/msg/3003`) 가 허브와 호환 검증됨 — SDK 전환은 선택 (장기 권장) |
+| P-1 | 4001 시계열 추적 | 부분 구현 | 4001 폴링은 있음 — S2 외삽용 시계열 누적/예측 입력화는 추가 필요 |
+| **P-3** | **S2: 자동 충돌 예측 → 3003 setSpeed 자동 발행** | **미구현** | 현재는 운영자 draft→dispatch **반자동**. 자동 예측 엔진 (90s lookahead, 분리<300m) 추가 필요. 자동화 전까지 S2 는 운영자가 PSU UI 에서 setSpeed dispatch 로 시연 가능 |
+| **P-4** | **S3: 4002 critical → 3003 land** | **차단** | ★ 신모듈에 **4002 수신 경로가 전무** (폴링/폴더 읽기 모두 없음) — 허브는 4002→PSU forward 준비 완료 상태. PSU 개발자에게 `/api/db/messages/4002/latest` 폴링 추가 요청 필요 |
+| P-5 (신규) | 3003 에 scenarioId 동봉 | 미구현 | `build_3003_draft` 가 scenarioId 를 drop — optional 필드라 무해하나 Vehicle 시나리오 분기용으로 한 줄 추가 권장 |
 
 **acceptance**: S2 — 3003 setSpeed ≥1건 (directTo 0건), S3 — 3003 land 정확히 1건, S1 — 발행 0건.
 
