@@ -113,3 +113,63 @@ body: `{"role": "<선택>", "payload": { ...ICD wire... }}`
 - [DTAMSDK/README.md](../DTAMSDK/README.md) — SDK 개요와 사용법
 - [DTAMSDK/MODULE_AUTHORING.md](../DTAMSDK/MODULE_AUTHORING.md) — 모듈 폴더/책임 분리 규칙
 - [DTAMSDK/dtam_client/NEW_MESSAGE_PROMPT.md](../DTAMSDK/dtam_client/NEW_MESSAGE_PROMPT.md) — 신규 ICD 추가 체크리스트
+
+---
+
+## 프로젝트 문서 지도 (어디에 무엇이 있나)
+
+레포 안에 흩어진 문서를 목적별로 찾아가는 색인. (경로는 framework root 기준)
+
+### 1. 아키텍처 — "DTAM 이 뭐고 어떻게 연결되나"
+
+`docs/architecture/` — 독자별로 3장 분리 ([README](../docs/architecture/README.md) 에 추천 발표 순서)
+
+| 문서 | 독자 |
+| --- | --- |
+| [00_intro_architecture.md](../docs/architecture/00_intro_architecture.md) | 연구책임자·외부 발표·신규 참여자 (개념 아키텍처) |
+| [01_user_flow.md](../docs/architecture/01_user_flow.md) | 운영자·임무 설계자 (사용자 여정) |
+| [02_technical_architecture.md](../docs/architecture/02_technical_architecture.md) | 개발자·통합 엔지니어 (서버/포트/ICD 흐름) |
+
+### 2. 시나리오/데모 — "S1/S2/S3 는 어떻게 동작하나"
+
+`docs/scenarios/` ([README](../docs/scenarios/README.md) 가 색인)
+
+| 문서 | 내용 |
+| --- | --- |
+| [S1_nominal.md](../docs/scenarios/S1_nominal.md) | 정상 운항 (baseline) |
+| [S2_psu_replan.md](../docs/scenarios/S2_psu_replan.md) | 실traffic + PSU 반자동 속도 조정 |
+| [S3_uao_battery_alt_vertiport.md](../docs/scenarios/S3_uao_battery_alt_vertiport.md) | 배터리 비상 → PSU 3003 land |
+| [MODULE_TASKS.md](../docs/scenarios/MODULE_TASKS.md) | **모듈 개발자용 잔여 작업 목록** (Vehicle V-1~V-5 / PSU P-* / Mission M-1 / Visual VZ-*) — 데모 구현의 단일 권위 |
+
+### 3. ICD 메시지 명세 — "메시지 필드가 어떻게 생겼나"
+
+- `DTAMSDK/dtam_client/icd/KOR/` · `.../ENG/` — mid 별 19개 문서 (한/영)
+- 스키마 원본(dataclass): `DTAMSDK/dtam_client/schema/`
+- 신규 추가 절차: [NEW_MESSAGE_PROMPT.md](../DTAMSDK/dtam_client/NEW_MESSAGE_PROMPT.md)
+
+### 4. SDK/모듈 규칙
+
+- [DTAMSDK/README.md](../DTAMSDK/README.md) · [MODULE_AUTHORING.md](../DTAMSDK/MODULE_AUTHORING.md) · `DTAMSDK/CHANGELOG.md`
+- 이 문서(§통합/개발 규칙) — 허브 경유 라우팅·주입·관측 규칙
+
+### 5. 모듈별 README (각 모듈 폴더)
+
+`MissionModule/` · `VehicleModule/` · `OperationModule/` · `VisualizationModule/` ·
+`ExtenstionModule/PSUModule/` · `ExtenstionModule/VPOModule/` · `PlugIn/SituationAwareness/` — 각 폴더의 `README.md`
+
+### 6. 지리/좌표 참조 (vertiport·spawn)
+
+`docs/` 아래 — [vertiport_KU_gate_fato_reference_map.md](../docs/vertiport_KU_gate_fato_reference_map.md),
+`unreal_vertiport_spawn_points_calibrated.md`, `unreal_editor_s_points.md` 등 (png/svg 지도 동반)
+
+### 7. 런타임에서만 보는 "라이브 문서" (스택 켠 뒤)
+
+| 문서 | 위치 |
+| --- | --- |
+| **시퀀스 다이어그램** (Phase별 메시지 흐름, SVG) | 허브 8096 → `GET /docs/sequence` (데이터: `GET /api/sequence-diagram?lang=ko\|en`) |
+| **라이브 메시지 모니터** (MESSAGE COUNTERS, rx/tx/hz) | 허브 8096 루트 GUI |
+| **ICD 문서 API / Swagger** | CoreServer 8095, 허브 8096 `/docs` (FastAPI Swagger) |
+| **DB 최신 payload** | `GET /api/db/messages/{mid}/latest` |
+
+> **배포용 통합본**: `docs/scenarios/` 원본을 한 파일로 합친 리딩 뷰(`DTAM_시나리오_통합_*.md`)는
+> 배포 산출물이라 git 에 넣지 않는다. 편집·검토는 항상 `docs/scenarios/` 원본을 기준으로 한다.
